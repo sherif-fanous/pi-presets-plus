@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "strict": true,
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "noEmit": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "lib": ["ES2022"],
+    "target": "ES2022",
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}

@@ -1,0 +1,6 @@
+.DS_Store
+.pi/
+node_modules/
+openspec/changes/*
+pi-presets-plus.code-workspace
+!openspec/changes/archive/

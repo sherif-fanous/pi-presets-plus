@@ -1,0 +1,55 @@
+{
+  "name": "pi-presets-plus",
+  "version": "0.1.0",
+  "description": "Pi extension: model + thinking + tools + system-prompt presets, with a UI on top.",
+  "keywords": [
+    "pi",
+    "pi-coding-agent",
+    "pi-package",
+    "presets",
+    "favorites",
+    "model-presets",
+    "thinking-presets",
+    "tools-presets",
+    "system-prompt-presets"
+  ],
+  "license": "MIT",
+  "author": "Sherif Fanous",
+  "type": "module",
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "package.json"
+  ],
+  "scripts": {
+    "format": "prettier --write eslint.config.mjs package.json src/. tsconfig.json",
+    "format-check": "prettier --check eslint.config.mjs package.json src/. tsconfig.json",
+    "lint": "biome lint src/. && eslint src/.",
+    "sort-package-json": "npx sort-package-json",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.12",
+    "@eslint/js": "^10.0.1",
+    "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
+    "@typescript-eslint/parser": "^8.59.0",
+    "eslint": "^10.2.1",
+    "prettier": "^3.8.3",
+    "sort-package-json": "^3.6.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.0"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "@sinclair/typebox": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  }
+}

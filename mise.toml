@@ -1,0 +1,29 @@
+[env]
+_.path = ["{{config_root}}/node_modules/.bin"]
+
+[tasks.format-check]
+run = "prettier --check eslint.config.mjs package.json src/. tsconfig.json"
+
+[tasks.format]
+run = "prettier --write eslint.config.mjs package.json src/. tsconfig.json"
+
+[tasks.install-deps]
+run = "npm install --loglevel=verbose"
+
+[tasks.lint]
+run = "biome lint src/. && eslint src/."
+
+[tasks.sort-package-json]
+run = "sort-package-json"
+
+[tasks.type-check]
+run = "tsc --noEmit"
+
+[tasks.uninstall-deps]
+run = "npm uninstall --loglevel=verbose"
+
+[tasks.update-deps]
+run = "npm update --loglevel=verbose"
+
+[tools]
+node = "lts"
