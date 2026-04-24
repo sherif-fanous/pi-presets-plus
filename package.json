@@ -24,11 +24,23 @@
     "package.json"
   ],
   "scripts": {
-    "format": "prettier --write eslint.config.mjs package.json src/. tsconfig.json",
-    "format-check": "prettier --check eslint.config.mjs package.json src/. tsconfig.json",
-    "lint": "biome lint src/. && eslint src/.",
+    "format": "prettier --write eslint.config.mjs package.json src/. tests/. tsconfig.json vitest.config.ts",
+    "format-check": "prettier --check eslint.config.mjs package.json src/. tests/. tsconfig.json vitest.config.ts",
+    "lint": "biome lint src/. tests/. && eslint src/. tests/.",
     "sort-package-json": "npx sort-package-json",
+    "test": "vitest",
     "type-check": "tsc --noEmit"
+  },
+  "prettier": {
+    "importOrder": [
+      "<BUILTIN_MODULES>",
+      "",
+      "<THIRD_PARTY_MODULES>"
+    ],
+    "importOrderTypeScriptVersion": "6.0.0",
+    "plugins": [
+      "@ianvs/prettier-plugin-sort-imports"
+    ]
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
@@ -39,7 +51,8 @@
     "prettier": "^3.8.3",
     "sort-package-json": "^3.6.1",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.0"
+    "typescript-eslint": "^8.59.0",
+    "vitest": "^4.1.5"
   },
   "peerDependencies": {
     "@mariozechner/pi-ai": "*",

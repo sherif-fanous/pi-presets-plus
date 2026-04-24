@@ -1,1 +1,101 @@
-export {};
+/**
+ * Shared type definitions for pi-presets-plus.
+ *
+ * The storage layer (change `add-preset-storage`) introduces the persistent
+ * preset shape (`Preset`, `PresetsFile`), the scope tag (`PresetScope`), the
+ * loader output type (`LoadedPreset`), and a local `ThinkingLevel` that
+ * extends `pi-ai`'s level set with the explicit `"off"` value used by pi.
+ *
+ * Later changes will extend this file (e.g. activation state in change
+ * `add-preset-activation`); the file therefore intentionally exports only
+ * the types needed up to the current change in the project plan.
+ */
+
+/**
+ * Reasoning level recorded on a preset.
+ *
+ * Mirrors pi-coding-agent's `getThinkingLevel()` / `setThinkingLevel()` API,
+ * which extends `pi-ai`'s `ThinkingLevel` with the explicit `"off"` value.
+ * Storage accepts the literal set verbatim; per-model clamping happens at
+ * activation time in a later change.
+ */
+export type ThinkingLevel =
+  | "off"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh";
+
+/**
+ * A preset definition as it appears in either scope's JSON file.
+ *
+ * Required fields: `name`, `provider`, `model`. All other fields are
+ * optional and accepted by the loader unchanged; behavior that consumes
+ * them (instructions injection, hotkey binding, ordering) lands in later
+ * changes. Storage validates the shape and round-trips unknown-but-typed
+ * fields verbatim.
+ */
+export interface Preset {
+  /** Unique within a single file; merge-time shadowing is by name. */
+  name: string;
+  /** Provider id (e.g. `"anthropic"`, `"openai"`). */
+  provider: string;
+  /** Model id within `provider` (e.g. `"claude-opus-4.5"`). */
+  model: string;
+  /** Reasoning level. Defaults to `"off"` at apply time (later change). */
+  thinkingLevel?: ThinkingLevel;
+  /** Active tools at apply time. Omit / empty = inherit current tools. */
+  tools?: string[];
+  /** Free-form text appended to the system prompt at apply time. */
+  instructions?: string;
+  /** Hotkey id; honored by a later change. */
+  hotkey?: string;
+  /** User-controlled cycle order; default = file order. */
+  order?: number;
+}
+
+/**
+ * On-disk JSON shape for a single preset file (either scope).
+ *
+ * `version: 1` is the current schema version. Files declaring a different
+ * version are treated as empty + warned by the loader (and never rewritten),
+ * leaving room for forward-compatible schema evolution.
+ */
+export interface PresetsFile {
+  version: 1;
+  presets: Preset[];
+}
+
+/**
+ * Origin scope for a loaded preset.
+ *
+ * - `"user"` — the global file under `<agent-dir>/presets-plus/presets.json`
+ * - `"project"` — the per-cwd file under `<cwd>/.pi/presets-plus/presets.json`
+ */
+export type PresetScope = "user" | "project";
+
+/**
+ * A preset enriched with merge/availability metadata.
+ *
+ * Returned by the storage merge step (`mergeScopes`). `shadowed` and
+ * `unavailable` are computed at load time and may change across reloads;
+ * callers must not assume they survive a `ctx.reload()`.
+ */
+export interface LoadedPreset extends Preset {
+  /** Origin file's scope; assigned by the loader. */
+  scope: PresetScope;
+  /**
+   * `true` for a global preset whose name is also defined in the project
+   * file (the project entry wins at activation time).
+   */
+  shadowed?: boolean;
+  /**
+   * Reason the preset cannot be activated, computed at load time:
+   * - `"no-model"` — model id not registered for the named provider
+   * - `"no-key"`   — model is registered but its provider has no API key
+   *
+   * Undefined when the preset is fully available.
+   */
+  unavailable?: "no-key" | "no-model";
+}

@@ -21,6 +21,7 @@ mise run <task>
 | `mise run install-deps`      | Install npm dependencies                 |
 | `mise run lint`              | Lint source files with ESLint            |
 | `mise run sort-package-json` | Sort `package.json` keys                 |
+| `mise run test`              | Execute tests                            |
 | `mise run type-check`        | Run TypeScript type checking             |
 | `mise run uninstall-deps`    | Uninstall npm dependencies               |
 | `mise run update-deps`       | Update npm dependencies                  |

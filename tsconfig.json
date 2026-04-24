@@ -14,5 +14,5 @@
     "target": "ES2022",
     "skipLibCheck": true
   },
-  "include": ["src"]
+  "include": ["src", "tests", "vitest.config.ts"]
 }
