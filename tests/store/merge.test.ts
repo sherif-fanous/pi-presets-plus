@@ -6,7 +6,6 @@
  * hermetic; the real registry depends on filesystem state we don't want
  * to touch from a unit test.
  */
-
 import { mergeScopes } from "../../src/store/merge.js";
 import type { Preset } from "../../src/types.js";
 import type { Model } from "@mariozechner/pi-ai";
@@ -27,13 +26,16 @@ function makeCtx(stub: RegistryStub) {
   const modelRegistry = {
     find(provider: string, modelId: string): Model<never> | undefined {
       const present = stub.models[provider]?.[modelId];
+
       if (!present) return undefined;
+
       return { provider, id: modelId } as unknown as Model<never>;
     },
     hasConfiguredAuth(model: Model<never>): boolean {
       return stub.models[model.provider]?.[model.id]?.hasKey ?? false;
     },
   };
+
   // Cast to the full `ModelRegistry` class at the boundary: the storage
   // layer only reads `find` / `hasConfiguredAuth`, and matching the
   // class's private fields structurally isn't possible.
@@ -52,6 +54,7 @@ describe("mergeScopes", () => {
       },
       ctx,
     );
+
     expect(result.map((r) => `${r.scope}:${r.name}`)).toEqual([
       "user:g1",
       "user:g2",
@@ -59,17 +62,16 @@ describe("mergeScopes", () => {
       "project:p2",
     ]);
   });
-
   it("tags every preset with its scope", () => {
     const ctx = makeCtx({ models: {} });
     const result = mergeScopes(
       { user: [make({ name: "a" })], project: [make({ name: "b" })] },
       ctx,
     );
+
     expect(result[0]?.scope).toBe("user");
     expect(result[1]?.scope).toBe("project");
   });
-
   it("marks globals shadowed when a project preset shares the name", () => {
     const ctx = makeCtx({ models: {} });
     const result = mergeScopes(
@@ -85,6 +87,7 @@ describe("mergeScopes", () => {
       },
       ctx,
     );
+
     expect(result).toHaveLength(3);
     expect(result[0]).toMatchObject({
       name: "plan",
@@ -102,16 +105,15 @@ describe("mergeScopes", () => {
     });
     expect(result[2]?.shadowed).toBeUndefined();
   });
-
   it("does not tag a global as shadowed when only the global file has the name", () => {
     const ctx = makeCtx({ models: {} });
     const result = mergeScopes(
       { user: [make({ name: "solo" })], project: [] },
       ctx,
     );
+
     expect(result[0]?.shadowed).toBeUndefined();
   });
-
   it("computes availability per-entry", () => {
     const ctx = makeCtx({
       models: {
@@ -134,6 +136,7 @@ describe("mergeScopes", () => {
       },
       ctx,
     );
+
     expect(result[0]?.unavailable).toBeUndefined();
     expect(result[1]?.unavailable).toBe("no-key");
     expect(result[2]?.unavailable).toBe("no-model");

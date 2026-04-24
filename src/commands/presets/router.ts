@@ -14,7 +14,6 @@
  * - Tokenization of the raw argument string.
  * - Unknown-subcommand fallback.
  */
-
 import { runList } from "./list.js";
 import { runReload } from "./reload.js";
 import { showStubNotice } from "./stub.js";

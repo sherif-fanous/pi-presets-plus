@@ -17,7 +17,6 @@
  * Concurrent edits within one process are last-write-wins. v1 storage
  * does not need cross-process locking at human edit rates.
  */
-
 import { mkdir, open, rename, unlink } from "node:fs/promises";
 import { dirname } from "node:path";
 

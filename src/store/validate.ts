@@ -19,7 +19,6 @@
  * are intentionally `pi-runtime`-free except for `computeAvailability`,
  * which only consumes the registry passed in via context.
  */
-
 import type { Preset, ThinkingLevel } from "../types.js";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
@@ -60,7 +59,6 @@ export function computeAvailability(
   const model = ctx.modelRegistry.find(preset.provider, preset.model);
 
   if (!model) return "no-model";
-
   if (!ctx.modelRegistry.hasConfiguredAuth(model)) return "no-key";
 
   return undefined;
@@ -126,7 +124,6 @@ export function validatePresetShape(
   }
 
   const obj = candidatePreset as Record<string, unknown>;
-
   const requireString = (
     field: "name" | "provider" | "model",
   ): ValidationResult | undefined => {
@@ -141,14 +138,16 @@ export function validatePresetShape(
 
     return undefined;
   };
-
   const nameError = requireString("name");
+
   if (nameError) return nameError;
 
   const providerError = requireString("provider");
+
   if (providerError) return providerError;
 
   const modelError = requireString("model");
+
   if (modelError) return modelError;
 
   if (obj.thinkingLevel !== undefined) {

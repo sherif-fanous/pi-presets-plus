@@ -15,7 +15,6 @@
  *
  * Pure (no I/O, no logging). Warning collection happens in `loadFile`.
  */
-
 import type { LoadedPreset, Preset } from "../types.js";
 import { computeAvailability } from "./validate.js";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";

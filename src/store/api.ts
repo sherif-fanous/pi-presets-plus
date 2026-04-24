@@ -17,7 +17,6 @@
  * an `Err` result instead of throwing — UI callers in later changes can
  * map these to user-facing notifications without try/catch boilerplate.
  */
-
 import type {
   LoadedPreset,
   Preset,
@@ -35,10 +34,8 @@ export interface LoadAllResult {
   presets: LoadedPreset[];
   warnings: string[];
 }
-
 /** Result type for mutating operations: success carries no payload. */
 export type SaveResult = { ok: true } | { ok: false; reason: string };
-
 /** Subset of `ExtensionContext` the storage API actually needs. */
 export type StorageContext = Pick<ExtensionContext, "cwd" | "modelRegistry">;
 
@@ -79,7 +76,6 @@ export async function loadAll(ctx: StorageContext): Promise<LoadAllResult> {
     loadFile(getGlobalPresetsPath()),
     loadFile(getProjectPresetsPath(ctx.cwd)),
   ]);
-
   const presets = mergeScopes(
     { user: user.presets, project: project.presets },
     ctx,
@@ -121,7 +117,6 @@ export async function removePreset(
   const next = current.filter((p) => p.name !== name);
 
   if (next.length === current.length) return { ok: true };
-
   await saveScope(scope, next, ctx);
 
   return { ok: true };
@@ -151,7 +146,6 @@ export async function reorderWithinScope(
     const preset = byName.get(name);
 
     if (!preset || seen.has(name)) continue;
-
     ordered.push(preset);
     seen.add(name);
   }
@@ -181,7 +175,6 @@ export async function saveScope(
     version: 1,
     presets: presets.map(serializePreset),
   };
-
   const path = pathForScope(scope, ctx);
 
   await atomicWrite(path, `${JSON.stringify(file, null, 2)}\n`);
@@ -247,6 +240,7 @@ function serializePreset(preset: Preset): Preset {
     provider: preset.provider,
     model: preset.model,
   };
+
   if (preset.thinkingLevel !== undefined)
     out.thinkingLevel = preset.thinkingLevel;
   if (preset.tools !== undefined) out.tools = [...preset.tools];

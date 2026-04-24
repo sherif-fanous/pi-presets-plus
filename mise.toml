@@ -16,6 +16,9 @@ run = "npm install --save-dev --loglevel=verbose"
 [tasks.lint]
 run = "biome lint src/. tests/. && eslint src/. tests/."
 
+[tasks.lint-fix]
+run = "biome lint src/. tests/. --fix && eslint src/. tests/. --fix"
+
 [tasks.sort-package-json]
 run = "sort-package-json"
 

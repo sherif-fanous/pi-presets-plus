@@ -46,6 +46,7 @@
     "@biomejs/biome": "^2.4.12",
     "@eslint/js": "^10.0.1",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@typescript-eslint/parser": "^8.59.0",
     "eslint": "^10.2.1",
     "prettier": "^3.8.3",

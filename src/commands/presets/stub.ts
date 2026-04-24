@@ -5,7 +5,6 @@
  * a pointer at the two subcommands that now exist. Future changes extend
  * this message as new subcommands come online.
  */
-
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 /**

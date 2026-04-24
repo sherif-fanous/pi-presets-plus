@@ -17,7 +17,6 @@
  * `merge.ts`. It is fully synchronous-from-disk except for the `readFile`
  * call so that callers can drive it concurrently across both scopes.
  */
-
 import { readFile } from "node:fs/promises";
 
 import type { Preset } from "../types.js";
@@ -98,7 +97,6 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
 
   const warnings: string[] = [];
   const validatedPresets: Preset[] = [];
-
   const rawPresets: unknown[] = obj.presets;
 
   // First pass: shape validation. Skip-and-warn on individual offenders so

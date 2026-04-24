@@ -12,17 +12,14 @@
  * Tests inject a fake agent dir via `getGlobalPresetsPath(fakeAgentDir)`
  * to avoid depending on the real user environment.
  */
-
 import { join } from "node:path";
 
 import { getAgentDir } from "@mariozechner/pi-coding-agent";
 
 /** File name for the preset list within `PRESETS_PLUS_SUBDIR`. */
 const PRESETS_FILE_NAME = "presets.json";
-
 /** Subdirectory under both scopes that contains preset-related files. */
 const PRESETS_PLUS_SUBDIR = "presets-plus";
-
 /** Project-scope parent directory under the project root. */
 const PROJECT_PI_DIR = ".pi";
 

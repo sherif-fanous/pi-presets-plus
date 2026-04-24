@@ -18,7 +18,6 @@
  * When no presets are loaded the helper points users at the two file
  * paths they can create by hand.
  */
-
 import { loadAll } from "../../store/api.js";
 import {
   getGlobalPresetsPath,
@@ -41,13 +40,11 @@ const GROUP_HEADERS = {
   user: "User presets",
   shadowed: "Shadowed user presets (overridden by project presets above)",
 } as const;
-
 /** No-op styler that returns input unchanged; default for tests. */
 const IDENTITY_STYLER: Styler = {
   fg: (_color, text) => text,
   bold: (text) => text,
 };
-
 /**
  * Field labels shown inline on a single `label: value` line.
  *
@@ -68,7 +65,6 @@ const INLINE_LABELS = [
   "hotkey:",
   "status:",
 ] as const;
-
 /** Widest inline label (e.g. `"thinking:"` → 9). Computed once. */
 const INLINE_LABEL_WIDTH = Math.max(
   ...INLINE_LABELS.map((label) => label.length),
@@ -119,11 +115,13 @@ export function formatPresetList(
       renderPresetGroup(GROUP_HEADERS.project, project, styler),
     );
   }
+
   if (userActive.length > 0) {
     presetGroups.push(
       renderPresetGroup(GROUP_HEADERS.user, userActive, styler),
     );
   }
+
   if (userShadowed.length > 0) {
     presetGroups.push(
       renderPresetGroup(GROUP_HEADERS.shadowed, userShadowed, styler),
@@ -220,6 +218,7 @@ function formatPresetBlock(loadedPreset: LoadedPreset, styler: Styler): string {
       reasonColor,
       formatUnavailableReason(loadedPreset.unavailable, loadedPreset),
     );
+
     lines.push(formatInlineRow("status:", value, styler));
   }
 
@@ -228,11 +227,13 @@ function formatPresetBlock(loadedPreset: LoadedPreset, styler: Styler): string {
       "dim",
       "shadowed by project preset of the same name",
     );
+
     lines.push(formatInlineRow("status:", value, styler));
   }
 
   if (loadedPreset.instructions) {
     lines.push(`  ${styler.fg("muted", "instructions:")}`);
+
     for (const bodyLine of loadedPreset.instructions.split("\n")) {
       lines.push(`    ${bodyLine}`);
     }

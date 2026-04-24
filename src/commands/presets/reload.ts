@@ -6,7 +6,6 @@
  * file does not flood the UI (the same policy as `session_start`
  * pre-warming in `src/index.ts`).
  */
-
 import { loadAll } from "../../store/api.js";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 

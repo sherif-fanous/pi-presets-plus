@@ -6,7 +6,6 @@
  * with several broken presets after a bad edit isn't flooded. This helper
  * is the canonical way subcommands and the session-start handler do that.
  */
-
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 /**
@@ -18,7 +17,6 @@ export function surfaceWarnings(
   warnings: readonly string[],
 ): void {
   if (warnings.length === 0) return;
-
   ctx.ui.notify(
     `${warnings.length} preset warning${warnings.length === 1 ? "" : "s"}:\n- ${warnings.join("\n- ")}`,
     "warning",
