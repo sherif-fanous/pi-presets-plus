@@ -111,9 +111,9 @@ describe("makeTmpPath", () => {
   });
 
   it("returns distinct paths on consecutive calls", () => {
-    const a = makeTmpPath("/tmp/foo/bar.json");
-    const b = makeTmpPath("/tmp/foo/bar.json");
+    const first = makeTmpPath("/tmp/foo/bar.json");
+    const second = makeTmpPath("/tmp/foo/bar.json");
 
-    expect(a).not.toBe(b);
+    expect(first).not.toBe(second);
   });
 });

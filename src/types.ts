@@ -12,20 +12,29 @@
  */
 
 /**
- * Reasoning level recorded on a preset.
+ * A preset enriched with merge/availability metadata.
  *
- * Mirrors pi-coding-agent's `getThinkingLevel()` / `setThinkingLevel()` API,
- * which extends `pi-ai`'s `ThinkingLevel` with the explicit `"off"` value.
- * Storage accepts the literal set verbatim; per-model clamping happens at
- * activation time in a later change.
+ * Returned by the storage merge step (`mergeScopes`). `shadowed` and
+ * `unavailable` are computed at load time and may change across reloads;
+ * callers must not assume they survive a `ctx.reload()`.
  */
-export type ThinkingLevel =
-  | "off"
-  | "minimal"
-  | "low"
-  | "medium"
-  | "high"
-  | "xhigh";
+export interface LoadedPreset extends Preset {
+  /** Origin file's scope; assigned by the loader. */
+  scope: PresetScope;
+  /**
+   * `true` for a global preset whose name is also defined in the project
+   * file (the project entry wins at activation time).
+   */
+  shadowed?: boolean;
+  /**
+   * Reason the preset cannot be activated, computed at load time:
+   * - `"no-model"` — model id not registered for the named provider
+   * - `"no-key"`   — model is registered but its provider has no API key
+   *
+   * Undefined when the preset is fully available.
+   */
+  unavailable?: "no-key" | "no-model";
+}
 
 /**
  * A preset definition as it appears in either scope's JSON file.
@@ -76,26 +85,17 @@ export interface PresetsFile {
 export type PresetScope = "user" | "project";
 
 /**
- * A preset enriched with merge/availability metadata.
+ * Reasoning level recorded on a preset.
  *
- * Returned by the storage merge step (`mergeScopes`). `shadowed` and
- * `unavailable` are computed at load time and may change across reloads;
- * callers must not assume they survive a `ctx.reload()`.
+ * Mirrors pi-coding-agent's `getThinkingLevel()` / `setThinkingLevel()` API,
+ * which extends `pi-ai`'s `ThinkingLevel` with the explicit `"off"` value.
+ * Storage accepts the literal set verbatim; per-model clamping happens at
+ * activation time in a later change.
  */
-export interface LoadedPreset extends Preset {
-  /** Origin file's scope; assigned by the loader. */
-  scope: PresetScope;
-  /**
-   * `true` for a global preset whose name is also defined in the project
-   * file (the project entry wins at activation time).
-   */
-  shadowed?: boolean;
-  /**
-   * Reason the preset cannot be activated, computed at load time:
-   * - `"no-model"` — model id not registered for the named provider
-   * - `"no-key"`   — model is registered but its provider has no API key
-   *
-   * Undefined when the preset is fully available.
-   */
-  unavailable?: "no-key" | "no-model";
-}
+export type ThinkingLevel =
+  | "off"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh";

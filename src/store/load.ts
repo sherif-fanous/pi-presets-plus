@@ -123,7 +123,9 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
   const duplicatePresetNames = findDuplicatePresetNames(validatedPresets);
 
   if (duplicatePresetNames.length > 0) {
-    const dropIndices = new Set(duplicatePresetNames.map((d) => d.index));
+    const dropIndices = new Set(
+      duplicatePresetNames.map((duplicate) => duplicate.index),
+    );
     const uniquePresets: Preset[] = [];
 
     for (let i = 0; i < validatedPresets.length; i++) {

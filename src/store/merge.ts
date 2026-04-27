@@ -39,7 +39,7 @@ export function mergeScopes(
   input: MergeScopesInput,
   ctx: Pick<ExtensionContext, "modelRegistry">,
 ): LoadedPreset[] {
-  const projectNames = new Set(input.project.map((p) => p.name));
+  const projectNames = new Set(input.project.map((preset) => preset.name));
   const out: LoadedPreset[] = [];
 
   for (const userPreset of input.user) {
