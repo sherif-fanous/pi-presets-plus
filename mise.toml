@@ -1,11 +1,14 @@
 [env]
 _.path = ["{{config_root}}/node_modules/.bin"]
 
-[tasks.format-check]
-run = "prettier --check eslint.config.mjs package.json src/. tests/. tsconfig.json vitest.config.ts"
+[tasks.check]
+depends = ["format-check", "type-check", "lint", "test"]
 
 [tasks.format]
 run = "prettier --write eslint.config.mjs package.json src/. tests/. tsconfig.json vitest.config.ts"
+
+[tasks.format-check]
+run = "prettier --check eslint.config.mjs package.json src/. tests/. tsconfig.json vitest.config.ts"
 
 [tasks.install-deps]
 run = "npm install --loglevel=verbose"
@@ -23,6 +26,9 @@ run = "biome lint src/. tests/. --fix && eslint src/. tests/. --fix"
 run = "sort-package-json"
 
 [tasks.test]
+run = "vitest --run"
+
+[tasks.test-watch]
 run = "vitest"
 
 [tasks.type-check]

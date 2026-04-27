@@ -14,17 +14,78 @@ mise run <task>
 
 ### Available tasks
 
-| Task                         | Description                              |
-| :--------------------------- | :--------------------------------------- |
-| `mise run format-check`      | Check formatting without writing changes |
-| `mise run format`            | Auto-format source files with Prettier   |
-| `mise run install-deps`      | Install npm dependencies                 |
-| `mise run lint`              | Lint source files with ESLint            |
-| `mise run sort-package-json` | Sort `package.json` keys                 |
-| `mise run test`              | Execute tests                            |
-| `mise run type-check`        | Run TypeScript type checking             |
-| `mise run uninstall-deps`    | Uninstall npm dependencies               |
-| `mise run update-deps`       | Update npm dependencies                  |
+| Task                         | Description                                                             |
+| :--------------------------- | :---------------------------------------------------------------------- |
+| `mise run check`             | Run format-check, type-check, lint, and test (the full pre-commit gate) |
+| `mise run format`            | Auto-format source files with Prettier                                  |
+| `mise run format-check`      | Check formatting without writing changes                                |
+| `mise run install-deps`      | Install npm dependencies                                                |
+| `mise run install-dev-deps`  | Install npm dev dependencies (`npm install --save-dev`)                 |
+| `mise run lint`              | Lint source files with Biome and ESLint                                 |
+| `mise run lint-fix`          | Auto-fix lint violations with Biome and ESLint                          |
+| `mise run sort-package-json` | Sort `package.json` keys                                                |
+| `mise run test`              | Execute tests once (CI mode, `vitest --run`)                            |
+| `mise run test-watch`        | Execute tests in watch mode                                             |
+| `mise run type-check`        | Run TypeScript type checking                                            |
+| `mise run uninstall-deps`    | Uninstall npm dependencies                                              |
+| `mise run update-deps`       | Update npm dependencies                                                 |
+
+## Code conventions
+
+Prettier, Biome, ESLint, and `tsc` enforce formatting, import order,
+naming, file-section ordering, kebab-case filenames, function-declaration
+style, and bans on `any` / `!` / `console.*` / one-letter identifiers.
+Run `mise run check` to surface violations across all four tools — most
+are auto-fixable via `mise run format` or `mise run lint-fix`.
+
+The conventions below are the ones the linter cannot enforce. They are
+project-wide unless noted.
+
+### Architecture
+
+- Return a discriminated `{ ok: true } | { ok: false; reason: string }`
+  for expected failures (validation, name collisions, missing entries).
+  Throw only for I/O failures and programmer errors.
+- Pure / lower layers return `warnings: string[]` alongside their
+  result. Only the UI boundary calls `ctx.ui.notify`, and it rolls the
+  warnings array into a single notification rather than firing one per
+  warning.
+- Storage operations re-read from disk on every call. No module-level
+  caches of on-disk state — this makes `ctx.reload()` work for free
+  and avoids a class of staleness bugs.
+- Persist via the `atomicWrite` helper
+  (`mkdir -p` → tmp file → `fsync` → `rename`). Never write a
+  user-visible file directly.
+- One source of truth for parallel structures: when autocomplete and
+  runtime dispatch must agree on a list, define one `as const`
+  registry and consume it from both sites (see `SUBCOMMANDS` in
+  `src/commands/presets/router.ts`).
+
+### API shape
+
+- Functions consuming `ExtensionContext` declare the minimum surface
+  via `Pick<ExtensionContext, …>` so tests can pass tiny fakes.
+- Test seams are exposed as optional last parameters with the real
+  implementation as the default
+  (`getGlobalPresetsPath(agentDir = getAgentDir())`,
+  `atomicWrite(target, contents, fs = defaultFs)`). No DI container.
+- UI subcommands split into an exported pure formatter (returns a
+  `string`) and a thin `runX(ctx)` runner that routes the string
+  through `ctx.ui.notify`. Tests assert on the formatter's return
+  value and never stub `ctx.ui`.
+
+### Documentation
+
+- Every source file opens with a JSDoc block stating: (a) the file's
+  role in one line, (b) what it owns vs. what it does NOT own,
+  (c) the OpenSpec change it belongs to, (d) future-change extension
+  points so reviewers know why current scope is intentionally narrow.
+- Comments explain _why_, not _what_. Common patterns: rationale on
+  trivial wrappers, behavior matrices in JSDoc for branchy functions,
+  invariant statements, and visual-width / ANSI gotchas.
+- Lifecycle handlers (`session_start`, command handlers) wrap calls in
+  defense-in-depth `try/catch` with a comment explaining why the guard
+  exists.
 
 ## Commit messages
 
