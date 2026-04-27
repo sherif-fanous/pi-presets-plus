@@ -170,7 +170,7 @@ export function validatePresetShape(
   if (obj.tools !== undefined) {
     if (
       !Array.isArray(obj.tools) ||
-      obj.tools.some((t) => typeof t !== "string")
+      obj.tools.some((tool) => typeof tool !== "string")
     ) {
       return { ok: false, reason: `"tools" must be an array of strings` };
     }

@@ -85,6 +85,7 @@ beforeEach(async () => {
   prevAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = agentDir;
 });
+
 afterEach(async () => {
   if (prevAgentDirEnv === undefined) {
     delete process.env.PI_CODING_AGENT_DIR;
@@ -94,6 +95,7 @@ afterEach(async () => {
 
   await rm(dir, { recursive: true, force: true });
 });
+
 describe("loadAll", () => {
   it("returns an empty list when neither file exists", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
@@ -101,6 +103,7 @@ describe("loadAll", () => {
 
     expect(result).toEqual({ presets: [], warnings: [] });
   });
+
   it("merges both scopes and surfaces warnings from each", async () => {
     // Write a malformed global file (warning) and a valid project file.
     await writeFile(
@@ -131,6 +134,7 @@ describe("loadAll", () => {
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain("invalid JSON");
   });
+
   it("observes external file edits between calls (no in-memory cache)", async () => {
     // Models the spec's `ctx.reload()` requirement: no caches survive.
     // Two consecutive calls to `loadAll` against the same context must
@@ -162,6 +166,7 @@ describe("loadAll", () => {
     expect(second.presets.map((p) => p.name)).toEqual(["a", "b"]);
   });
 });
+
 describe("saveScope", () => {
   it("writes a versioned file containing exactly the supplied presets", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
@@ -177,6 +182,7 @@ describe("saveScope", () => {
     expect(parsed.version).toBe(1);
     expect(parsed.presets.map((p) => p.name)).toEqual(["plan", "ship"]);
   });
+
   it("only touches the affected scope's file", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
 
@@ -188,6 +194,7 @@ describe("saveScope", () => {
       "project:p",
     ]);
   });
+
   it("strips merge-only metadata when round-tripping LoadedPresets", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
 
@@ -209,6 +216,7 @@ describe("saveScope", () => {
     expect(raw).not.toContain('"unavailable"');
   });
 });
+
 describe("addPreset", () => {
   it("appends to an empty scope", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
@@ -220,6 +228,7 @@ describe("addPreset", () => {
 
     expect(loaded.presets.map((p) => p.name)).toEqual(["plan"]);
   });
+
   it("returns Err on name collision within the same scope", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
 
@@ -233,6 +242,7 @@ describe("addPreset", () => {
       expect(result.reason).toContain('"plan"');
     }
   });
+
   it("allows the same name in a different scope", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
 
@@ -243,6 +253,7 @@ describe("addPreset", () => {
     expect(result).toEqual({ ok: true });
   });
 });
+
 describe("updatePreset", () => {
   it("replaces a preset in place, preserving position", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
@@ -266,6 +277,7 @@ describe("updatePreset", () => {
 
     expect(loadedB?.thinkingLevel).toBe("high");
   });
+
   it("supports renaming when there is no collision", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
 
@@ -276,12 +288,14 @@ describe("updatePreset", () => {
     expect(result).toEqual({ ok: true });
     expect((await loadAll(ctx)).presets.map((p) => p.name)).toEqual(["new"]);
   });
+
   it("returns Err when the target name is missing", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
     const result = await updatePreset("nope", "user", preset("nope"), ctx);
 
     expect(result.ok).toBe(false);
   });
+
   it("returns Err when a rename would collide with another preset", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
 
@@ -292,6 +306,7 @@ describe("updatePreset", () => {
     expect(result.ok).toBe(false);
   });
 });
+
 describe("removePreset", () => {
   it("removes a present entry", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
@@ -303,6 +318,7 @@ describe("removePreset", () => {
     expect(result).toEqual({ ok: true });
     expect((await loadAll(ctx)).presets.map((p) => p.name)).toEqual(["b"]);
   });
+
   it("is a no-op when the entry does not exist (idempotent)", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
 
@@ -314,6 +330,7 @@ describe("removePreset", () => {
     expect((await loadAll(ctx)).presets.map((p) => p.name)).toEqual(["a"]);
   });
 });
+
 describe("reorderWithinScope", () => {
   it("rewrites the file in the requested order", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
@@ -326,6 +343,7 @@ describe("reorderWithinScope", () => {
       "b",
     ]);
   });
+
   it("appends omitted names at the end in their original order", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
 
@@ -337,6 +355,7 @@ describe("reorderWithinScope", () => {
       "b",
     ]);
   });
+
   it("ignores names that don't match any existing preset", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
 
@@ -344,6 +363,7 @@ describe("reorderWithinScope", () => {
     await reorderWithinScope("user", ["ghost", "b", "a"], ctx);
     expect((await loadAll(ctx)).presets.map((p) => p.name)).toEqual(["b", "a"]);
   });
+
   it("ignores duplicate names within the requested order", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
 

@@ -31,15 +31,18 @@ async function writeRaw(content: string): Promise<string> {
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "pi-presets-load-"));
 });
+
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
+
 describe("loadFile", () => {
   it("returns empty + no warnings when the file is missing", async () => {
     const result = await loadFile(join(dir, "nonexistent.json"));
 
     expect(result).toEqual({ presets: [], warnings: [] });
   });
+
   it("treats invalid JSON as empty and warns", async () => {
     const path = await writeRaw("{ not json");
     const result = await loadFile(path);
@@ -53,6 +56,7 @@ describe("loadFile", () => {
 
     expect(after).toBe("{ not json");
   });
+
   it("treats arrays at the top level as malformed", async () => {
     const path = await writeRaw("[]");
     const result = await loadFile(path);
@@ -60,6 +64,7 @@ describe("loadFile", () => {
     expect(result.presets).toEqual([]);
     expect(result.warnings[0]).toContain("top-level");
   });
+
   it("treats unsupported versions as empty and does not rewrite", async () => {
     const original = JSON.stringify({ version: 2, presets: [] });
     const path = await writeRaw(original);
@@ -70,6 +75,7 @@ describe("loadFile", () => {
     // File on disk must be untouched.
     expect(await readFile(path, "utf-8")).toBe(original);
   });
+
   it("warns when 'presets' is missing or not an array", async () => {
     const path = await writeRaw(JSON.stringify({ version: 1 }));
     const result = await loadFile(path);
@@ -77,6 +83,7 @@ describe("loadFile", () => {
     expect(result.presets).toEqual([]);
     expect(result.warnings[0]).toContain('"presets"');
   });
+
   it("loads valid presets and skips invalid ones with warnings", async () => {
     const path = await writeRaw(
       JSON.stringify({
@@ -114,6 +121,7 @@ describe("loadFile", () => {
     expect(result.warnings.join("\n")).toContain('"ship"');
     expect(result.warnings.join("\n")).toContain('"review"');
   });
+
   it("keeps the first occurrence of a duplicate name and warns about the rest", async () => {
     const path = await writeRaw(
       JSON.stringify({
@@ -143,6 +151,7 @@ describe("loadFile", () => {
     expect(result.presets[0]?.provider).toBe("anthropic");
     expect(result.warnings.join("\n")).toContain("duplicate");
   });
+
   it("uses an index label when an invalid preset has no name string", async () => {
     const path = await writeRaw(
       JSON.stringify({

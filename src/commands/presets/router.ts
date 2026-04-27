@@ -52,9 +52,9 @@ const SUBCOMMANDS: readonly Subcommand[] = [
 export function getArgumentCompletions(
   prefix: string,
 ): { value: string; label: string }[] {
-  return SUBCOMMANDS.filter((item) => item.value.startsWith(prefix)).map(
-    ({ value, label }) => ({ value, label }),
-  );
+  return SUBCOMMANDS.filter((subcommand) =>
+    subcommand.value.startsWith(prefix),
+  ).map(({ value, label }) => ({ value, label }));
 }
 
 /**
@@ -78,7 +78,9 @@ export async function handlePresetsCommand(
   }
 
   const [subCommand] = trimmedArgs.split(/\s+/, 1);
-  const target = SUBCOMMANDS.find((s) => s.value === subCommand);
+  const target = SUBCOMMANDS.find(
+    (subcommand) => subcommand.value === subCommand,
+  );
 
   if (!target) {
     ctx.ui.notify(

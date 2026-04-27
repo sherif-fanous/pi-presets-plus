@@ -53,7 +53,7 @@ export async function addPreset(
 ): Promise<SaveResult> {
   const current = await readScope(presetScope, ctx);
 
-  if (current.some((p) => p.name === preset.name)) {
+  if (current.some((existing) => existing.name === preset.name)) {
     return {
       ok: false,
       reason: `A preset named "${preset.name}" already exists in scope "${presetScope}".`,
@@ -88,22 +88,6 @@ export async function loadAll(ctx: StorageContext): Promise<LoadAllResult> {
 }
 
 /**
- * Read a single scope file, ignoring warnings. Used by the CRUD helpers
- * which don't have a UI to surface warnings to. The next `loadAll` call
- * (and therefore the next `/presets list` / `/presets reload`) will see
- * any persistent warnings.
- */
-async function readScope(
-  presetScope: PresetScope,
-  ctx: StorageContext,
-): Promise<Preset[]> {
-  const path = pathForScope(presetScope, ctx);
-  const result = await loadFile(path);
-
-  return result.presets;
-}
-
-/**
  * Remove a preset by name. No-op (returns `{ ok: true }`) when the named
  * preset does not exist; this matches the "idempotent delete" expectation
  * the spec calls out.
@@ -114,7 +98,7 @@ export async function removePreset(
   ctx: StorageContext,
 ): Promise<SaveResult> {
   const current = await readScope(scope, ctx);
-  const next = current.filter((p) => p.name !== name);
+  const next = current.filter((existing) => existing.name !== name);
 
   if (next.length === current.length) return { ok: true };
   await saveScope(scope, next, ctx);
@@ -138,7 +122,9 @@ export async function reorderWithinScope(
   ctx: StorageContext,
 ): Promise<void> {
   const current = await readScope(scope, ctx);
-  const byName = new Map(current.map((p) => [p.name, p] as const));
+  const byName = new Map(
+    current.map((preset) => [preset.name, preset] as const),
+  );
   const seen = new Set<string>();
   const ordered: Preset[] = [];
 
@@ -195,7 +181,7 @@ export async function updatePreset(
   ctx: StorageContext,
 ): Promise<SaveResult> {
   const current = await readScope(scope, ctx);
-  const index = current.findIndex((p) => p.name === oldName);
+  const index = current.findIndex((existing) => existing.name === oldName);
 
   if (index === -1) {
     return {
@@ -206,7 +192,10 @@ export async function updatePreset(
 
   if (
     next.name !== oldName &&
-    current.some((p, i) => i !== index && p.name === next.name)
+    current.some(
+      (existing, existingIndex) =>
+        existingIndex !== index && existing.name === next.name,
+    )
   ) {
     return {
       ok: false,
@@ -226,6 +215,22 @@ function pathForScope(presetScope: PresetScope, ctx: StorageContext): string {
   return presetScope === "user"
     ? getGlobalPresetsPath()
     : getProjectPresetsPath(ctx.cwd);
+}
+
+/**
+ * Read a single scope file, ignoring warnings. Used by the CRUD helpers
+ * which don't have a UI to surface warnings to. The next `loadAll` call
+ * (and therefore the next `/presets list` / `/presets reload`) will see
+ * any persistent warnings.
+ */
+async function readScope(
+  presetScope: PresetScope,
+  ctx: StorageContext,
+): Promise<Preset[]> {
+  const path = pathForScope(presetScope, ctx);
+  const result = await loadFile(path);
+
+  return result.presets;
 }
 
 /**

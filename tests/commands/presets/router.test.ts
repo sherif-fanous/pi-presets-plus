@@ -63,6 +63,7 @@ beforeEach(async () => {
   prevAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = agentDir;
 });
+
 afterEach(async () => {
   if (prevAgentDirEnv === undefined) {
     delete process.env.PI_CODING_AGENT_DIR;
@@ -72,27 +73,32 @@ afterEach(async () => {
 
   await rm(agentDir, { recursive: true, force: true });
 });
+
 describe("getArgumentCompletions", () => {
   it("returns all subcommands when the prefix is empty", () => {
     const result = getArgumentCompletions("");
 
     expect(result.map((r) => r.value).sort()).toEqual(["list", "reload"]);
   });
+
   it("filters by exact prefix match", () => {
     expect(getArgumentCompletions("re").map((r) => r.value)).toEqual([
       "reload",
     ]);
     expect(getArgumentCompletions("li").map((r) => r.value)).toEqual(["list"]);
   });
+
   it("returns nothing when nothing matches", () => {
     expect(getArgumentCompletions("xyz")).toEqual([]);
   });
+
   it("each entry carries a human-readable label", () => {
     for (const entry of getArgumentCompletions("")) {
       expect(entry.label.length).toBeGreaterThan(entry.value.length);
     }
   });
 });
+
 describe("handlePresetsCommand", () => {
   it("shows the stub notice on bare invocation", async () => {
     const { ctx, notify } = makeStubCtx();
@@ -102,6 +108,7 @@ describe("handlePresetsCommand", () => {
     expect(notify.mock.calls[0]?.[0]).toContain("/presets list");
     expect(notify.mock.calls[0]?.[1]).toBe("info");
   });
+
   it("warns on an unknown subcommand", async () => {
     const { ctx, notify } = makeStubCtx();
 
@@ -110,6 +117,7 @@ describe("handlePresetsCommand", () => {
     expect(notify.mock.calls[0]?.[0]).toContain('"bogus"');
     expect(notify.mock.calls[0]?.[1]).toBe("warning");
   });
+
   it("dispatches `list` to runList (empty-state path)", async () => {
     const { ctx, notify } = makeStubCtx();
 
@@ -123,6 +131,7 @@ describe("handlePresetsCommand", () => {
     expect(firstCall?.[0]).toContain("No presets configured.");
     expect(firstCall?.[1]).toBe("info");
   });
+
   it("dispatches `reload` to runReload (empty-state path)", async () => {
     const { ctx, notify } = makeStubCtx();
 
@@ -131,6 +140,7 @@ describe("handlePresetsCommand", () => {
     expect(notify.mock.calls[0]?.[0]).toContain("Reloaded 0 presets");
     expect(notify.mock.calls[0]?.[1]).toBe("info");
   });
+
   it("ignores trailing tokens after the subcommand", async () => {
     // `list` should dispatch regardless of trailing junk; the storage
     // spec's only required subcommands take no args in this change.

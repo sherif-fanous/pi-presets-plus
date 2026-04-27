@@ -38,6 +38,11 @@ export default defineConfig(
           prev: ["const", "let", "var"],
           next: ["const", "let", "var"],
         },
+        {
+          blankLine: "always",
+          prev: "multiline-expression",
+          next: "multiline-expression",
+        },
       ],
     },
   },

@@ -58,11 +58,13 @@ describe("validatePresetShape", () => {
   it("accepts a minimal valid preset", () => {
     expect(validatePresetShape(minimal)).toEqual({ ok: true });
   });
+
   it("rejects non-objects", () => {
     expect(validatePresetShape(null).ok).toBe(false);
     expect(validatePresetShape("plan").ok).toBe(false);
     expect(validatePresetShape([minimal]).ok).toBe(false);
   });
+
   it.each([
     ["name", { ...minimal, name: "" }],
     ["provider", { ...minimal, provider: "" }],
@@ -70,6 +72,7 @@ describe("validatePresetShape", () => {
   ])("rejects empty required field %s", (_field, value) => {
     expect(validatePresetShape(value).ok).toBe(false);
   });
+
   it.each([["name"], ["provider"], ["model"]])(
     "rejects missing required field %s",
     (field) => {
@@ -83,6 +86,7 @@ describe("validatePresetShape", () => {
       expect(result.reason).toContain(field);
     },
   );
+
   it("accepts every valid thinking level", () => {
     for (const level of [
       "off",
@@ -97,6 +101,7 @@ describe("validatePresetShape", () => {
       );
     }
   });
+
   it("rejects an invalid thinking level", () => {
     const result = validatePresetShape({
       ...minimal,
@@ -106,17 +111,20 @@ describe("validatePresetShape", () => {
     expect(result.ok).toBe(false);
     expect(result.reason).toContain("thinkingLevel");
   });
+
   it("rejects non-string entries in tools", () => {
     const result = validatePresetShape({ ...minimal, tools: ["read", 42] });
 
     expect(result.ok).toBe(false);
     expect(result.reason).toContain("tools");
   });
+
   it("rejects non-numeric order", () => {
     const result = validatePresetShape({ ...minimal, order: "1" });
 
     expect(result.ok).toBe(false);
   });
+
   it("accepts a fully populated preset", () => {
     const full: Preset = {
       ...minimal,
@@ -130,6 +138,7 @@ describe("validatePresetShape", () => {
     expect(validatePresetShape(full)).toEqual({ ok: true });
   });
 });
+
 describe("findDuplicatePresetNames", () => {
   const make = (name: string): Preset => ({
     name,
@@ -142,6 +151,7 @@ describe("findDuplicatePresetNames", () => {
       [],
     );
   });
+
   it("flags later occurrences of duplicate names", () => {
     const dups = findDuplicatePresetNames([
       make("plan"),
@@ -155,10 +165,12 @@ describe("findDuplicatePresetNames", () => {
       { name: "plan", index: 3 },
     ]);
   });
+
   it("treats different names as distinct", () => {
     expect(findDuplicatePresetNames([make("Plan"), make("plan")])).toEqual([]);
   });
 });
+
 describe("computeAvailability", () => {
   const preset = { provider: "anthropic", model: "claude-opus-4.5" } as const;
 
@@ -167,6 +179,7 @@ describe("computeAvailability", () => {
 
     expect(computeAvailability(preset, ctx)).toBe("no-model");
   });
+
   it("returns 'no-key' when the model exists but the provider has no key", () => {
     const ctx = makeCtx({
       models: { anthropic: { "claude-opus-4.5": { hasKey: false } } },
@@ -174,6 +187,7 @@ describe("computeAvailability", () => {
 
     expect(computeAvailability(preset, ctx)).toBe("no-key");
   });
+
   it("returns undefined when the model exists and a key is configured", () => {
     const ctx = makeCtx({
       models: { anthropic: { "claude-opus-4.5": { hasKey: true } } },

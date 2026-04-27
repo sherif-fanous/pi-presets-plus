@@ -17,6 +17,7 @@ describe("getGlobalPresetsPath", () => {
       "/tmp/fake-agent/presets-plus/presets.json",
     );
   });
+
   it("uses pi's getAgentDir() when no override is provided", () => {
     // We don't pin the exact path (it depends on the real env), but the
     // returned path must end with the canonical file location and be
@@ -28,6 +29,7 @@ describe("getGlobalPresetsPath", () => {
     expect(resolved.startsWith("/")).toBe(true);
   });
 });
+
 describe("getProjectPresetsPath", () => {
   it("resolves under <cwd>/.pi/presets-plus/", () => {
     expect(getProjectPresetsPath("/tmp/fake-project")).toBe(

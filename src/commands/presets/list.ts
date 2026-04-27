@@ -189,6 +189,7 @@ function formatPresetBlock(loadedPreset: LoadedPreset, styler: Styler): string {
   lines.push(
     formatInlineRow("scope:", formatScope(loadedPreset.scope), styler),
   );
+
   lines.push(
     formatInlineRow(
       "model:",
@@ -196,6 +197,7 @@ function formatPresetBlock(loadedPreset: LoadedPreset, styler: Styler): string {
       styler,
     ),
   );
+
   lines.push(
     formatInlineRow("thinking:", loadedPreset.thinkingLevel ?? "off", styler),
   );
@@ -278,7 +280,7 @@ function renderPresetGroup(
 ): string {
   const styledHeader = styler.bold(styler.fg("accent", header));
   const blocks = loadedPresets
-    .map((p) => formatPresetBlock(p, styler))
+    .map((loadedPreset) => formatPresetBlock(loadedPreset, styler))
     .join("\n\n");
 
   return `${styledHeader}\n${blocks}`;
