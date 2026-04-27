@@ -18,19 +18,22 @@ import {
 import type { LoadedPreset } from "../../../src/types.js";
 import { describe, expect, it } from "vitest";
 
-const base = {
+const basePreset = {
   provider: "anthropic",
   model: "claude-opus-4.5",
 } as const;
-const make = (
+
+function make(
   overrides: Partial<LoadedPreset> & {
     name: string;
     scope: "user" | "project";
   },
-): LoadedPreset => ({
-  ...base,
-  ...overrides,
-});
+): LoadedPreset {
+  return {
+    ...basePreset,
+    ...overrides,
+  };
+}
 
 describe("formatPresetList", () => {
   it("renders only the project group when no user presets exist", () => {

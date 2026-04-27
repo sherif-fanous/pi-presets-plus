@@ -8,38 +8,22 @@
  */
 import { mergeScopes } from "../../src/store/merge.js";
 import type { Preset } from "../../src/types.js";
-import type { Model } from "@mariozechner/pi-ai";
-import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
+import {
+  makeStubModelRegistry,
+  type RegistryStub,
+} from "../helpers/model-registry.js";
 import { describe, expect, it } from "vitest";
 
-interface RegistryStub {
-  models: Record<string, Record<string, { hasKey: boolean }>>;
+function make(overrides: Partial<Preset> & Pick<Preset, "name">): Preset {
+  return {
+    provider: "anthropic",
+    model: "claude-opus-4.5",
+    ...overrides,
+  };
 }
 
-const make = (overrides: Partial<Preset> & Pick<Preset, "name">): Preset => ({
-  provider: "anthropic",
-  model: "claude-opus-4.5",
-  ...overrides,
-});
-
 function makeCtx(stub: RegistryStub) {
-  const modelRegistry = {
-    find(provider: string, modelId: string): Model<never> | undefined {
-      const present = stub.models[provider]?.[modelId];
-
-      if (!present) return undefined;
-
-      return { provider, id: modelId } as unknown as Model<never>;
-    },
-    hasConfiguredAuth(model: Model<never>): boolean {
-      return stub.models[model.provider]?.[model.id]?.hasKey ?? false;
-    },
-  };
-
-  // Cast to the full `ModelRegistry` class at the boundary: the storage
-  // layer only reads `find` / `hasConfiguredAuth`, and matching the
-  // class's private fields structurally isn't possible.
-  return { modelRegistry: modelRegistry as unknown as ModelRegistry };
+  return { modelRegistry: makeStubModelRegistry(stub) };
 }
 
 describe("mergeScopes", () => {
@@ -55,7 +39,7 @@ describe("mergeScopes", () => {
       ctx,
     );
 
-    expect(result.map((r) => `${r.scope}:${r.name}`)).toEqual([
+    expect(result.map((entry) => `${entry.scope}:${entry.name}`)).toEqual([
       "user:g1",
       "user:g2",
       "project:p1",

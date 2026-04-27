@@ -60,7 +60,7 @@ describe("atomicWrite", () => {
 
     const entries = await readdir(dir);
 
-    expect(entries.filter((e) => e.includes(".tmp."))).toEqual([]);
+    expect(entries.filter((entry) => entry.includes(".tmp."))).toEqual([]);
   });
 
   it("preserves the existing destination contents when the rename step fails", async () => {
@@ -90,7 +90,7 @@ describe("atomicWrite", () => {
 
     const entries = await readdir(dir);
 
-    expect(entries.filter((e) => e.includes(".tmp."))).toEqual([]);
+    expect(entries.filter((entry) => entry.includes(".tmp."))).toEqual([]);
   });
 
   it("works when the destination's parent already exists", async () => {

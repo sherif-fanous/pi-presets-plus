@@ -78,14 +78,20 @@ describe("getArgumentCompletions", () => {
   it("returns all subcommands when the prefix is empty", () => {
     const result = getArgumentCompletions("");
 
-    expect(result.map((r) => r.value).sort()).toEqual(["list", "reload"]);
+    expect(result.map((completion) => completion.value).sort()).toEqual([
+      "list",
+      "reload",
+    ]);
   });
 
   it("filters by exact prefix match", () => {
-    expect(getArgumentCompletions("re").map((r) => r.value)).toEqual([
-      "reload",
-    ]);
-    expect(getArgumentCompletions("li").map((r) => r.value)).toEqual(["list"]);
+    expect(
+      getArgumentCompletions("re").map((completion) => completion.value),
+    ).toEqual(["reload"]);
+
+    expect(
+      getArgumentCompletions("li").map((completion) => completion.value),
+    ).toEqual(["list"]);
   });
 
   it("returns nothing when nothing matches", () => {

@@ -116,7 +116,10 @@ describe("loadFile", () => {
     );
     const result = await loadFile(path);
 
-    expect(result.presets.map((p) => p.name)).toEqual(["plan", "explore"]);
+    expect(result.presets.map((loaded) => loaded.name)).toEqual([
+      "plan",
+      "explore",
+    ]);
     expect(result.warnings).toHaveLength(2);
     expect(result.warnings.join("\n")).toContain('"ship"');
     expect(result.warnings.join("\n")).toContain('"review"');
@@ -147,7 +150,10 @@ describe("loadFile", () => {
     );
     const result = await loadFile(path);
 
-    expect(result.presets.map((p) => p.name)).toEqual(["plan", "ship"]);
+    expect(result.presets.map((loaded) => loaded.name)).toEqual([
+      "plan",
+      "ship",
+    ]);
     expect(result.presets[0]?.provider).toBe("anthropic");
     expect(result.warnings.join("\n")).toContain("duplicate");
   });

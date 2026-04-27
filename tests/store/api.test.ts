@@ -12,7 +12,7 @@
  * outcomes, error paths, idempotency); lower layers are covered by their
  * own files.
  */
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -25,13 +25,11 @@ import {
   updatePreset,
 } from "../../src/store/api.js";
 import type { Preset } from "../../src/types.js";
-import type { Model } from "@mariozechner/pi-ai";
-import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
+import {
+  makeStubModelRegistry,
+  type RegistryStub,
+} from "../helpers/model-registry.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-
-interface RegistryStub {
-  models: Record<string, Record<string, { hasKey: boolean }>>;
-}
 
 const fullRegistry: RegistryStub = {
   models: {
@@ -39,33 +37,16 @@ const fullRegistry: RegistryStub = {
     openai: { "gpt-5": { hasKey: true } },
   },
 };
+
 let dir: string;
 let agentDir: string;
 let projectDir: string;
 let prevAgentDirEnv: string | undefined;
 
 function makeCtx(cwd: string, stub: RegistryStub) {
-  const modelRegistry = {
-    find(provider: string, modelId: string): Model<never> | undefined {
-      const present = stub.models[provider]?.[modelId];
-
-      if (!present) return undefined;
-
-      return { provider, id: modelId } as unknown as Model<never>;
-    },
-    hasConfiguredAuth(model: Model<never>): boolean {
-      return stub.models[model.provider]?.[model.id]?.hasKey ?? false;
-    },
-  };
-
   return {
     cwd,
-    // `StorageContext` types `modelRegistry` as the full `ModelRegistry`
-    // class, which includes private fields (`authStorage`, `models`, etc.)
-    // that a structural stub cannot satisfy. Cast at the boundary so test
-    // call sites stay ergonomic; the only surface storage-layer code
-    // actually reads is `find` + `hasConfiguredAuth`.
-    modelRegistry: modelRegistry as unknown as ModelRegistry,
+    modelRegistry: makeStubModelRegistry(stub),
   };
 }
 
@@ -106,21 +87,12 @@ describe("loadAll", () => {
 
   it("merges both scopes and surfaces warnings from each", async () => {
     // Write a malformed global file (warning) and a valid project file.
+    await mkdir(join(agentDir, "presets-plus"), { recursive: true });
     await writeFile(
       join(agentDir, "presets-plus", "presets.json"),
       "not json",
-      { encoding: "utf-8", flag: "w" },
-    ).catch(async () => {
-      // Parent dir doesn't exist yet — create it via a quick mkdir.
-      const { mkdir } = await import("node:fs/promises");
-
-      await mkdir(join(agentDir, "presets-plus"), { recursive: true });
-      await writeFile(
-        join(agentDir, "presets-plus", "presets.json"),
-        "not json",
-        "utf-8",
-      );
-    });
+      "utf-8",
+    );
 
     const ctx = makeCtx(projectDir, fullRegistry);
 
@@ -128,9 +100,9 @@ describe("loadAll", () => {
 
     const result = await loadAll(ctx);
 
-    expect(result.presets.map((p) => `${p.scope}:${p.name}`)).toEqual([
-      "project:plan",
-    ]);
+    expect(
+      result.presets.map((loaded) => `${loaded.scope}:${loaded.name}`),
+    ).toEqual(["project:plan"]);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain("invalid JSON");
   });
@@ -146,11 +118,9 @@ describe("loadAll", () => {
 
     const first = await loadAll(ctx);
 
-    expect(first.presets.map((p) => p.name)).toEqual(["a"]);
+    expect(first.presets.map((loaded) => loaded.name)).toEqual(["a"]);
 
     // External edit: bypass the API and write directly.
-    const { mkdir } = await import("node:fs/promises");
-
     await mkdir(join(agentDir, "presets-plus"), { recursive: true });
     await writeFile(
       join(agentDir, "presets-plus", "presets.json"),
@@ -163,7 +133,7 @@ describe("loadAll", () => {
 
     const second = await loadAll(ctx);
 
-    expect(second.presets.map((p) => p.name)).toEqual(["a", "b"]);
+    expect(second.presets.map((loaded) => loaded.name)).toEqual(["a", "b"]);
   });
 });
 
@@ -180,7 +150,7 @@ describe("saveScope", () => {
     };
 
     expect(parsed.version).toBe(1);
-    expect(parsed.presets.map((p) => p.name)).toEqual(["plan", "ship"]);
+    expect(parsed.presets.map((entry) => entry.name)).toEqual(["plan", "ship"]);
   });
 
   it("only touches the affected scope's file", async () => {
@@ -190,9 +160,9 @@ describe("saveScope", () => {
 
     const result = await loadAll(ctx);
 
-    expect(result.presets.map((p) => `${p.scope}:${p.name}`)).toEqual([
-      "project:p",
-    ]);
+    expect(
+      result.presets.map((loaded) => `${loaded.scope}:${loaded.name}`),
+    ).toEqual(["project:p"]);
   });
 
   it("strips merge-only metadata when round-tripping LoadedPresets", async () => {
@@ -226,7 +196,7 @@ describe("addPreset", () => {
 
     const loaded = await loadAll(ctx);
 
-    expect(loaded.presets.map((p) => p.name)).toEqual(["plan"]);
+    expect(loaded.presets.map((entry) => entry.name)).toEqual(["plan"]);
   });
 
   it("returns Err on name collision within the same scope", async () => {
@@ -269,7 +239,7 @@ describe("updatePreset", () => {
 
     expect(result).toEqual({ ok: true });
 
-    const names = (await loadAll(ctx)).presets.map((p) => p.name);
+    const names = (await loadAll(ctx)).presets.map((entry) => entry.name);
 
     expect(names).toEqual(["a", "b", "c"]);
 
@@ -286,7 +256,9 @@ describe("updatePreset", () => {
     const result = await updatePreset("old", "user", preset("new"), ctx);
 
     expect(result).toEqual({ ok: true });
-    expect((await loadAll(ctx)).presets.map((p) => p.name)).toEqual(["new"]);
+    expect((await loadAll(ctx)).presets.map((entry) => entry.name)).toEqual([
+      "new",
+    ]);
   });
 
   it("returns Err when the target name is missing", async () => {
@@ -316,7 +288,9 @@ describe("removePreset", () => {
     const result = await removePreset("a", "user", ctx);
 
     expect(result).toEqual({ ok: true });
-    expect((await loadAll(ctx)).presets.map((p) => p.name)).toEqual(["b"]);
+    expect((await loadAll(ctx)).presets.map((entry) => entry.name)).toEqual([
+      "b",
+    ]);
   });
 
   it("is a no-op when the entry does not exist (idempotent)", async () => {
@@ -327,7 +301,9 @@ describe("removePreset", () => {
     const result = await removePreset("missing", "user", ctx);
 
     expect(result).toEqual({ ok: true });
-    expect((await loadAll(ctx)).presets.map((p) => p.name)).toEqual(["a"]);
+    expect((await loadAll(ctx)).presets.map((entry) => entry.name)).toEqual([
+      "a",
+    ]);
   });
 });
 
@@ -337,7 +313,7 @@ describe("reorderWithinScope", () => {
 
     await saveScope("user", [preset("a"), preset("b"), preset("c")], ctx);
     await reorderWithinScope("user", ["c", "a", "b"], ctx);
-    expect((await loadAll(ctx)).presets.map((p) => p.name)).toEqual([
+    expect((await loadAll(ctx)).presets.map((entry) => entry.name)).toEqual([
       "c",
       "a",
       "b",
@@ -349,7 +325,7 @@ describe("reorderWithinScope", () => {
 
     await saveScope("user", [preset("a"), preset("b"), preset("c")], ctx);
     await reorderWithinScope("user", ["c"], ctx);
-    expect((await loadAll(ctx)).presets.map((p) => p.name)).toEqual([
+    expect((await loadAll(ctx)).presets.map((entry) => entry.name)).toEqual([
       "c",
       "a",
       "b",
@@ -361,7 +337,10 @@ describe("reorderWithinScope", () => {
 
     await saveScope("user", [preset("a"), preset("b")], ctx);
     await reorderWithinScope("user", ["ghost", "b", "a"], ctx);
-    expect((await loadAll(ctx)).presets.map((p) => p.name)).toEqual(["b", "a"]);
+    expect((await loadAll(ctx)).presets.map((entry) => entry.name)).toEqual([
+      "b",
+      "a",
+    ]);
   });
 
   it("ignores duplicate names within the requested order", async () => {
@@ -369,6 +348,9 @@ describe("reorderWithinScope", () => {
 
     await saveScope("user", [preset("a"), preset("b")], ctx);
     await reorderWithinScope("user", ["a", "a", "b"], ctx);
-    expect((await loadAll(ctx)).presets.map((p) => p.name)).toEqual(["a", "b"]);
+    expect((await loadAll(ctx)).presets.map((entry) => entry.name)).toEqual([
+      "a",
+      "b",
+    ]);
   });
 });
