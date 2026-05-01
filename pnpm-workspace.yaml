@@ -1,3 +1,4 @@
 allowBuilds:
+  fallow: true
   koffi: true
   protobufjs: true

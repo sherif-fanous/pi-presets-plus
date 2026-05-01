@@ -1,4 +1,5 @@
 .DS_Store
+.fallow/
 .pi/
 node_modules/
 openspec/changes/*

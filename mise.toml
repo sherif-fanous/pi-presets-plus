@@ -4,6 +4,15 @@ _.path = ["{{config_root}}/node_modules/.bin"]
 [tasks.check]
 depends = ["format-check", "type-check", "lint", "test"]
 
+[tasks.fallow]
+depends = ["fallow-dead-code", "fallow-dupes"]
+
+[tasks.fallow-dead-code]
+run = "fallow dead-code"
+
+[tasks.fallow-dupes]
+run = "fallow dupes"
+
 [tasks.format]
 run = "prettier --write eslint.config.mjs package.json src/. tests/. tsconfig.json vitest.config.ts"
 

@@ -42,6 +42,9 @@ importers:
       eslint-plugin-unicorn:
         specifier: ^64.0.0
         version: 64.0.0(eslint@10.2.1)
+      fallow:
+        specifier: ^2.55.0
+        version: 2.56.0
       prettier:
         specifier: ^3.8.3
         version: 3.8.3
@@ -362,6 +365,46 @@ packages:
   '@eslint/plugin-kit@0.7.1':
     resolution: {integrity: sha512-rZAP3aVgB9ds9KOeUSL+zZ21hPmo8dh6fnIFwRQj5EAZl9gzR7wxYbYXYysAM8CTqGmUGyp2S4kUdV17MnGuWQ==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
+
+  '@fallow-cli/darwin-arm64@2.56.0':
+    resolution: {integrity: sha512-KsJEq8gZ0o83wIykwNLFBXIEXUGA288gS7UIQLaWNXttlf7TYLlYqHzyXijas/Uch97QY3eKsb7seuwL442SYQ==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@fallow-cli/darwin-x64@2.56.0':
+    resolution: {integrity: sha512-iF2msec6H8IbqP9viQg0D3AfUb37m9TnB0lL0dagKYxr0liiqfgFTdnZ1nXzn7ezj8nFPzka7HyvrQ/cSiq2bA==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@fallow-cli/linux-arm64-gnu@2.56.0':
+    resolution: {integrity: sha512-wIDQbO5x486BDzr/17z9zloB000cDog8CiLcFCN/HOfLpp8ky/krYuzfoR7PxVgdTqF11JNQ8YpPYfFRa/KYJg==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@fallow-cli/linux-arm64-musl@2.56.0':
+    resolution: {integrity: sha512-Ro/MOnNamUbVgx0CMQ3HbBzC/a6nhNw6L9ke575/HAtYPhVK2oqO/UEW+yH6BmnFkdGGxTCUPWYR42mW5k7mBQ==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@fallow-cli/linux-x64-gnu@2.56.0':
+    resolution: {integrity: sha512-c0NtJ2Iy8XUIAik5b2hlUtsXqIbX4RVyrTA1rLnyGZYGH2TRhk5uJQH+bg7wMyY6cpuFcAUGS+xqx2qWPalf8g==}
+    cpu: [x64]
+    os: [linux]
+
+  '@fallow-cli/linux-x64-musl@2.56.0':
+    resolution: {integrity: sha512-Sq6V3yEtClfmE3Hv/V42pBz6FTWPB+p7WdSIzR12sWY0MzGdJlCH+QA8cJUNO+IYRB2Gdym7cSouP/qvEQgtsQ==}
+    cpu: [x64]
+    os: [linux]
+
+  '@fallow-cli/win32-arm64-msvc@2.56.0':
+    resolution: {integrity: sha512-5kDhI1hT3c4QOdmXQBe/izbS+SpGaf+TUrHiWykvFzWecL494yNah9elMgcawfcUtYj6uGIJh3X6iKK5PgWBng==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@fallow-cli/win32-x64-msvc@2.56.0':
+    resolution: {integrity: sha512-8gaMEURJ+iLNocraRbU9dth4cprD40dABZcM3rD3zjyDC9SktSBUuwmqNsDVb35sDsL2orcZDBJUrG2o0smemA==}
+    cpu: [x64]
+    os: [win32]
 
   '@google/genai@1.50.1':
     resolution: {integrity: sha512-YbkX7H9+1Pt8wOt7DDREy8XSoiL6fRDzZQRyaVBarFf8MR3zHGqVdvM4cLbDXqPhxqvegZShgfxb8kw9C7YhAQ==}
@@ -1271,6 +1314,11 @@ packages:
   extract-zip@2.0.1:
     resolution: {integrity: sha512-GDhU9ntwuKyGXdZBUgTIe+vXnWj0fppUEtMDL0+idd5Sta8TGpHssn/eusA9mrPr9qNDym6SxAYZjNvCn/9RBg==}
     engines: {node: '>= 10.17.0'}
+    hasBin: true
+
+  fallow@2.56.0:
+    resolution: {integrity: sha512-nf1S93kufo56pXbwHTBH8gC+1v+fL8Xur1HmqCwnhlNZz6rRVAt54JtwZRX4YNyzmo9E6EFmBjq3pgTWBZVFMA==}
+    engines: {node: '>=16'}
     hasBin: true
 
   fast-deep-equal@3.1.3:
@@ -2666,6 +2714,30 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
+  '@fallow-cli/darwin-arm64@2.56.0':
+    optional: true
+
+  '@fallow-cli/darwin-x64@2.56.0':
+    optional: true
+
+  '@fallow-cli/linux-arm64-gnu@2.56.0':
+    optional: true
+
+  '@fallow-cli/linux-arm64-musl@2.56.0':
+    optional: true
+
+  '@fallow-cli/linux-x64-gnu@2.56.0':
+    optional: true
+
+  '@fallow-cli/linux-x64-musl@2.56.0':
+    optional: true
+
+  '@fallow-cli/win32-arm64-msvc@2.56.0':
+    optional: true
+
+  '@fallow-cli/win32-x64-msvc@2.56.0':
+    optional: true
+
   '@google/genai@1.50.1':
     dependencies:
       google-auth-library: 10.6.2
@@ -3715,6 +3787,19 @@ snapshots:
       '@types/yauzl': 2.10.3
     transitivePeerDependencies:
       - supports-color
+
+  fallow@2.56.0:
+    dependencies:
+      detect-libc: 2.1.2
+    optionalDependencies:
+      '@fallow-cli/darwin-arm64': 2.56.0
+      '@fallow-cli/darwin-x64': 2.56.0
+      '@fallow-cli/linux-arm64-gnu': 2.56.0
+      '@fallow-cli/linux-arm64-musl': 2.56.0
+      '@fallow-cli/linux-x64-gnu': 2.56.0
+      '@fallow-cli/linux-x64-musl': 2.56.0
+      '@fallow-cli/win32-arm64-msvc': 2.56.0
+      '@fallow-cli/win32-x64-msvc': 2.56.0
 
   fast-deep-equal@3.1.3: {}
 

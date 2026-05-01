@@ -17,6 +17,9 @@ mise run <task>
 | Task                         | Description                                                             |
 | :--------------------------- | :---------------------------------------------------------------------- |
 | `mise run check`             | Run format-check, type-check, lint, and test (the full pre-commit gate) |
+| `mise run fallow`            | Run both `fallow-dead-code` and `fallow-dupes` as an advisory audit     |
+| `mise run fallow-dead-code`  | Report unused exports / dead code via `fallow dead-code`                |
+| `mise run fallow-dupes`      | Report duplicated code via `fallow dupes`                               |
 | `mise run format`            | Auto-format source files with Prettier                                  |
 | `mise run format-check`      | Check formatting without writing changes                                |
 | `mise run install-deps`      | Install npm dependencies                                                |
@@ -31,6 +34,14 @@ mise run <task>
 | `mise run update-deps`       | Update npm dependencies                                                 |
 
 ## Code conventions
+
+The `fallow-*` tasks (and their `fallow` aggregator) are **advisory
+audits, not gates**. Run them periodically — e.g. before a release or
+when cleaning up a module — and use human judgement on the output.
+They are intentionally excluded from `check` because their reports
+routinely contain legitimate false positives (public API exports,
+intentionally-parallel code) that would make the pre-commit gate
+noisy and encourage reflexive "fix it to shut the tool up" refactors.
 
 Prettier, Biome, ESLint, and `tsc` enforce formatting, import order,
 naming, file-section ordering, kebab-case filenames, function-declaration
