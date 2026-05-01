@@ -30,14 +30,14 @@ import { atomicWrite } from "./save.js";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 /** Result of {@link loadAll}. */
-export interface LoadAllResult {
+interface LoadAllResult {
   presets: LoadedPreset[];
   warnings: string[];
 }
 /** Result type for mutating operations: success carries no payload. */
-export type SaveResult = { ok: true } | { ok: false; reason: string };
+type SaveResult = { ok: true } | { ok: false; reason: string };
 /** Subset of `ExtensionContext` the storage API actually needs. */
-export type StorageContext = Pick<ExtensionContext, "cwd" | "modelRegistry">;
+type StorageContext = Pick<ExtensionContext, "cwd" | "modelRegistry">;
 
 /**
  * Append a preset to the named scope.
@@ -56,7 +56,7 @@ export async function addPreset(
   if (current.some((existing) => existing.name === preset.name)) {
     return {
       ok: false,
-      reason: `A preset named "${preset.name}" already exists in scope "${presetScope}".`,
+      reason: `a preset named "${preset.name}" already exists in scope "${presetScope}".`,
     };
   }
 
@@ -186,7 +186,7 @@ export async function updatePreset(
   if (index === -1) {
     return {
       ok: false,
-      reason: `No preset named "${oldName}" in scope "${scope}".`,
+      reason: `no preset named "${oldName}" in scope "${scope}".`,
     };
   }
 
@@ -199,7 +199,7 @@ export async function updatePreset(
   ) {
     return {
       ok: false,
-      reason: `A preset named "${next.name}" already exists in scope "${scope}".`,
+      reason: `a preset named "${next.name}" already exists in scope "${scope}".`,
     };
   }
 

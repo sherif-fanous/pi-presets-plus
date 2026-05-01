@@ -5,5 +5,9 @@
  * stays an internal detail.
  */
 
-export { getArgumentCompletions, handlePresetsCommand } from "./router.js";
+export {
+  getArgumentCompletions,
+  handlePresetsCommand,
+  setCompletionPresetNames,
+} from "./router.js";
 export { surfaceWarnings } from "./notify.js";

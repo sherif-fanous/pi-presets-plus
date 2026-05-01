@@ -12,7 +12,10 @@ import type { Model } from "@mariozechner/pi-ai";
 import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
 
 export interface RegistryStub {
-  models: Record<string, Record<string, { hasKey: boolean }>>;
+  models: Record<
+    string,
+    Record<string, { hasKey: boolean; reasoning?: boolean }>
+  >;
 }
 
 export function makeStubModelRegistry(stub: RegistryStub): ModelRegistry {
@@ -22,7 +25,11 @@ export function makeStubModelRegistry(stub: RegistryStub): ModelRegistry {
 
       if (!present) return undefined;
 
-      return { provider, id: modelId } as unknown as Model<never>;
+      return {
+        provider,
+        id: modelId,
+        reasoning: present.reasoning,
+      } as unknown as Model<never>;
     },
     hasConfiguredAuth(model: Model<never>): boolean {
       return stub.models[model.provider]?.[model.id]?.hasKey ?? false;

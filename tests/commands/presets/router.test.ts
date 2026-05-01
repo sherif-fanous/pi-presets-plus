@@ -79,8 +79,10 @@ describe("getArgumentCompletions", () => {
     const result = getArgumentCompletions("");
 
     expect(result.map((completion) => completion.value).sort()).toEqual([
+      "clear",
       "list",
       "reload",
+      "status",
     ]);
   });
 
@@ -134,7 +136,7 @@ describe("handlePresetsCommand", () => {
 
     const firstCall = notify.mock.calls[0];
 
-    expect(firstCall?.[0]).toContain("No presets configured.");
+    expect(firstCall?.[0]).toContain("no presets configured.");
     expect(firstCall?.[1]).toBe("info");
   });
 
@@ -143,7 +145,7 @@ describe("handlePresetsCommand", () => {
 
     await handlePresetsCommand("reload", ctx);
     expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify.mock.calls[0]?.[0]).toContain("Reloaded 0 presets");
+    expect(notify.mock.calls[0]?.[0]).toContain("reloaded 0 presets");
     expect(notify.mock.calls[0]?.[1]).toBe("info");
   });
 
@@ -153,6 +155,6 @@ describe("handlePresetsCommand", () => {
     const { ctx, notify } = makeStubCtx();
 
     await handlePresetsCommand("list extra tokens", ctx);
-    expect(notify.mock.calls[0]?.[0]).toContain("No presets configured.");
+    expect(notify.mock.calls[0]?.[0]).toContain("no presets configured.");
   });
 });

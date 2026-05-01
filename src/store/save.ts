@@ -25,7 +25,7 @@ import { dirname } from "node:path";
  * a stub that simulates rename failures (Node's ESM exports of native
  * modules are not spy-able via vitest).
  */
-export interface AtomicWriteFs {
+interface AtomicWriteFs {
   mkdir: typeof mkdir;
   open: typeof open;
   rename: typeof rename;

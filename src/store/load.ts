@@ -23,7 +23,7 @@ import type { Preset } from "../types.js";
 import { findDuplicatePresetNames, validatePresetShape } from "./validate.js";
 
 /** Output of {@link loadFile}. */
-export interface LoadFileResult {
+interface LoadFileResult {
   /** Presets that passed shape and uniqueness checks, in file order. */
   presets: Preset[];
   /** Human-readable warnings; safe to surface verbatim via `ctx.ui.notify`. */
@@ -57,7 +57,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
     if (isNotFoundError(err)) return emptyResult();
 
     return emptyResult(
-      `Failed to read preset file ${path}: ${describeError(err)}`,
+      `failed to read preset file ${path}: ${describeError(err)}`,
     );
   }
 
@@ -67,7 +67,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
     parsedData = JSON.parse(rawData);
   } catch (err) {
     return emptyResult(
-      `Preset file ${path} contains invalid JSON: ${describeError(err)}`,
+      `preset file ${path} contains invalid JSON: ${describeError(err)}`,
     );
   }
 
@@ -77,7 +77,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
     Array.isArray(parsedData)
   ) {
     return emptyResult(
-      `Preset file ${path} top-level must be an object with a "version" and "presets" field.`,
+      `preset file ${path} top-level must be an object with a "version" and "presets" field.`,
     );
   }
 
@@ -85,13 +85,13 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
 
   if (obj.version !== 1) {
     return emptyResult(
-      `Preset file ${path} declares unsupported version ${JSON.stringify(obj.version)}; expected 1. File ignored and left untouched.`,
+      `preset file ${path} declares unsupported version ${JSON.stringify(obj.version)}; expected 1. file ignored and left untouched.`,
     );
   }
 
   if (!Array.isArray(obj.presets)) {
     return emptyResult(
-      `Preset file ${path} is missing a top-level "presets" array.`,
+      `preset file ${path} is missing a top-level "presets" array.`,
     );
   }
 
@@ -109,7 +109,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
       const label = describeInvalidPreset(candidatePreset, i);
 
       warnings.push(
-        `Preset ${label} in ${path} skipped: ${result.reason ?? "invalid shape"}.`,
+        `preset ${label} in ${path} skipped: ${result.reason ?? "invalid shape"}.`,
       );
 
       continue;
@@ -134,7 +134,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
 
         if (dropped) {
           warnings.push(
-            `Preset "${dropped.name}" in ${path} skipped: duplicate name (first occurrence kept).`,
+            `preset "${dropped.name}" in ${path} skipped: duplicate name (first occurrence kept).`,
           );
         }
 

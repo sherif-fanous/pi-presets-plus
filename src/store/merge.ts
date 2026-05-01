@@ -20,7 +20,7 @@ import { computeAvailability } from "./validate.js";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 /** Per-scope inputs to {@link mergeScopes}. */
-export interface MergeScopesInput {
+interface MergeScopesInput {
   /** Presets from the global / user-scope file, in file order. */
   user: readonly Preset[];
   /** Presets from the project-scope file, in file order. */

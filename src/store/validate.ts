@@ -23,7 +23,7 @@ import type { Preset, ThinkingLevel } from "../types.js";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 /** Result of a single-preset shape check. */
-export interface ValidationResult {
+interface ValidationResult {
   ok: boolean;
   /** Human-readable reason the preset failed validation; absent on success. */
   reason?: string;

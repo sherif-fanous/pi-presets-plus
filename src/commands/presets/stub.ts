@@ -13,7 +13,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
  */
 export function showStubNotice(ctx: Pick<ExtensionContext, "ui">): void {
   ctx.ui.notify(
-    "No picker UI yet — try `/presets list` to see loaded presets, or `/presets reload` to re-read the JSON files. Picker arrives in a later change.",
+    "no picker UI yet. try `/presets list` to see loaded presets, or `/presets reload` to re-read the JSON files. picker arrives in a later change.",
     "info",
   );
 }

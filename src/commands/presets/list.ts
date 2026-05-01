@@ -36,9 +36,9 @@ type Styler = Pick<Theme, "fg" | "bold">;
 
 /** Header labels for each group; kept in one place for consistency. */
 const GROUP_HEADERS = {
-  project: "Project presets",
-  user: "User presets",
-  shadowed: "Shadowed user presets (overridden by project presets above)",
+  project: "project presets",
+  user: "user presets",
+  shadowed: "shadowed user presets (overridden by project presets above)",
 } as const;
 /** No-op styler that returns input unchanged; default for tests. */
 const IDENTITY_STYLER: Styler = {
@@ -60,12 +60,12 @@ const IDENTITY_STYLER: Styler = {
 const INLINE_LABELS = [
   "scope:",
   "model:",
-  "thinking:",
+  "thinking level:",
   "tools:",
   "hotkey:",
   "status:",
 ] as const;
-/** Widest inline label (e.g. `"thinking:"` → 9). Computed once. */
+/** Widest inline label (e.g. `"thinking level:"` → 15). Computed once. */
 const INLINE_LABEL_WIDTH = Math.max(
   ...INLINE_LABELS.map((label) => label.length),
 );
@@ -80,11 +80,11 @@ export function formatEmptyMessage(
   styler: Styler = IDENTITY_STYLER,
 ): string {
   return [
-    "No presets configured.",
-    "Create one of:",
+    "no presets configured.",
+    "create one of:",
     `  ${styler.fg("accent", getGlobalPresetsPath())}`,
     `  ${styler.fg("accent", getProjectPresetsPath(cwd))}`,
-    `Each file should contain { "version": 1, "presets": [...] }.`,
+    `each file should contain { "version": 1, "presets": [...] }.`,
   ].join("\n");
 }
 
@@ -199,7 +199,11 @@ function formatPresetBlock(loadedPreset: LoadedPreset, styler: Styler): string {
   );
 
   lines.push(
-    formatInlineRow("thinking:", loadedPreset.thinkingLevel ?? "off", styler),
+    formatInlineRow(
+      "thinking level:",
+      loadedPreset.thinkingLevel ?? "off",
+      styler,
+    ),
   );
 
   const toolsLabel =

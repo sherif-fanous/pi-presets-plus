@@ -6,9 +6,9 @@
  * loader output type (`LoadedPreset`), and a local `ThinkingLevel` that
  * extends `pi-ai`'s level set with the explicit `"off"` value used by pi.
  *
- * Later changes will extend this file (e.g. activation state in change
- * `add-preset-activation`); the file therefore intentionally exports only
- * the types needed up to the current change in the project plan.
+ * This file also owns the activation-state data shape introduced by change
+ * `add-preset-activation`. Runtime mutation of that state lives in
+ * `src/activation/active-state.ts`, not here.
  */
 
 /**
@@ -64,6 +64,13 @@ export interface Preset {
   order?: number;
 }
 
+/** Baseline Pi state captured before a preset overlay starts. */
+export interface PresetOverlayBaseline {
+  model: { provider: string; id: string } | null;
+  thinkingLevel: ThinkingLevel;
+  tools: string[];
+}
+
 /**
  * On-disk JSON shape for a single preset file (either scope).
  *
@@ -75,6 +82,21 @@ export interface PresetsFile {
   version: 1;
   presets: Preset[];
 }
+
+/** In-memory active-preset state for change `add-preset-activation`. */
+export type ActivePresetState =
+  | {
+      name: string;
+      scope: PresetScope;
+      restore: {
+        kind: "baseline";
+        baseline: PresetOverlayBaseline;
+        lastApplied: LastAppliedPresetEffects;
+        owned: PresetOverlayOwnership;
+        applyCount: number;
+      };
+    }
+  | { name: string; scope: PresetScope; restore: { kind: "unknown" } };
 
 /**
  * Origin scope for a loaded preset.
@@ -99,3 +121,17 @@ export type ThinkingLevel =
   | "medium"
   | "high"
   | "xhigh";
+
+/** Last values written by presets-plus inside the active overlay. */
+interface LastAppliedPresetEffects {
+  model: { provider: string; id: string };
+  thinkingLevel: ThinkingLevel;
+  tools?: string[];
+}
+
+/** Tracks which Pi channels are owned by the active preset overlay. */
+interface PresetOverlayOwnership {
+  model: true;
+  thinkingLevel: true;
+  tools: boolean;
+}
