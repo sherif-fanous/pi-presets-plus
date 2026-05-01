@@ -11,10 +11,10 @@ run = "prettier --write eslint.config.mjs package.json src/. tests/. tsconfig.js
 run = "prettier --check eslint.config.mjs package.json src/. tests/. tsconfig.json vitest.config.ts"
 
 [tasks.install-deps]
-run = "npm install --loglevel=verbose"
+run = "pnpm add --save-prod"
 
 [tasks.install-dev-deps]
-run = "npm install --save-dev --loglevel=verbose"
+run = "pnpm add --save-dev"
 
 [tasks.lint]
 run = "biome lint src/. tests/. && eslint src/. tests/."
@@ -35,10 +35,11 @@ run = "vitest"
 run = "tsc --noEmit"
 
 [tasks.uninstall-deps]
-run = "npm uninstall --loglevel=verbose"
+run = "pnpm remove"
 
 [tasks.update-deps]
-run = "npm update --loglevel=verbose"
+run = "pnpm update"
 
 [tools]
 node = "lts"
+"npm:pnpm" = "latest"
