@@ -1,12 +1,10 @@
 /**
  * Interactive picker for browsing and activating presets.
  *
- * Owns the `ctx.ui.custom` state machine for OpenSpec change
- * `add-preset-picker`; it does NOT own persistence, scope/rank filtering
- * (`./filter.ts`), card formatting (`./widgets.ts`), or the actual apply
- * side effects (`onActivate` is injected by the caller). Future editor and
- * shortcut changes can extend the reserved-key branches and card fields
- * while leaving filtering/scope behavior intact.
+ * Owns the `ctx.ui.custom` state machine that drives the picker dialog;
+ * it does NOT own persistence, scope/rank filtering, card formatting, or
+ * the activation side effects (the `onActivate` callback is injected by
+ * the caller).
  */
 import { getActive } from "../activation/active-state.js";
 import { surfaceWarnings } from "../commands/presets/notify.js";

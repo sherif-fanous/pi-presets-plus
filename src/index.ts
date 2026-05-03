@@ -1,13 +1,10 @@
 /**
  * pi-presets-plus extension entry point.
  *
- * Responsibilities (change `add-preset-activation`): register `/presets`,
- * activation message rendering, session restore, instruction injection, and a
- * reserved `model_select` self-call guard. Storage stays cache-free underneath;
- * this file only coordinates lifecycle boundaries.
- *
- * Later changes layer picker/editor UI, drift detection, and shortcut/flag
- * entry points on top of the same activation primitives.
+ * Owns lifecycle wiring with the pi host: command registration, custom
+ * message renderers, session-start pre-warming and restore, instruction
+ * injection, and self-call guards. It does NOT own storage, activation,
+ * or UI internals — those live in their dedicated modules.
  */
 
 import {

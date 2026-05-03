@@ -1,8 +1,8 @@
 /**
  * Public entry points for the `/presets` command.
  *
- * `src/index.ts` imports only from this barrel so the router structure
- * stays an internal detail.
+ * Owns the barrel that the extension entry point imports from; it does
+ * NOT own subcommand routing or implementation details.
  */
 
 export { getArgumentCompletions, handlePresetsCommand } from "./router.js";

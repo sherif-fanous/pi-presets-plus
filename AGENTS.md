@@ -87,10 +87,12 @@ project-wide unless noted.
 
 ### Documentation
 
-- Every source file opens with a JSDoc block stating: (a) the file's
-  role in one line, (b) what it owns vs. what it does NOT own,
-  (c) the OpenSpec change it belongs to, (d) future-change extension
-  points so reviewers know why current scope is intentionally narrow.
+- Every source file opens with a module-level JSDoc block stating:
+  (a) the file's role in one line, (b) what it owns vs. what it does
+  NOT own. Keep it high-level and change-agnostic — do NOT mention
+  OpenSpec change names, future-change extension points, or
+  implementation details (those belong on the relevant function/type,
+  in the OpenSpec proposal, or in inline comments).
 - Comments explain _why_, not _what_. Common patterns: rationale on
   trivial wrappers, behavior matrices in JSDoc for branchy functions,
   invariant statements, and visual-width / ANSI gotchas.

@@ -1,10 +1,9 @@
 /**
- * `/presets reload` — re-read both scope files and report the count.
+ * `/presets reload` command runner.
  *
- * A single notification per invocation: warnings are appended to the
- * count message rather than fired as separate notifications so a noisy
- * file does not flood the UI (the same policy as `session_start`
- * pre-warming in `src/index.ts`).
+ * Owns re-reading both scope files on demand and reporting the result to
+ * the user as a single notification; it does NOT own the underlying
+ * storage layer or activation state.
  */
 import { loadAll } from "../../store/api.js";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";

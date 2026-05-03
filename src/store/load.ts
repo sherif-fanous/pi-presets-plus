@@ -1,21 +1,9 @@
 /**
  * Single-file loader for preset storage.
  *
- * `loadFile(path)` reads a single scope file and returns the valid presets
- * it contains plus a list of human-readable warnings. The loader follows
- * the storage spec's two-tier policy:
- *
- * - **File-level errors** (missing file, malformed JSON, wrong version,
- *   wrong top-level shape) → treat the file as empty + warn. The file is
- *   not modified or deleted; users can fix it externally and reload.
- *
- * - **Per-preset errors** (failed shape validation, duplicate names) →
- *   skip that preset + warn naming the offender. Other valid presets in
- *   the same file still load.
- *
- * The loader does no merging or availability computation; that happens in
- * `merge.ts`. It is fully synchronous-from-disk except for the `readFile`
- * call so that callers can drive it concurrently across both scopes.
+ * Owns reading one scope file from disk and turning it into a list of
+ * valid presets plus human-readable warnings; it does NOT own merging
+ * across scopes, availability computation, or any mutation.
  */
 import { readFile } from "node:fs/promises";
 

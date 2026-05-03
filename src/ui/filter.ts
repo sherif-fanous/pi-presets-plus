@@ -1,11 +1,8 @@
 /**
  * Pure preset filtering helpers for the picker UI.
  *
- * Owns ranking and scope filtering of loaded presets for OpenSpec change
- * `add-preset-picker`; it does NOT own rendering, picker state, or
- * activation. Future fuzzy scoring can replace the subsequence fallback
- * here while preserving the exported `rankPresets` contract and its stable
- * within-group ordering.
+ * Owns ranking and scope filtering of loaded presets; it does NOT own
+ * rendering, picker state, or activation.
  */
 import type { LoadedPreset } from "../types.js";
 

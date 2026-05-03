@@ -1,10 +1,9 @@
 /**
- * In-memory active-preset reference for activation runtime.
+ * In-memory active-preset reference for the activation runtime.
  *
- * Owns only the module-scoped state cell for change `add-preset-activation`;
- * it does NOT persist session entries, update status, or mutate model/tools.
- * Future drift-detection work can extend callers with a dirty flag without
- * replacing this narrow accessor surface.
+ * Owns the module-scoped state cell tracking which preset is currently
+ * active; it does NOT persist session entries, update status, or mutate
+ * pi model/tool state.
  */
 import type { ActivePresetState } from "../types.js";
 

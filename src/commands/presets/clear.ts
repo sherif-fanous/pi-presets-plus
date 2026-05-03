@@ -1,10 +1,8 @@
 /**
  * `/presets clear` command runner.
  *
- * Owns only command-bound delegation for OpenSpec change
- * `add-preset-activation`; restore semantics live in `activation/clear.ts`.
- * Future confirmation prompts can be added here without widening the clear
- * engine's dependencies.
+ * Owns command-bound delegation to the activation clear engine; restore
+ * semantics live in `activation/clear.ts`.
  */
 import { clear } from "../../activation/clear.js";
 import type {

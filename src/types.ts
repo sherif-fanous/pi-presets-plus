@@ -1,14 +1,10 @@
 /**
  * Shared type definitions for pi-presets-plus.
  *
- * The storage layer (change `add-preset-storage`) introduces the persistent
- * preset shape (`Preset`, `PresetsFile`), the scope tag (`PresetScope`), the
- * loader output type (`LoadedPreset`), and a local `ThinkingLevel` that
- * extends `pi-ai`'s level set with the explicit `"off"` value used by pi.
- *
- * This file also owns the activation-state data shape introduced by change
- * `add-preset-activation`. Runtime mutation of that state lives in
- * `src/activation/active-state.ts`, not here.
+ * Owns the persistent preset shapes (`Preset`, `PresetsFile`), scope and
+ * loader output types (`PresetScope`, `LoadedPreset`), the activation
+ * state shape, and a local `ThinkingLevel` that extends `pi-ai`'s level
+ * set with the explicit `"off"` value used by pi.
  */
 
 /**

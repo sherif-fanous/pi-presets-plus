@@ -1,11 +1,8 @@
 /**
  * Reusable preset-picker widget primitives.
  *
- * Owns readable key/value preset card rendering for OpenSpec change
- * `add-preset-picker`; it does NOT own picker state, keyboard handling, or
- * activation. Future editor/capture UIs can reuse the exported formatting
- * helpers and card component, adding hotkey/drift fields without changing the
- * picker state machine.
+ * Owns readable key/value preset card rendering; it does NOT own picker
+ * state, keyboard handling, or activation.
  */
 import type { LoadedPreset } from "../types.js";
 import type { Theme } from "@mariozechner/pi-coding-agent";

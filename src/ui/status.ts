@@ -1,9 +1,8 @@
 /**
  * Status-bar rendering for active presets.
  *
- * Owns the compact `presets-plus` footer status entry for OpenSpec change
- * `add-preset-activation`; it does NOT compute drift or mutate active state.
- * Change 6 may extend the rendered text with a dirty marker.
+ * Owns the compact `presets-plus` footer status entry; it does NOT
+ * compute drift or mutate active state.
  */
 import type { ActivePresetState, LoadedPreset } from "../types.js";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";

@@ -1,21 +1,12 @@
 /**
- * High-level storage API consumed by the rest of the extension.
+ * High-level storage API for presets.
  *
- * The lower-level modules in this folder (`paths`, `validate`, `load`,
- * `merge`, `save`) are pure / single-purpose. This module composes them
- * into the operations later changes will call:
- *
- * - `loadAll(ctx)`           — read both scopes, merge, return ordered list
- * - `saveScope(scope, ...)`  — atomic-write a full scope file
- * - `addPreset` / `updatePreset` / `removePreset` / `reorderWithinScope`
- *                              — CRUD primitives that read-modify-write the
- *                                affected scope's file only
- *
- * Each mutating operation re-reads from disk (no in-memory cache) so
- * callers always operate against the latest committed state. Mutations
- * that would violate the file's invariants (e.g. duplicate name) return
- * an `Err` result instead of throwing — UI callers in later changes can
- * map these to user-facing notifications without try/catch boilerplate.
+ * Owns the operations the rest of the extension calls to read and mutate
+ * presets across both scopes: `loadAll`, `saveScope`, and the CRUD
+ * primitives (`addPreset`, `updatePreset`, `removePreset`,
+ * `reorderWithinScope`). Storage is cache-free — every call re-reads
+ * from disk — and mutations that would violate file invariants return an
+ * `Err` result rather than throwing.
  */
 import type {
   LoadedPreset,

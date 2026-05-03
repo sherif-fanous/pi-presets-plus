@@ -1,9 +1,8 @@
 /**
  * Current-state comparison for active presets.
  *
- * Owns deciding whether pi already matches a preset for change
- * `add-preset-activation`; it does NOT mutate state or notify users. Change 6
- * can reuse this helper for dirty/clean drift detection.
+ * Owns deciding whether pi's current state already matches a preset; it
+ * does NOT mutate state or notify users.
  */
 import type { LoadedPreset } from "../types.js";
 import { effectiveThinkingLevel } from "./thinking.js";

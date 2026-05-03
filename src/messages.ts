@@ -1,15 +1,8 @@
 /**
- * Custom conversation messages for preset activation.
+ * Custom conversation message types and renderers for pi-presets-plus.
  *
- * Owns the `presets-plus:activated` message shape and renderer for OpenSpec
- * change `add-preset-activation`; it does NOT send messages. Future messages
- * should use separate custom types to keep renderers simple.
- *
- * Renderer is intentionally a single muted line ("Preset <name> applied")
- * because the picker card already showed the resolved model/thinking values
- * the user just chose. The full details remain on `message.details` so
- * future callers (session replay, telemetry, drift detection) can still
- * read the resolved fields without us repeating them in the conversation.
+ * Owns the message shapes and how they appear in the conversation log; it
+ * does NOT send messages or own activation logic.
  */
 import type { ThinkingLevel } from "./types.js";
 import type { MessageRenderer } from "@mariozechner/pi-coding-agent";

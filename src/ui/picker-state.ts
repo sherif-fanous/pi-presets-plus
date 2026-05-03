@@ -1,11 +1,9 @@
 /**
  * Pure state transitions for the preset picker.
  *
- * Owns focus/scope/selection/scroll invariants for OpenSpec change
- * `add-preset-picker`; it does NOT own terminal input decoding, rendering,
- * activation side effects, or pi-tui component wiring. Future editor flows can
- * extend this controller with additional modes/actions while keeping the TUI
- * component as a thin adapter.
+ * Owns focus, scope, selection, and scroll invariants for the picker; it
+ * does NOT own terminal input decoding, rendering, activation side
+ * effects, or pi-tui component wiring.
  */
 import type { LoadedPreset } from "../types.js";
 import { applyScopeFilter, rankPresets, type ScopeFilter } from "./filter.js";

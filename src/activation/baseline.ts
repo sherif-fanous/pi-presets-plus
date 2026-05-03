@@ -1,10 +1,9 @@
 /**
  * Baseline capture for preset activation overlays.
  *
- * Owns reading current Pi state before presets-plus starts or restarts a
- * baseline-managed overlay for OpenSpec change `add-preset-activation`; it
- * does NOT apply presets or restore state. Future restorable fields should be
- * added here only when clear can safely reason about ownership.
+ * Owns reading the current pi state so a preset can later be cleared back
+ * to its pre-activation values; it does NOT apply presets or restore
+ * state.
  */
 import type { PresetOverlayBaseline } from "../types.js";
 import type {

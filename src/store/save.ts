@@ -1,21 +1,9 @@
 /**
  * Atomic file writes for preset storage.
  *
- * `atomicWrite(target, contents)`:
- *
- *  1. `mkdir -p` the parent directory.
- *  2. Write to a unique tmp file in the same directory.
- *  3. `fsync()` the tmp file so its contents are durable on disk.
- *  4. `rename(tmp, target)` — atomic on POSIX and on NTFS via Node's
- *     `fs.rename` (which uses `MOVEFILE_REPLACE_EXISTING`).
- *
- * The tmp file is uniquely named with `process.pid` plus a high-resolution
- * timestamp so concurrent writers from different processes do not collide.
- * On any failure, the tmp file is best-effort removed; the destination is
- * never observed in a partially-written state.
- *
- * Concurrent edits within one process are last-write-wins. v1 storage
- * does not need cross-process locking at human edit rates.
+ * Owns the durable write primitive (`mkdir -p` → tmp file → `fsync` →
+ * `rename`) used everywhere presets-plus persists user-visible state, so
+ * the destination is never observed in a partially-written form.
  */
 import { mkdir, open, rename, unlink } from "node:fs/promises";
 import { dirname } from "node:path";

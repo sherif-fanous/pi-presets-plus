@@ -1,16 +1,9 @@
 /**
  * Path resolution for preset storage files.
  *
- * Two scopes:
- * - "user" / global  →  `<agent-dir>/presets-plus/presets.json`
- * - "project"        →  `<cwd>/.pi/presets-plus/presets.json`
- *
- * The `presets-plus/` subdirectory leaves room for sibling files
- * (e.g. history, hotkeys) without polluting the parent agent / `.pi/`
- * directory. Both helpers return absolute paths and do not perform any I/O.
- *
- * Tests inject a fake agent dir via `getGlobalPresetsPath(fakeAgentDir)`
- * to avoid depending on the real user environment.
+ * Owns resolving the absolute on-disk location of each scope's presets
+ * file (global under the agent dir, project under `<cwd>/.pi/`); it does
+ * NOT perform any I/O.
  */
 import { join } from "node:path";
 

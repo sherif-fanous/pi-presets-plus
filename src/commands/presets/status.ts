@@ -1,10 +1,9 @@
 /**
  * `/presets status` textual diagnostic.
  *
- * Owns formatting active-vs-current baseline-overlay state for OpenSpec change
- * `add-preset-activation`; it does NOT update the footer indicator or mutate
- * the active attachment. Future drift detection can reuse the same
- * classification helpers while keeping this command as an explicit diagnostic.
+ * Owns formatting the active preset and its baseline-overlay state into a
+ * user-facing report; it does NOT update the footer indicator or mutate
+ * the active attachment.
  */
 import { getActive } from "../../activation/active-state.js";
 import { loadAll } from "../../store/api.js";

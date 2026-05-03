@@ -1,10 +1,8 @@
 /**
  * Thinking-level capability helpers for preset activation.
  *
- * Owns the mapping from a resolved model to the preset thinking levels this
- * change may apply; it does NOT mutate pi state or surface UI notifications.
- * Part of OpenSpec change `add-preset-activation`. Future picker/editor
- * changes can reuse these helpers to preview clamping before activation.
+ * Owns the mapping from a resolved model to the thinking levels a preset
+ * may legally apply; it does NOT mutate pi state or surface notifications.
  */
 import type { Preset, ThinkingLevel } from "../types.js";
 import type { Api, Model } from "@mariozechner/pi-ai";

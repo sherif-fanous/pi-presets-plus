@@ -1,10 +1,9 @@
 /**
  * `/presets` subcommand router.
  *
- * Owns command token dispatch and autocomplete for change
- * `add-preset-picker`; storage, activation, and clear semantics live in their
- * dedicated modules. Future quoted-name support can replace tokenization here
- * while preserving the single registry consumed by runtime and complete.
+ * Owns command token dispatch and autocomplete for the `/presets` command;
+ * storage, activation, picker, and clear semantics live in their dedicated
+ * modules.
  */
 import { apply } from "../../activation/apply.js";
 import { openPicker } from "../../ui/picker.js";

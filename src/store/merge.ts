@@ -1,19 +1,9 @@
 /**
  * Scope merge for preset storage.
  *
- * Given the per-scope outputs of {@link import("./load.js").loadFile},
- * `mergeScopes` produces the single ordered `LoadedPreset[]` returned by
- * `loadAll`. The order, scope tagging, shadowing, and availability rules
- * are all defined by the storage spec:
- *
- * - Tag each preset with its scope.
- * - Order: globals first (file order), then projects (file order).
- * - When a project preset shares a name with a global preset, the global
- *   stays in the list with `shadowed: true`. The project entry is the one
- *   that activation will consult later.
- * - Each entry's `unavailable` field is computed via `computeAvailability`.
- *
- * Pure (no I/O, no logging). Warning collection happens in `loadFile`.
+ * Owns combining the per-scope loader outputs into the single ordered
+ * `LoadedPreset[]` exposed by `loadAll`, including scope tagging,
+ * shadowing, and availability tagging. Pure: no I/O, no logging.
  */
 import type { LoadedPreset, Preset } from "../types.js";
 import { computeAvailability } from "./validate.js";

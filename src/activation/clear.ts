@@ -1,24 +1,9 @@
 /**
  * Active-preset clear flow.
  *
- * Owns baseline-overlay restore with user-override protection for OpenSpec
- * change `add-preset-activation`. The decision table is a pure function
- * (`decideClear`) so unit tests can exercise every branch without touching pi
- * or `ctx.ui`. The runner (`clear`) executes the decided writes, mutates the
- * model part to `restore-failed` when `pi.setModel` returns false, persists
- * the cleared session entry, refreshes the status indicator, and emits a
- * single user-visible summary via `renderClearSummary`.
- *
- * Rendering is split into three pure helpers so each can be tested in
- * isolation: `decideClear` (what to write + per-field outcome),
- * `chooseClearLead` (one-line plain-English disposition), and
- * `renderClearSummary` (assembles title + lead + rows). The shared
- * vocabulary in `formatRowValue` matches `runStatus` so users see the same
- * phrasing for "user manually overrode preset value" / "not managed by
- * <preset>" / "already at baseline" across both commands.
- *
- * Baselines are intentionally in-memory only, so restored sessions take the
- * priorUnknown branch until the user re-applies a preset.
+ * Owns restoring pi state from the baseline overlay (with user-override
+ * protection) and rendering a user-visible summary; it does NOT own apply,
+ * picker UI, or status formatting beyond its own summary.
  */
 import type { ActivePresetState, ThinkingLevel } from "../types.js";
 import { updateStatus } from "../ui/status.js";

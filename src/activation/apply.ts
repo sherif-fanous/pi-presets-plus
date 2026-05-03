@@ -1,15 +1,10 @@
 /**
  * Preset apply flow.
  *
- * Owns model/thinking/tools writes, baseline-overlay bookkeeping, activation
- * persistence, marker messages, and status refresh for OpenSpec change
- * `add-preset-activation`; it does NOT own command lookup or session restore.
- * The self-call guard around `pi.setModel` is exposed via
- * `withSelfTriggeredModelSet` so that other activation flows (e.g. `clear`)
- * suppress `model_select` echoes without duplicating the boolean.
- *
- * Returns `{ ok }` so UI callers (e.g. the picker) can stay open on refusal
- * paths without re-implementing the refusal predicates.
+ * Owns the end-to-end activation of a preset: writing model, thinking, and
+ * tool state, recording the baseline overlay, persisting activation, and
+ * refreshing status. It does NOT own command lookup, session restore, or
+ * picker UI.
  */
 import { ACTIVATED_MESSAGE_TYPE } from "../messages.js";
 import type { LoadedPreset } from "../types.js";

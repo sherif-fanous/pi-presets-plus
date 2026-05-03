@@ -1,11 +1,9 @@
 /**
  * Small terminal-frame layout helpers shared by custom TUI surfaces.
  *
- * Owns width-safe border/padding/centering primitives introduced during
- * OpenSpec change `add-preset-picker`; it does NOT own picker state,
- * activation, or any specific dialog content. Future editor/capture dialogs
- * can reuse these helpers to keep borders and visual-width truncation
- * consistent.
+ * Owns width-safe border, padding, and centering primitives reused by
+ * preset dialogs; it does NOT own picker state, activation, or any
+ * specific dialog content.
  */
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 

@@ -1,10 +1,8 @@
 /**
  * Shared notification helper for `/presets` subcommands.
  *
- * The storage spec requires load-time warnings to be surfaced as a single
- * rolled-up notification (rather than one-per-warning), so that a user
- * with several broken presets after a bad edit isn't flooded. This helper
- * is the canonical way subcommands and the session-start handler do that.
+ * Owns rolling load-time warnings into a single user-visible notification
+ * so callers do not flood the UI; it does NOT own loading or validation.
  */
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 

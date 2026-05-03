@@ -1,23 +1,9 @@
 /**
  * Validation primitives for the preset storage layer.
  *
- * Two layers of validation operate independently:
- *
- * 1. **Shape validation** (`validatePresetShape`): pure structural check
- *    on a single preset value. Returns a tagged result so the loader can
- *    skip-and-warn on individual offenders without failing the whole file.
- *
- * 2. **Cross-preset / cross-file checks**:
- *    - `findDuplicateNames` flags repeated names within an array.
- *
- * 3. **Availability** (`computeAvailability`): runtime check against pi's
- *    `ModelRegistry` for whether the preset's model exists and whether
- *    its provider has a usable API key. Returns the value the loader
- *    stores on `LoadedPreset.unavailable`.
- *
- * None of these helpers throw or perform I/O on the file system. They
- * are intentionally `pi-runtime`-free except for `computeAvailability`,
- * which only consumes the registry passed in via context.
+ * Owns shape validation of individual presets, duplicate-name detection
+ * within a list, and runtime availability checks against pi's model
+ * registry. None of these helpers throw or perform file-system I/O.
  */
 import type { Preset, ThinkingLevel } from "../types.js";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
