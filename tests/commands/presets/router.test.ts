@@ -1,11 +1,11 @@
 /**
  * Tests for `src/commands/presets/router.ts`.
  *
- * Focused on the router layer: argument completion filtering, bare
- * invocation (→ stub notice), unknown subcommand fallback, and dispatch
- * to the correct handler. The handlers themselves (`runList`,
- * `runReload`) are covered by their own test files plus the storage
- * API integration tests — here we stub out `ctx` entirely.
+ * Focused on the router layer: argument completion filtering, interactive
+ * mode guardrails, unsupported `list` handling, unknown subcommand fallback,
+ * and dispatch to non-picker subcommands. The handlers themselves
+ * (`runReload`) are covered by their own test files plus the storage API
+ * integration tests — here we stub out `ctx` entirely.
  */
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -22,19 +22,16 @@ let prevAgentDirEnv: string | undefined;
 
 /**
  * Build a fake `ExtensionCommandContext` with a spy-able `ui.notify` and
- * enough surface for `loadAll` to succeed. Tests that dispatch to `runList`
- * or `runReload` point `cwd` at a nonexistent dir so the loader returns
- * the empty-state path (no filesystem work needed).
+ * enough surface for `loadAll` to succeed when dispatching to commands that
+ * still read storage.
  *
  * Notes on isolation:
  * - `cwd` is a non-existent path → project-scope file is missing.
  * - `PI_CODING_AGENT_DIR` is overridden in `beforeEach` to a fresh tmp
  *   dir so the global-scope file is also missing. Without that, `loadAll`
- *   would read the developer's real `~/.pi/agent/presets-plus/presets.json`
- *   and tests assuming the empty-state path would fail.
- * - `ui.theme` provides identity stubs for `fg`/`bold` so the styled
- *   formatter in `runList` produces plain text suitable for substring
- *   assertions in the empty-state test.
+ *   would read the developer's real `~/.pi/agent/presets-plus/presets.json`.
+ * - `ui.theme` provides identity stubs for `fg`/`bold` so styled formatters
+ *   produce plain text suitable for substring assertions.
  */
 function makeStubCtx() {
   const notify = vi.fn<(message: string, type?: string) => void>();
@@ -75,12 +72,11 @@ afterEach(async () => {
 });
 
 describe("getArgumentCompletions", () => {
-  it("returns all subcommands when the prefix is empty", () => {
+  it("returns supported subcommands when the prefix is empty", () => {
     const result = getArgumentCompletions("");
 
     expect(result.map((completion) => completion.value).sort()).toEqual([
       "clear",
-      "list",
       "reload",
       "status",
     ]);
@@ -91,13 +87,16 @@ describe("getArgumentCompletions", () => {
       getArgumentCompletions("re").map((completion) => completion.value),
     ).toEqual(["reload"]);
 
-    expect(
-      getArgumentCompletions("li").map((completion) => completion.value),
-    ).toEqual(["list"]);
+    expect(getArgumentCompletions("li")).toEqual([]);
+  });
+
+  it("does not complete removed list flags", () => {
+    expect(getArgumentCompletions("list --t")).toEqual([]);
   });
 
   it("returns nothing when nothing matches", () => {
     expect(getArgumentCompletions("xyz")).toEqual([]);
+    expect(getArgumentCompletions("list --json")).toEqual([]);
   });
 
   it("each entry carries a human-readable label", () => {
@@ -108,13 +107,13 @@ describe("getArgumentCompletions", () => {
 });
 
 describe("handlePresetsCommand", () => {
-  it("shows the stub notice on bare invocation", async () => {
+  it("warns when the bare picker is invoked without interactive pi API", async () => {
     const { ctx, notify } = makeStubCtx();
 
     await handlePresetsCommand("", ctx);
     expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify.mock.calls[0]?.[0]).toContain("/presets list");
-    expect(notify.mock.calls[0]?.[1]).toBe("info");
+    expect(notify.mock.calls[0]?.[0]).toContain("interactive mode");
+    expect(notify.mock.calls[0]?.[1]).toBe("warning");
   });
 
   it("warns on an unknown subcommand", async () => {
@@ -126,18 +125,37 @@ describe("handlePresetsCommand", () => {
     expect(notify.mock.calls[0]?.[1]).toBe("warning");
   });
 
-  it("dispatches `list` to runList (empty-state path)", async () => {
+  it("does not open the picker for `list`", async () => {
     const { ctx, notify } = makeStubCtx();
 
     await handlePresetsCommand("list", ctx);
-    // runList with no presets emits a single info notification listing
-    // both file paths the user could create.
-    expect(notify).toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify.mock.calls[0]?.[0]).toContain("not a supported");
+    expect(notify.mock.calls[0]?.[0]).toContain("/presets");
+    expect(notify.mock.calls[0]?.[1]).toBe("warning");
+  });
 
-    const firstCall = notify.mock.calls[0];
+  it("does not print text for `list --text`", async () => {
+    const { ctx, notify } = makeStubCtx();
 
-    expect(firstCall?.[0]).toContain("no presets configured.");
-    expect(firstCall?.[1]).toBe("info");
+    await handlePresetsCommand("list --text", ctx);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify.mock.calls[0]?.[0]).toContain("not a supported");
+    expect(notify.mock.calls[0]?.[0]).not.toContain("no presets configured");
+    expect(notify.mock.calls[0]?.[1]).toBe("warning");
+  });
+
+  it("does not support exact-name activation fallback", async () => {
+    const { ctx, notify } = makeStubCtx();
+    const pi = { getActiveTools: () => [] } as unknown as NonNullable<
+      Parameters<typeof handlePresetsCommand>[2]
+    >;
+
+    await handlePresetsCommand("plan", ctx, pi);
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify.mock.calls[0]?.[0]).toContain('"plan"');
+    expect(notify.mock.calls[0]?.[0]).toContain("unknown subcommand");
+    expect(notify.mock.calls[0]?.[1]).toBe("warning");
   });
 
   it("dispatches `reload` to runReload (empty-state path)", async () => {
@@ -147,14 +165,5 @@ describe("handlePresetsCommand", () => {
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify.mock.calls[0]?.[0]).toContain("reloaded 0 presets");
     expect(notify.mock.calls[0]?.[1]).toBe("info");
-  });
-
-  it("ignores trailing tokens after the subcommand", async () => {
-    // `list` should dispatch regardless of trailing junk; the storage
-    // spec's only required subcommands take no args in this change.
-    const { ctx, notify } = makeStubCtx();
-
-    await handlePresetsCommand("list extra tokens", ctx);
-    expect(notify.mock.calls[0]?.[0]).toContain("no presets configured.");
   });
 });

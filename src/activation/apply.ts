@@ -7,6 +7,9 @@
  * The self-call guard around `pi.setModel` is exposed via
  * `withSelfTriggeredModelSet` so that other activation flows (e.g. `clear`)
  * suppress `model_select` echoes without duplicating the boolean.
+ *
+ * Returns `{ ok }` so UI callers (e.g. the picker) can stay open on refusal
+ * paths without re-implementing the refusal predicates.
  */
 import { ACTIVATED_MESSAGE_TYPE } from "../messages.js";
 import type { LoadedPreset } from "../types.js";
@@ -26,14 +29,14 @@ export async function apply(
   preset: LoadedPreset,
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
-): Promise<void> {
+): Promise<{ ok: boolean }> {
   if (preset.unavailable) {
     ctx.ui.notify(
       `preset "${preset.name}" is unavailable (${preset.unavailable}). activation skipped.`,
       "error",
     );
 
-    return;
+    return { ok: false };
   }
 
   const current = getActive();
@@ -44,7 +47,7 @@ export async function apply(
     current.restore.kind === "baseline" &&
     stateMatches(preset, pi, ctx)
   ) {
-    return;
+    return { ok: true };
   }
 
   const model = ctx.modelRegistry.find(preset.provider, preset.model);
@@ -55,7 +58,7 @@ export async function apply(
       "error",
     );
 
-    return;
+    return { ok: false };
   }
 
   const previousBaseline =
@@ -65,7 +68,9 @@ export async function apply(
   const previousAppliedTools = previousBaseline?.lastApplied.tools;
   const previousOwnedTools = previousBaseline?.owned.tools ?? false;
 
-  if (!(await setModelGuarded(pi, ctx, preset.provider, preset.model))) return;
+  if (!(await setModelGuarded(pi, ctx, preset.provider, preset.model))) {
+    return { ok: false };
+  }
 
   const effective = effectiveThinkingLevel(preset, model);
   const declared = preset.thinkingLevel ?? "off";
@@ -123,7 +128,7 @@ export async function apply(
 
   pi.sendMessage({
     customType: ACTIVATED_MESSAGE_TYPE,
-    content: `preset activated: ${preset.name}`,
+    content: `Preset ${preset.name} applied`,
     display: true,
     details: {
       name: preset.name,
@@ -135,33 +140,12 @@ export async function apply(
   updateStatus(ctx, getActive(), (name, scope) =>
     name === preset.name && scope === preset.scope ? preset : undefined,
   );
+
+  return { ok: true };
 }
 
 export function isSelfTriggeredModelSet(): boolean {
   return selfTriggeredModelSet;
-}
-
-export async function setModelGuarded(
-  pi: Pick<ExtensionAPI, "setModel">,
-  ctx: Pick<ExtensionCommandContext, "modelRegistry" | "ui">,
-  provider: string,
-  modelId: string,
-): Promise<boolean> {
-  const model = ctx.modelRegistry.find(provider, modelId);
-
-  if (!model) {
-    ctx.ui.notify(`model not found: ${provider}/${modelId}`, "error");
-
-    return false;
-  }
-
-  const success = await withSelfTriggeredModelSet(() => pi.setModel(model));
-
-  if (!success) {
-    ctx.ui.notify(`no api key configured for ${provider}/${modelId}.`, "error");
-  }
-
-  return success;
 }
 
 /**
@@ -188,4 +172,27 @@ function filterValidTools(
   const available = new Set(allTools.map((tool) => tool.name));
 
   return desired.filter((toolName) => available.has(toolName));
+}
+
+async function setModelGuarded(
+  pi: Pick<ExtensionAPI, "setModel">,
+  ctx: Pick<ExtensionCommandContext, "modelRegistry" | "ui">,
+  provider: string,
+  modelId: string,
+): Promise<boolean> {
+  const model = ctx.modelRegistry.find(provider, modelId);
+
+  if (!model) {
+    ctx.ui.notify(`model not found: ${provider}/${modelId}`, "error");
+
+    return false;
+  }
+
+  const success = await withSelfTriggeredModelSet(() => pi.setModel(model));
+
+  if (!success) {
+    ctx.ui.notify(`no api key configured for ${provider}/${modelId}.`, "error");
+  }
+
+  return success;
 }

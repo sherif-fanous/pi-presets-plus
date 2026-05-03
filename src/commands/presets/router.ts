@@ -2,16 +2,15 @@
  * `/presets` subcommand router.
  *
  * Owns command token dispatch and autocomplete for change
- * `add-preset-activation`; storage, activation, and clear semantics live in
- * their dedicated modules. Future quoted-name support can replace tokenization
- * here while preserving the single registry consumed by runtime and complete.
+ * `add-preset-picker`; storage, activation, and clear semantics live in their
+ * dedicated modules. Future quoted-name support can replace tokenization here
+ * while preserving the single registry consumed by runtime and complete.
  */
-import { runActivate } from "./activate.js";
+import { apply } from "../../activation/apply.js";
+import { openPicker } from "../../ui/picker.js";
 import { runClear } from "./clear.js";
-import { runList } from "./list.js";
 import { runReload } from "./reload.js";
 import { runStatus } from "./status.js";
-import { showStubNotice } from "./stub.js";
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
@@ -20,11 +19,14 @@ import type {
 interface Subcommand {
   readonly value: string;
   readonly label: string;
-  run(ctx: ExtensionCommandContext, pi?: ExtensionAPI): Promise<void>;
+  run(
+    ctx: ExtensionCommandContext,
+    args: readonly string[],
+    pi?: ExtensionAPI,
+  ): Promise<void>;
 }
 
 const SUBCOMMANDS: readonly Subcommand[] = [
-  { value: "list", label: "list: print loaded presets", run: runListWrapper },
   {
     value: "reload",
     label: "reload: re-read both scope files",
@@ -42,19 +44,16 @@ const SUBCOMMANDS: readonly Subcommand[] = [
   },
 ] as const;
 
-let completionPresetNames: readonly string[] = [];
-
 export function getArgumentCompletions(
   prefix: string,
 ): { value: string; label: string }[] {
-  const subcommands = SUBCOMMANDS.filter((subcommand) =>
-    subcommand.value.startsWith(prefix),
-  ).map(({ value, label }) => ({ value, label }));
-  const presets = completionPresetNames
-    .filter((name) => name.startsWith(prefix))
-    .map((name) => ({ value: name, label: `${name}: activate preset` }));
+  const trimmedPrefix = prefix.trimStart();
 
-  return [...subcommands, ...presets];
+  if (trimmedPrefix.includes(" ")) return [];
+
+  return SUBCOMMANDS.filter((subcommand) =>
+    subcommand.value.startsWith(trimmedPrefix),
+  ).map(({ value, label }) => ({ value, label }));
 }
 
 export async function handlePresetsCommand(
@@ -65,48 +64,65 @@ export async function handlePresetsCommand(
   const trimmedArgs = args.trim();
 
   if (trimmedArgs.length === 0) {
-    showStubNotice(ctx);
+    await runPicker(ctx, pi);
 
     return;
   }
 
-  const [subCommand] = trimmedArgs.split(/\s+/, 1);
-  const target = SUBCOMMANDS.find(
-    (subcommand) => subcommand.value === subCommand,
-  );
+  const tokens = trimmedArgs.split(/\s+/);
+  const subCommand = tokens[0] ?? "";
 
-  if (target) {
-    await target.run(ctx, pi);
-
-    return;
-  }
-
-  if (!pi) {
+  if (subCommand === "list") {
     ctx.ui.notify(
-      `unknown subcommand "${subCommand ?? ""}". try /presets list, /presets reload, /presets clear, or /presets status.`,
+      '"list" is not a supported /presets subcommand. run /presets to open the picker.',
       "warning",
     );
 
     return;
   }
 
-  await runActivate(subCommand ?? "", ctx, pi);
-}
+  const target = SUBCOMMANDS.find(
+    (subcommand) => subcommand.value === subCommand,
+  );
 
-export function setCompletionPresetNames(names: readonly string[]): void {
-  completionPresetNames = [...names].sort();
+  if (target) {
+    await target.run(ctx, tokens.slice(1), pi);
+
+    return;
+  }
+
+  ctx.ui.notify(
+    `unknown subcommand "${subCommand ?? ""}". try /presets, /presets reload, /presets clear, or /presets status.`,
+    "warning",
+  );
 }
 
 async function runClearWrapper(
   ctx: ExtensionCommandContext,
+  _args: readonly string[],
   pi?: ExtensionAPI,
 ): Promise<void> {
   if (!pi) return;
   await runClear(ctx, pi);
 }
 
-async function runListWrapper(ctx: ExtensionCommandContext): Promise<void> {
-  await runList(ctx);
+async function runPicker(
+  ctx: ExtensionCommandContext,
+  pi?: ExtensionAPI,
+): Promise<void> {
+  if (!pi) {
+    ctx.ui.notify(
+      "preset picker is only available in interactive mode.",
+      "warning",
+    );
+
+    return;
+  }
+
+  await openPicker(ctx, {
+    inheritedTools: pi.getActiveTools(),
+    onActivate: (preset) => apply(preset, ctx, pi),
+  });
 }
 
 async function runReloadWrapper(ctx: ExtensionCommandContext): Promise<void> {
@@ -115,6 +131,7 @@ async function runReloadWrapper(ctx: ExtensionCommandContext): Promise<void> {
 
 async function runStatusWrapper(
   ctx: ExtensionCommandContext,
+  _args: readonly string[],
   pi?: ExtensionAPI,
 ): Promise<void> {
   if (!pi) return;

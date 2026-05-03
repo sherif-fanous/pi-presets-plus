@@ -19,7 +19,6 @@ import { isSelfTriggeredModelSet } from "./activation/apply.js";
 import {
   getArgumentCompletions,
   handlePresetsCommand,
-  setCompletionPresetNames,
   surfaceWarnings,
 } from "./commands/presets/index.js";
 import { ACTIVATED_MESSAGE_TYPE, renderActivatedMessage } from "./messages.js";
@@ -41,7 +40,7 @@ export default function presetsPlus(pi: ExtensionAPI) {
 
   pi.registerCommand("presets", {
     description:
-      "manage and switch presets that bundle a model, thinking level, tools, and system prompt. subcommands: `list`, `reload`, `clear`, `status`, or `<name>`.",
+      "Browse and switch presets that bundle a model, thinking level, tools, and system prompt. Run `/presets` to open the picker, or use `reload`, `clear`, or `status`.",
     getArgumentCompletions: (prefix) => getArgumentCompletions(prefix),
     handler: (args, ctx) => handlePresetsCommand(args, ctx, pi),
   });
@@ -51,7 +50,6 @@ export default function presetsPlus(pi: ExtensionAPI) {
       const { presets, warnings } = await loadAll(ctx);
 
       surfaceWarnings(ctx, warnings);
-      setCompletionPresetNames(presets.map((preset) => preset.name));
       restoreActiveFromBranch(ctx, presets);
       updateStatus(ctx, getActive(), (name, scope) =>
         presets.find(

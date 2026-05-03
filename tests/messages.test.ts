@@ -19,7 +19,7 @@ const identityTheme = {
 } as never;
 
 describe("formatActivatedMessage", () => {
-  it("renders the activation marker with preset/model/thinking rows", () => {
+  it("renders a single-line accent marker with just the preset name", () => {
     const text = formatActivatedMessage(
       {
         name: "plan",
@@ -29,10 +29,23 @@ describe("formatActivatedMessage", () => {
       identityTheme,
     );
 
-    expect(text).toContain("preset applied");
-    expect(text).toContain("preset:         plan");
-    expect(text).toContain("model:          anthropic/claude");
-    expect(text).toContain("thinking level: high");
+    expect(text).toBe("Preset plan applied");
+  });
+
+  it("omits resolved model and thinking level (kept on details for replay)", () => {
+    const text = formatActivatedMessage(
+      {
+        name: "plan",
+        model: "anthropic/claude",
+        thinkingLevel: "high",
+      },
+      identityTheme,
+    );
+
+    expect(text).not.toContain("anthropic/claude");
+    expect(text).not.toContain("high");
+    expect(text).not.toContain("thinking");
+    expect(text).not.toContain("model");
   });
 });
 
