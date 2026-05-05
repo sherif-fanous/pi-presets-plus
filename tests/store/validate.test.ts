@@ -12,6 +12,7 @@
  */
 import {
   computeAvailability,
+  computeClampWarning,
   findDuplicatePresetNames,
   validatePresetShape,
 } from "../../src/store/validate.js";
@@ -156,6 +157,53 @@ describe("findDuplicatePresetNames", () => {
 
   it("treats different names as distinct", () => {
     expect(findDuplicatePresetNames([make("Plan"), make("plan")])).toEqual([]);
+  });
+});
+
+describe("computeClampWarning", () => {
+  it("returns false for a reasoning model with non-off thinking", () => {
+    const ctx = makeCtx({
+      models: {
+        anthropic: { "claude-opus-4.5": { hasKey: true, reasoning: true } },
+      },
+    });
+
+    expect(
+      computeClampWarning({ ...availabilityProbe, thinkingLevel: "high" }, ctx),
+    ).toBe(false);
+  });
+
+  it("returns true for a non-reasoning model with non-off thinking", () => {
+    const ctx = makeCtx({
+      models: {
+        anthropic: { "claude-opus-4.5": { hasKey: true, reasoning: false } },
+      },
+    });
+
+    expect(
+      computeClampWarning({ ...availabilityProbe, thinkingLevel: "high" }, ctx),
+    ).toBe(true);
+  });
+
+  it("returns false for off or omitted thinking", () => {
+    const ctx = makeCtx({
+      models: {
+        anthropic: { "claude-opus-4.5": { hasKey: true, reasoning: false } },
+      },
+    });
+
+    expect(
+      computeClampWarning({ ...availabilityProbe, thinkingLevel: "off" }, ctx),
+    ).toBe(false);
+    expect(computeClampWarning(availabilityProbe, ctx)).toBe(false);
+  });
+
+  it("returns false for an unknown model", () => {
+    const ctx = makeCtx({ models: {} });
+
+    expect(
+      computeClampWarning({ ...availabilityProbe, thinkingLevel: "high" }, ctx),
+    ).toBe(false);
   });
 });
 

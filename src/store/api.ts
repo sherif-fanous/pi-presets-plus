@@ -18,6 +18,7 @@ import { loadFile } from "./load.js";
 import { mergeScopes } from "./merge.js";
 import { getGlobalPresetsPath, getProjectPresetsPath } from "./paths.js";
 import { atomicWrite } from "./save.js";
+import { computeClampWarning } from "./validate.js";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 /** Result of {@link loadAll}. */
@@ -70,7 +71,12 @@ export async function loadAll(ctx: StorageContext): Promise<LoadAllResult> {
   const presets = mergeScopes(
     { user: user.presets, project: project.presets },
     ctx,
-  );
+  ).map((preset) => ({
+    ...preset,
+    ...(computeClampWarning(preset, ctx)
+      ? { clampWarning: true as const }
+      : {}),
+  }));
 
   return {
     presets,

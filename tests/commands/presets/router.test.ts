@@ -88,6 +88,9 @@ describe("getArgumentCompletions", () => {
     ).toEqual(["reload"]);
 
     expect(getArgumentCompletions("li")).toEqual([]);
+    expect(getArgumentCompletions("save")).toEqual([]);
+    expect(getArgumentCompletions("edit")).toEqual([]);
+    expect(getArgumentCompletions("rm")).toEqual([]);
   });
 
   it("does not complete removed list flags", () => {
@@ -144,6 +147,18 @@ describe("handlePresetsCommand", () => {
     expect(notify.mock.calls[0]?.[0]).not.toContain("no presets configured");
     expect(notify.mock.calls[0]?.[1]).toBe("warning");
   });
+
+  it.each(["save quickfix", "edit plan", "rm plan"])(
+    "does not expose CRUD subcommand %s",
+    async (args) => {
+      const { ctx, notify } = makeStubCtx();
+
+      await handlePresetsCommand(args, ctx);
+      expect(notify).toHaveBeenCalledTimes(1);
+      expect(notify.mock.calls[0]?.[0]).toContain("unknown subcommand");
+      expect(notify.mock.calls[0]?.[1]).toBe("warning");
+    },
+  );
 
   it("does not support exact-name activation fallback", async () => {
     const { ctx, notify } = makeStubCtx();

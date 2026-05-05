@@ -61,14 +61,18 @@ describe("preset widget formatting", () => {
     expect(formatThinkingLevel("xhigh")).toBe("X-High");
   });
 
-  it("formats tools as explicit names, including inherited active tools", () => {
-    expect(formatToolsSummary(undefined)).toBe("inherit");
+  it("formats tools as session or preset controlled", () => {
+    expect(formatToolsSummary(undefined)).toBe("session");
     expect(formatToolsSummary([], ["read", "bash"])).toBe(
-      "read, bash (inherited)",
+      "session: read, bash",
     );
-    expect(formatToolsSummary(["read", "grep"], ["bash"])).toBe("read, grep");
+
+    expect(formatToolsSummary(["read", "grep"], ["bash"])).toBe(
+      "preset: read, grep",
+    );
+
     expect(formatToolsSummary(["read", "grep", "find", "ls", "bash"])).toBe(
-      "read, grep, find, ls, bash",
+      "preset: read, grep, find, ls, bash",
     );
   });
 
@@ -89,6 +93,7 @@ describe("preset widget formatting", () => {
         shadowed: true,
         thinkingLevel: "high",
         tools: ["read", "grep", "find", "ls", "bash"],
+        clampWarning: true,
         unavailable: "no-key",
       },
       identityTheme,
@@ -100,8 +105,9 @@ describe("preset widget formatting", () => {
       "  Scope:     Project",
       "  Model:     anthropic / claude-opus-4.5",
       "  Thinking:  High",
-      "  Tools:     read, grep, find, ls, bash",
+      "  Tools:     preset: read, grep, find, ls, bash",
       "  Prompt:    PLAN MODE: inspect first and summarize",
+      "  Status:    ⚠ thinking will be clamped",
       "  Status:    Unavailable — missing API key",
       "  Shadowing: Overridden by project preset",
     ]);

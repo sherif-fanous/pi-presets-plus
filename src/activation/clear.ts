@@ -9,6 +9,7 @@ import type { ActivePresetState, ThinkingLevel } from "../types.js";
 import { updateStatus } from "../ui/status.js";
 import { clearActive, getActive } from "./active-state.js";
 import { withSelfTriggeredModelSet } from "./apply.js";
+import { sameSet } from "./same-set.js";
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
@@ -411,12 +412,4 @@ function sameModel(
   right: { provider: string; id: string } | null,
 ): boolean {
   return left?.provider === right?.provider && left?.id === right?.id;
-}
-
-function sameSet(left: readonly string[], right: readonly string[]): boolean {
-  if (left.length !== right.length) return false;
-
-  const rightSet = new Set(right);
-
-  return left.every((value) => rightSet.has(value));
 }

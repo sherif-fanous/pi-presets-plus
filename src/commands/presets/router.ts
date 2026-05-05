@@ -121,6 +121,7 @@ async function runPicker(
   await openPicker(ctx, {
     inheritedTools: pi.getActiveTools(),
     onActivate: (preset) => apply(preset, ctx, pi),
+    pi,
   });
 }
 

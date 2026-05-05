@@ -33,8 +33,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const fullRegistry: RegistryStub = {
   models: {
-    anthropic: { "claude-opus-4.5": { hasKey: true } },
-    openai: { "gpt-5": { hasKey: true } },
+    anthropic: { "claude-opus-4.5": { hasKey: true, reasoning: true } },
+    openai: { "gpt-5": { hasKey: true, reasoning: false } },
   },
 };
 
@@ -105,6 +105,42 @@ describe("loadAll", () => {
     ).toEqual(["project:plan"]);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain("invalid JSON");
+  });
+
+  it("sets clampWarning for loaded presets that will clamp thinking", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+
+    await saveScope(
+      "user",
+      [
+        preset("reasoning", { thinkingLevel: "high" }),
+        preset("clamped", {
+          model: "gpt-5",
+          provider: "openai",
+          thinkingLevel: "high",
+        }),
+        preset("off", {
+          model: "gpt-5",
+          provider: "openai",
+          thinkingLevel: "off",
+        }),
+      ],
+      ctx,
+    );
+
+    const loaded = await loadAll(ctx);
+
+    expect(
+      loaded.presets.find((entry) => entry.name === "reasoning")?.clampWarning,
+    ).toBeUndefined();
+
+    expect(
+      loaded.presets.find((entry) => entry.name === "clamped")?.clampWarning,
+    ).toBe(true);
+
+    expect(
+      loaded.presets.find((entry) => entry.name === "off")?.clampWarning,
+    ).toBeUndefined();
   });
 
   it("observes external file edits between calls (no in-memory cache)", async () => {

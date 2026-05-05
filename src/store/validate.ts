@@ -50,6 +50,20 @@ export function computeAvailability(
   return undefined;
 }
 
+/** Return whether activation will clamp a preset's thinking level to off. */
+export function computeClampWarning(
+  preset: Pick<Preset, "provider" | "model" | "thinkingLevel">,
+  ctx: Pick<ExtensionContext, "modelRegistry">,
+): boolean {
+  if (!preset.thinkingLevel || preset.thinkingLevel === "off") return false;
+
+  const model = ctx.modelRegistry.find(preset.provider, preset.model);
+
+  if (!model) return false;
+
+  return model.reasoning === false;
+}
+
 /**
  * Find duplicate `name` entries in a preset array, preserving the index of
  * each duplicate (i.e. the second and subsequent occurrences) so the

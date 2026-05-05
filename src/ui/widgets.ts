@@ -97,6 +97,15 @@ class PresetCardComponent implements Component {
       lines.push(this.renderField("Prompt:", promptPreview));
     }
 
+    if (this.loadedPreset.clampWarning === true) {
+      lines.push(
+        this.renderField(
+          "Status:",
+          this.theme.fg("warning", "⚠ thinking will be clamped"),
+        ),
+      );
+    }
+
     const availabilityStatus = formatAvailabilityStatus(this.loadedPreset);
 
     if (availabilityStatus.length > 0) {
@@ -181,10 +190,10 @@ export function formatToolsSummary(
   tools: readonly string[] | undefined,
   inheritedTools: readonly string[] = [],
 ): string {
-  if (tools && tools.length > 0) return tools.join(", ");
-  if (inheritedTools.length === 0) return "inherit";
+  if (tools && tools.length > 0) return `preset: ${tools.join(", ")}`;
+  if (inheritedTools.length === 0) return "session";
 
-  return `${inheritedTools.join(", ")} (inherited)`;
+  return `session: ${inheritedTools.join(", ")}`;
 }
 
 /**

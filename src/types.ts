@@ -30,6 +30,11 @@ export interface LoadedPreset extends Preset {
    * Undefined when the preset is fully available.
    */
   unavailable?: "no-key" | "no-model";
+  /**
+   * True when the preset requests extended thinking for a model that will
+   * clamp it to off at activation time. Computed in memory; never persisted.
+   */
+  clampWarning?: true;
 }
 
 /**
@@ -50,7 +55,7 @@ export interface Preset {
   model: string;
   /** Reasoning level. Defaults to `"off"` at apply time (later change). */
   thinkingLevel?: ThinkingLevel;
-  /** Active tools at apply time. Omit / empty = inherit current tools. */
+  /** Active tools at apply time. Omit / empty = session tools pass through unchanged. */
   tools?: string[];
   /** Free-form text appended to the system prompt at apply time. */
   instructions?: string;

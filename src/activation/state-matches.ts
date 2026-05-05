@@ -5,6 +5,7 @@
  * does NOT mutate state or notify users.
  */
 import type { LoadedPreset } from "../types.js";
+import { sameSet } from "./same-set.js";
 import { effectiveThinkingLevel } from "./thinking.js";
 import type {
   ExtensionAPI,
@@ -41,12 +42,4 @@ export function stateMatches(
   }
 
   return true;
-}
-
-function sameSet(left: readonly string[], right: readonly string[]): boolean {
-  if (left.length !== right.length) return false;
-
-  const rightSet = new Set(right);
-
-  return left.every((value) => rightSet.has(value));
 }
