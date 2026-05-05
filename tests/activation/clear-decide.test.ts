@@ -17,7 +17,15 @@ import {
 import type { ActivePresetState } from "../../src/types.js";
 import { describe, expect, it } from "vitest";
 
+const declaredSnapshot = {
+  model: "claude",
+  provider: "anthropic",
+  thinkingLevel: "high" as const,
+};
+
 const baselineActive: ActivePresetState = {
+  declared: declaredSnapshot,
+  dirty: false,
   name: "plan",
   scope: "project",
   restore: {
@@ -38,6 +46,8 @@ const baselineActive: ActivePresetState = {
 };
 
 const priorUnknownActive: ActivePresetState = {
+  declared: declaredSnapshot,
+  dirty: false,
   name: "plan",
   restore: { kind: "unknown" },
   scope: "project",
@@ -117,6 +127,8 @@ describe("decideClear", () => {
 
   it("leaves tools alone when the overlay never owned them", () => {
     const active: ActivePresetState = {
+      declared: declaredSnapshot,
+      dirty: false,
       name: "plan",
       scope: "project",
       restore: {

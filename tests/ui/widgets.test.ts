@@ -97,7 +97,12 @@ describe("preset widget formatting", () => {
         unavailable: "no-key",
       },
       identityTheme,
-      { active: true, selected: true },
+      {
+        active: true,
+        dirty: true,
+        driftReasons: ["model", "tools"],
+        selected: true,
+      },
     ).render(120);
 
     expect(lines).toEqual([
@@ -109,6 +114,7 @@ describe("preset widget formatting", () => {
       "  Prompt:    PLAN MODE: inspect first and summarize",
       "  Status:    ⚠ thinking will be clamped",
       "  Status:    Unavailable — missing API key",
+      "  Drift:     ⚠ Dirty — model, tools differ",
       "  Shadowing: Overridden by project preset",
     ]);
   });

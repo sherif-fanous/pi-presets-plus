@@ -5,8 +5,7 @@
  * does NOT mutate state or notify users.
  */
 import type { LoadedPreset } from "../types.js";
-import { sameSet } from "./same-set.js";
-import { effectiveThinkingLevel } from "./thinking.js";
+import { detectDriftReasons, snapshotPresetForDrift } from "./drift.js";
 import type {
   ExtensionAPI,
   ExtensionContext,
@@ -24,22 +23,7 @@ export function stateMatches(
   pi: StateMatchesPi,
   ctx: StateMatchesContext,
 ): boolean {
-  if (
-    ctx.model?.provider !== preset.provider ||
-    ctx.model.id !== preset.model
-  ) {
-    return false;
-  }
-
-  const model = ctx.modelRegistry.find(preset.provider, preset.model);
-
-  if (pi.getThinkingLevel() !== effectiveThinkingLevel(preset, model)) {
-    return false;
-  }
-
-  if (preset.tools && preset.tools.length > 0) {
-    return sameSet(pi.getActiveTools(), preset.tools);
-  }
-
-  return true;
+  return (
+    detectDriftReasons(snapshotPresetForDrift(preset), pi, ctx).length === 0
+  );
 }

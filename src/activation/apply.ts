@@ -11,6 +11,8 @@ import type { LoadedPreset } from "../types.js";
 import { updateStatus } from "../ui/status.js";
 import { getActive, setActive } from "./active-state.js";
 import { captureBaseline } from "./baseline.js";
+import { markClean } from "./dirty.js";
+import { snapshotPresetForDrift } from "./drift.js";
 import { stateMatches } from "./state-matches.js";
 import { effectiveThinkingLevel } from "./thinking.js";
 import type {
@@ -18,7 +20,13 @@ import type {
   ExtensionCommandContext,
 } from "@mariozechner/pi-coding-agent";
 
-let selfTriggeredModelSet = false;
+/**
+ * Counter (not boolean) so nested `withSelfTriggeredModelSet` calls cannot
+ * silently drop the guard when the inner call's `finally` runs while the
+ * outer call is still in flight. Today there is only one caller, but the
+ * counter shape costs nothing and removes a footgun for future callers.
+ */
+let selfTriggeredModelSetDepth = 0;
 
 export async function apply(
   preset: LoadedPreset,
@@ -42,6 +50,8 @@ export async function apply(
     current.restore.kind === "baseline" &&
     stateMatches(preset, pi, ctx)
   ) {
+    if (current.dirty) await markClean(ctx);
+
     return { ok: true };
   }
 
@@ -101,6 +111,8 @@ export async function apply(
   }
 
   setActive({
+    declared: snapshotPresetForDrift({ ...preset, tools: appliedTools }),
+    dirty: false,
     name: preset.name,
     restore: {
       applyCount,
@@ -140,23 +152,25 @@ export async function apply(
 }
 
 export function isSelfTriggeredModelSet(): boolean {
-  return selfTriggeredModelSet;
+  return selfTriggeredModelSetDepth > 0;
 }
 
 /**
- * Run `fn` with the self-call flag raised so a `model_select` event triggered
- * by `pi.setModel` inside `fn` is recognized as our own write and ignored by
- * the drift-detection handler.
+ * Run `fn` with the self-call counter raised so a `model_select` event
+ * triggered by `pi.setModel` inside `fn` is recognized as our own write
+ * and ignored by the drift-detection handler. The counter shape (vs. a
+ * boolean) keeps nested or concurrent calls from accidentally lowering the
+ * guard while an outer call is still in flight.
  */
 export async function withSelfTriggeredModelSet<T>(
   fn: () => Promise<T>,
 ): Promise<T> {
-  selfTriggeredModelSet = true;
+  selfTriggeredModelSetDepth++;
 
   try {
     return await fn();
   } finally {
-    selfTriggeredModelSet = false;
+    selfTriggeredModelSetDepth--;
   }
 }
 

@@ -42,6 +42,12 @@ afterEach(() => {
 describe("formatStatus", () => {
   it("renders the baseline-managed attachment with per-field classifications", () => {
     const active: ActivePresetState = {
+      declared: {
+        model: "claude",
+        provider: "anthropic",
+        thinkingLevel: "high",
+      },
+      dirty: false,
       name: "plan",
       scope: "project",
       restore: {
@@ -98,6 +104,12 @@ describe("formatStatus", () => {
 
   it("flags user overrides", () => {
     const active: ActivePresetState = {
+      declared: {
+        model: "claude",
+        provider: "anthropic",
+        thinkingLevel: "high",
+      },
+      dirty: false,
       name: "plan",
       scope: "project",
       restore: {
@@ -142,6 +154,12 @@ describe("formatStatus", () => {
 
   it("renders priorUnknown without baseline rows", () => {
     const active: ActivePresetState = {
+      declared: {
+        model: "claude",
+        provider: "anthropic",
+        thinkingLevel: "high",
+      },
+      dirty: false,
       name: "plan",
       restore: { kind: "unknown" },
       scope: "project",

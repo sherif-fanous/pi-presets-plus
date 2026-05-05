@@ -65,6 +65,21 @@ export interface Preset {
   order?: number;
 }
 
+/**
+ * In-memory snapshot of the preset fields drift detection compares against.
+ *
+ * Cached on `ActivePresetState` at apply / restore time so per-turn drift
+ * detection never has to re-read the on-disk preset files. Refreshed on
+ * apply, on session restore, and on `/presets reload` (via re-apply) — never
+ * on `turn_start` or `model_select`.
+ */
+export interface PresetDriftSnapshot {
+  provider: string;
+  model: string;
+  thinkingLevel?: ThinkingLevel;
+  tools?: readonly string[];
+}
+
 /** Baseline Pi state captured before a preset overlay starts. */
 export interface PresetOverlayBaseline {
   model: { provider: string; id: string } | null;
@@ -96,8 +111,16 @@ export type ActivePresetState =
         owned: PresetOverlayOwnership;
         applyCount: number;
       };
+      dirty: boolean;
+      declared: PresetDriftSnapshot;
     }
-  | { name: string; scope: PresetScope; restore: { kind: "unknown" } };
+  | {
+      name: string;
+      scope: PresetScope;
+      restore: { kind: "unknown" };
+      dirty: boolean;
+      declared: PresetDriftSnapshot;
+    };
 
 /**
  * Origin scope for a loaded preset.

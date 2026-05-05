@@ -18,7 +18,7 @@ const ALL_THINKING_LEVELS: readonly ThinkingLevel[] = [
 
 /** Return the level pi will effectively use for the preset/model pair. */
 export function effectiveThinkingLevel(
-  preset: Preset,
+  preset: Pick<Preset, "thinkingLevel">,
   model: Model<Api> | undefined,
 ): ThinkingLevel {
   const declared = preset.thinkingLevel ?? "off";

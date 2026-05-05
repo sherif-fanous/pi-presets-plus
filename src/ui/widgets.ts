@@ -10,6 +10,8 @@ import { truncateToWidth, type Component } from "@mariozechner/pi-tui";
 
 export interface PresetCardOptions {
   active: boolean;
+  dirty?: boolean;
+  driftReasons?: readonly string[];
   inheritedTools?: readonly string[];
   selected: boolean;
   showShadowed?: boolean;
@@ -117,6 +119,23 @@ class PresetCardComponent implements Component {
       );
     }
 
+    if (
+      this.options.active &&
+      this.options.dirty &&
+      this.options.driftReasons &&
+      this.options.driftReasons.length > 0
+    ) {
+      lines.push(
+        this.renderField(
+          "Drift:",
+          this.theme.fg(
+            "warning",
+            `⚠ Dirty — ${this.options.driftReasons.join(", ")} differ`,
+          ),
+        ),
+      );
+    }
+
     if (this.loadedPreset.shadowed && this.options.showShadowed !== false) {
       lines.push(
         this.renderField(
@@ -143,6 +162,8 @@ export function formatAvailabilityStatus(loadedPreset: LoadedPreset): string {
     case "no-model":
       return "Unavailable — model not found";
     case undefined:
+      return "";
+    default:
       return "";
   }
 }

@@ -8,6 +8,7 @@
  */
 import { getActive } from "../activation/active-state.js";
 import { clear as clearPreset } from "../activation/clear.js";
+import { detectDriftReasons } from "../activation/drift.js";
 import { surfaceWarnings } from "../commands/presets/notify.js";
 import {
   addPreset,
@@ -100,6 +101,18 @@ class PresetPickerComponent implements Component, Focusable {
   private renderedPageSize: number | undefined;
   private resolved = false;
   private applying = false;
+  /**
+   * Memoized drift reasons for the currently-active preset.
+   *
+   * Recomputed when the loaded presets change (`refreshPresets`); within a
+   * single render pass the reasons are stable, so we don't re-run
+   * `detectDriftReasons` on every keystroke or scroll. The picker is opened
+   * within a single agent turn, so the cached snapshot on the active state
+   * cannot move under us between renders.
+   */
+  private driftReasonsCache:
+    | { reasons: readonly string[]; signature: string }
+    | undefined;
 
   constructor(
     private allPresets: LoadedPreset[],
@@ -334,6 +347,31 @@ class PresetPickerComponent implements Component, Focusable {
     );
   }
 
+  /**
+   * Memoized drift-reason lookup for the currently-active preset.
+   *
+   * Keyed on the active state's identity (`scope:name:dirty`) so a tools
+   * toggle or a scope change invalidates the cache, but a filter keystroke
+   * or page scroll does not. The compared snapshot lives on `active.declared`
+   * — no disk I/O.
+   */
+  private computeDriftReasons(
+    active: NonNullable<ReturnType<typeof getActive>>,
+    pi: ExtensionAPI,
+  ): readonly string[] {
+    const signature = `${active.scope}:${active.name}:${active.dirty ? "1" : "0"}`;
+
+    if (this.driftReasonsCache?.signature === signature) {
+      return this.driftReasonsCache.reasons;
+    }
+
+    const reasons = detectDriftReasons(active.declared, pi, this.ctx);
+
+    this.driftReasonsCache = { reasons, signature };
+
+    return reasons;
+  }
+
   private async openNewFromPicker(): Promise<void> {
     await this.openEditorAndDispatch(undefined);
   }
@@ -393,6 +431,7 @@ class PresetPickerComponent implements Component, Focusable {
     this.allPresets = presets;
     this.inheritedTools = this.pi?.getActiveTools() ?? this.inheritedTools;
     this.invalidateVisible();
+    this.driftReasonsCache = undefined;
     this.state = preservePickerSelectionOrFirst(
       this.state,
       this.allPresets,
@@ -623,8 +662,16 @@ class PresetPickerComponent implements Component, Focusable {
 
       if (!preset) continue;
 
+      const isActive =
+        active?.name === preset.name && active.scope === preset.scope;
+      const driftReasons =
+        isActive && active?.dirty && this.pi
+          ? this.computeDriftReasons(active, this.pi)
+          : undefined;
       const card = presetCard(preset, this.theme, {
-        active: active?.name === preset.name && active.scope === preset.scope,
+        active: isActive,
+        ...(isActive && active?.dirty ? { dirty: true } : {}),
+        ...(driftReasons ? { driftReasons } : {}),
         inheritedTools: this.inheritedTools,
         selected: absoluteIndex === this.state.selectedIndex,
         showShadowed: this.state.scopeFilter === "all",

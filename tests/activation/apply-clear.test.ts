@@ -53,6 +53,12 @@ describe("apply", () => {
     expect(harness.setModelCalls).toEqual(["anthropic/claude"]);
     expect(harness.setToolsCalls).toEqual([]);
     expect(getActive()).toEqual({
+      declared: {
+        model: "claude",
+        provider: "anthropic",
+        thinkingLevel: "high",
+      },
+      dirty: false,
       name: "plan",
       restore: {
         applyCount: 1,
@@ -126,7 +132,17 @@ describe("apply", () => {
   it("captures a fresh baseline after priorUnknown", async () => {
     const harness = makeHarness();
 
-    setActive({ name: "plan", restore: { kind: "unknown" }, scope: "project" });
+    setActive({
+      declared: {
+        model: "claude",
+        provider: "anthropic",
+        thinkingLevel: "high",
+      },
+      dirty: false,
+      name: "plan",
+      restore: { kind: "unknown" },
+      scope: "project",
+    });
     await apply(basePreset, harness.ctx, harness.pi);
 
     expect(getActive()).toMatchObject({
@@ -163,6 +179,26 @@ describe("apply", () => {
 
     expect(harness.setModelCalls).toEqual([]);
     expect(harness.messages).toEqual([]);
+  });
+
+  it("clears stale dirty state on the idempotent re-apply fast path", async () => {
+    const harness = makeHarness();
+
+    await apply(basePreset, harness.ctx, harness.pi);
+
+    const active = getActive();
+
+    if (!active) throw new Error("expected active preset");
+
+    setActive({ ...active, dirty: true });
+
+    harness.messages.length = 0;
+    harness.setModelCalls.length = 0;
+    await apply(basePreset, harness.ctx, harness.pi);
+
+    expect(harness.setModelCalls).toEqual([]);
+    expect(harness.messages).toEqual([]);
+    expect(getActive()).toMatchObject({ dirty: false });
   });
 
   it("re-applies the same preset when state drifted while preserving baseline", async () => {
@@ -316,7 +352,17 @@ describe("clear", () => {
   it("soft-clears priorUnknown attachments without mutating pi fields", async () => {
     const harness = makeHarness();
 
-    setActive({ name: "plan", restore: { kind: "unknown" }, scope: "project" });
+    setActive({
+      declared: {
+        model: "claude",
+        provider: "anthropic",
+        thinkingLevel: "high",
+      },
+      dirty: false,
+      name: "plan",
+      restore: { kind: "unknown" },
+      scope: "project",
+    });
     await clear(harness.ctx, harness.pi);
 
     expect(harness.setModelCalls).toEqual([]);

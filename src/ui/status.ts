@@ -35,9 +35,21 @@ export function updateStatus(
     return;
   }
 
-  ctx.ui.setStatus(STATUS_KEY, dim(ctx, `preset: ${preset.name}`));
+  const label = dim(ctx, `preset: ${preset.name}`);
+
+  if (!active.dirty) {
+    ctx.ui.setStatus(STATUS_KEY, label);
+
+    return;
+  }
+
+  ctx.ui.setStatus(STATUS_KEY, `${label}${warning(ctx, "!")}`);
 }
 
 function dim(ctx: StatusContext, text: string): string {
   return ctx.ui.theme?.fg("dim", text) ?? text;
+}
+
+function warning(ctx: StatusContext, text: string): string {
+  return ctx.ui.theme?.fg("warning", text) ?? text;
 }

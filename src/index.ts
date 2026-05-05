@@ -12,7 +12,11 @@ import {
   getActive,
   setActive,
 } from "./activation/active-state.js";
-import { isSelfTriggeredModelSet } from "./activation/apply.js";
+import {
+  handleModelSelectDrift,
+  syncDirtyFromCurrentState,
+} from "./activation/drift-handlers.js";
+import { snapshotPresetForDrift } from "./activation/drift.js";
 import {
   getArgumentCompletions,
   handlePresetsCommand,
@@ -20,7 +24,7 @@ import {
 } from "./commands/presets/index.js";
 import { ACTIVATED_MESSAGE_TYPE, renderActivatedMessage } from "./messages.js";
 import { loadAll } from "./store/api.js";
-import type { PresetScope } from "./types.js";
+import type { LoadedPreset, PresetScope } from "./types.js";
 import { updateStatus } from "./ui/status.js";
 import type {
   ExtensionAPI,
@@ -81,19 +85,22 @@ export default function presetsPlus(pi: ExtensionAPI) {
     return { systemPrompt: `${event.systemPrompt}\n\n${preset.instructions}` };
   });
 
-  pi.on("model_select", () => {
-    if (isSelfTriggeredModelSet()) return;
-    // TODO(add-preset-drift-detection): change 6 marks active presets dirty here.
+  pi.on("model_select", async (event, ctx) => {
+    await handleModelSelectDrift(event, ctx, pi);
+  });
+
+  pi.on("thinking_level_select", async (_event, ctx) => {
+    await syncDirtyFromCurrentState(ctx, pi);
+  });
+
+  pi.on("turn_start", async (_event, ctx) => {
+    await syncDirtyFromCurrentState(ctx, pi);
   });
 }
 
 function restoreActiveFromBranch(
   ctx: Pick<ExtensionContext, "sessionManager" | "ui">,
-  presets: readonly {
-    name: string;
-    scope: PresetScope;
-    unavailable?: string;
-  }[],
+  presets: readonly LoadedPreset[],
 ): void {
   const activeEntry = [...ctx.sessionManager.getBranch()]
     .reverse()
@@ -143,6 +150,8 @@ function restoreActiveFromBranch(
   }
 
   setActive({
+    declared: snapshotPresetForDrift(preset),
+    dirty: false,
     name: preset.name,
     restore: { kind: "unknown" },
     scope: preset.scope,

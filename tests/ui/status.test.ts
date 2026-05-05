@@ -46,6 +46,8 @@ describe("updateStatus", () => {
   it("renders the active preset name when the lookup resolves it", () => {
     const { ctx, status } = harness();
     const active: ActivePresetState = {
+      declared: { model: "claude", provider: "anthropic" },
+      dirty: false,
       name: "plan",
       restore: { kind: "unknown" },
       scope: "project",
@@ -58,9 +60,28 @@ describe("updateStatus", () => {
     expect(status["presets-plus"]).toBe("preset: plan");
   });
 
+  it("appends a warning marker when the active preset is dirty", () => {
+    const { ctx, status } = harness();
+    const active: ActivePresetState = {
+      declared: { model: "claude", provider: "anthropic" },
+      dirty: true,
+      name: "plan",
+      restore: { kind: "unknown" },
+      scope: "project",
+    };
+
+    updateStatus(ctx, active, (name, scope) =>
+      name === "plan" && scope === "project" ? preset : undefined,
+    );
+
+    expect(status["presets-plus"]).toBe("preset: plan!");
+  });
+
   it("falls back to preset: none when the lookup returns undefined", () => {
     const { ctx, status } = harness();
     const active: ActivePresetState = {
+      declared: { model: "phantom", provider: "acme" },
+      dirty: false,
       name: "ghost",
       restore: { kind: "unknown" },
       scope: "user",
