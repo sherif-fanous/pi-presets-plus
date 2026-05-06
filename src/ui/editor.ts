@@ -722,10 +722,13 @@ class PresetEditorComponent implements Component, Focusable {
   private renderMessages(): string[] {
     const lines: string[] = [];
 
-    if (this.hotkeyChanged()) {
-      lines.push(
-        this.theme.fg("dim", "    hotkey change takes effect after /reload"),
-      );
+    const hotkeyNotice = formatHotkeyReloadNotice(
+      this.initialPreset?.hotkey ?? "",
+      this.state.hotkey,
+    );
+
+    if (hotkeyNotice.length > 0) {
+      lines.push(...hotkeyNotice.map((line) => this.theme.fg("dim", line)));
     }
 
     if (this.notice) lines.push(this.theme.fg("accent", `    ${this.notice}`));
@@ -929,10 +932,6 @@ class PresetEditorComponent implements Component, Focusable {
     return { ok: true };
   }
 
-  private hotkeyChanged(): boolean {
-    return (this.initialPreset?.hotkey ?? "") !== this.state.hotkey.trim();
-  }
-
   private syncFocus(): void {
     this.nameInput.focused = this._focused && this.currentRow() === "name";
     this.hotkeyInput.focused = this._focused && this.currentRow() === "hotkey";
@@ -970,6 +969,35 @@ export function buildPreset(state: EditorFormState): Preset {
   if (hotkey.length > 0) preset.hotkey = hotkey;
 
   return preset;
+}
+
+export function formatHotkeyReloadNotice(
+  previousValue: string,
+  nextValue: string,
+): string[] {
+  const previous = previousValue.trim();
+  const next = nextValue.trim();
+
+  if (previous === next) return [];
+
+  if (previous.length === 0) {
+    return [
+      `    Hotkey added: ${next}.`,
+      "    Takes effect after /reload; no binding is active until then.",
+    ];
+  }
+
+  if (next.length === 0) {
+    return [
+      `    Hotkey removed (was: ${previous}).`,
+      "    Takes effect after /reload. The previous binding remains active until then.",
+    ];
+  }
+
+  return [
+    `    Hotkey changed: ${previous} → ${next}.`,
+    "    Takes effect after /reload. The previous binding remains active until then.",
+  ];
 }
 
 /**

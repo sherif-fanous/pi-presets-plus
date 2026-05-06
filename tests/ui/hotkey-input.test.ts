@@ -9,6 +9,7 @@ import {
   findConflictingPreset,
   isPiBuiltin,
   parseHotkey,
+  PI_BUILTIN_HOTKEYS,
 } from "../../src/ui/hotkey-input.js";
 import { describe, expect, it } from "vitest";
 
@@ -52,11 +53,22 @@ describe("parseHotkey", () => {
 });
 
 describe("isPiBuiltin", () => {
-  it("recognizes documented pi defaults", () => {
-    const parsed = parseHotkey("CTRL+L");
+  it("recognizes representative documented pi defaults", () => {
+    for (const hotkey of ["ctrl+l", "ctrl+p", "shift+ctrl+p"] as const) {
+      const parsed = parseHotkey(hotkey);
 
-    expect(parsed.ok).toBe(true);
-    if (parsed.ok) expect(isPiBuiltin(parsed.parsed)).toBe(true);
+      expect(parsed.ok, hotkey).toBe(true);
+      if (parsed.ok) expect(isPiBuiltin(parsed.parsed), hotkey).toBe(true);
+    }
+  });
+
+  it("recognizes every built-in listed by the helper", () => {
+    for (const hotkey of PI_BUILTIN_HOTKEYS) {
+      const parsed = parseHotkey(hotkey);
+
+      expect(parsed.ok, hotkey).toBe(true);
+      if (parsed.ok) expect(isPiBuiltin(parsed.parsed), hotkey).toBe(true);
+    }
   });
 
   it("does not flag unrelated combinations", () => {

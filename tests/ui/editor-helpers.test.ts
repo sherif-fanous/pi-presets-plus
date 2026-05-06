@@ -7,7 +7,11 @@
  * checks pin the invariants the picker and storage layer rely on.
  */
 import type { LoadedPreset } from "../../src/types.js";
-import { buildPreset, initialState } from "../../src/ui/editor.js";
+import {
+  buildPreset,
+  formatHotkeyReloadNotice,
+  initialState,
+} from "../../src/ui/editor.js";
 import type { Api, Model } from "@mariozechner/pi-ai";
 import { describe, expect, it } from "vitest";
 
@@ -150,6 +154,29 @@ describe("initialState", () => {
     );
 
     expect(state.thinkingLevel).toBe("high");
+  });
+});
+
+describe("formatHotkeyReloadNotice", () => {
+  it("formats add, change, remove, and unchanged notices", () => {
+    expect(formatHotkeyReloadNotice("", "ctrl+shift+1")).toEqual([
+      "    Hotkey added: ctrl+shift+1.",
+      "    Takes effect after /reload; no binding is active until then.",
+    ]);
+
+    expect(formatHotkeyReloadNotice("ctrl+shift+1", "ctrl+shift+2")).toEqual([
+      "    Hotkey changed: ctrl+shift+1 → ctrl+shift+2.",
+      "    Takes effect after /reload. The previous binding remains active until then.",
+    ]);
+
+    expect(formatHotkeyReloadNotice("ctrl+shift+1", "")).toEqual([
+      "    Hotkey removed (was: ctrl+shift+1).",
+      "    Takes effect after /reload. The previous binding remains active until then.",
+    ]);
+
+    expect(formatHotkeyReloadNotice("ctrl+shift+1", "ctrl+shift+1")).toEqual(
+      [],
+    );
   });
 });
 

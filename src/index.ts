@@ -22,6 +22,8 @@ import {
   handlePresetsCommand,
   surfaceWarnings,
 } from "./commands/presets/index.js";
+import { applyPresetFlag, registerPresetFlag } from "./flag.js";
+import { registerHotkeys, type CurrentPresetsLoader } from "./hotkeys.js";
 import { ACTIVATED_MESSAGE_TYPE, renderActivatedMessage } from "./messages.js";
 import { loadAll } from "./store/api.js";
 import type { LoadedPreset, PresetScope } from "./types.js";
@@ -38,6 +40,7 @@ interface ActiveEntryData {
 
 export default function presetsPlus(pi: ExtensionAPI) {
   pi.registerMessageRenderer(ACTIVATED_MESSAGE_TYPE, renderActivatedMessage);
+  registerPresetFlag(pi);
 
   pi.registerCommand("presets", {
     description:
@@ -48,10 +51,17 @@ export default function presetsPlus(pi: ExtensionAPI) {
 
   pi.on("session_start", async (_event, ctx) => {
     try {
-      const { presets, warnings } = await loadAll(ctx);
+      const { hotkeyAnalysis, presets, warnings } = await loadAll(ctx);
 
       surfaceWarnings(ctx, warnings);
       restoreActiveFromBranch(ctx, presets);
+      await applyPresetFlag(pi, ctx, presets);
+
+      const loadCurrentPresets: CurrentPresetsLoader = async (handlerCtx) =>
+        (await loadAll(handlerCtx)).presets;
+
+      registerHotkeys(pi, ctx, presets, hotkeyAnalysis, loadCurrentPresets);
+
       updateStatus(ctx, getActive(), (name, scope) =>
         presets.find(
           (preset) => preset.name === name && preset.scope === scope,

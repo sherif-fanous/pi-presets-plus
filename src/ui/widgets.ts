@@ -108,6 +108,15 @@ class PresetCardComponent implements Component {
       );
     }
 
+    if (this.loadedPreset.hotkeyConflict === true) {
+      lines.push(
+        this.renderField(
+          "Status:",
+          this.theme.fg("warning", "⚠ hotkey conflict"),
+        ),
+      );
+    }
+
     const availabilityStatus = formatAvailabilityStatus(this.loadedPreset);
 
     if (availabilityStatus.length > 0) {

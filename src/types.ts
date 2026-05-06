@@ -35,6 +35,8 @@ export interface LoadedPreset extends Preset {
    * clamp it to off at activation time. Computed in memory; never persisted.
    */
   clampWarning?: true;
+  /** True when another preset claimed this preset's hotkey first. */
+  hotkeyConflict?: true | undefined;
 }
 
 /**

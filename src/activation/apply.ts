@@ -17,7 +17,7 @@ import { stateMatches } from "./state-matches.js";
 import { effectiveThinkingLevel } from "./thinking.js";
 import type {
   ExtensionAPI,
-  ExtensionCommandContext,
+  ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
 
 /**
@@ -30,7 +30,7 @@ let selfTriggeredModelSetDepth = 0;
 
 export async function apply(
   preset: LoadedPreset,
-  ctx: ExtensionCommandContext,
+  ctx: ExtensionContext,
   pi: ExtensionAPI,
 ): Promise<{ ok: boolean }> {
   if (preset.unavailable) {
@@ -185,7 +185,7 @@ function filterValidTools(
 
 async function setModelGuarded(
   pi: Pick<ExtensionAPI, "setModel">,
-  ctx: Pick<ExtensionCommandContext, "modelRegistry" | "ui">,
+  ctx: Pick<ExtensionContext, "modelRegistry" | "ui">,
   provider: string,
   modelId: string,
 ): Promise<boolean> {

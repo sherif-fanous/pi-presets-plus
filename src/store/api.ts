@@ -8,6 +8,10 @@
  * from disk — and mutations that would violate file invariants return an
  * `Err` result rather than throwing.
  */
+import {
+  annotateAndAnalyzeHotkeys,
+  type HotkeyAnalysis,
+} from "../hotkey-conflicts.js";
 import type {
   LoadedPreset,
   Preset,
@@ -23,6 +27,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 /** Result of {@link loadAll}. */
 interface LoadAllResult {
+  hotkeyAnalysis: HotkeyAnalysis;
   presets: LoadedPreset[];
   warnings: string[];
 }
@@ -78,7 +83,10 @@ export async function loadAll(ctx: StorageContext): Promise<LoadAllResult> {
       : {}),
   }));
 
+  const hotkeyAnalysis = annotateAndAnalyzeHotkeys(presets);
+
   return {
+    hotkeyAnalysis,
     presets,
     warnings: [...user.warnings, ...project.warnings],
   };

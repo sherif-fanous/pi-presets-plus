@@ -91,6 +91,8 @@ describe("getArgumentCompletions", () => {
     expect(getArgumentCompletions("save")).toEqual([]);
     expect(getArgumentCompletions("edit")).toEqual([]);
     expect(getArgumentCompletions("rm")).toEqual([]);
+    expect(getArgumentCompletions("next")).toEqual([]);
+    expect(getArgumentCompletions("prev")).toEqual([]);
   });
 
   it("does not complete removed list flags", () => {
@@ -148,8 +150,8 @@ describe("handlePresetsCommand", () => {
     expect(notify.mock.calls[0]?.[1]).toBe("warning");
   });
 
-  it.each(["save quickfix", "edit plan", "rm plan"])(
-    "does not expose CRUD subcommand %s",
+  it.each(["save quickfix", "edit plan", "rm plan", "next", "prev"])(
+    "does not expose unsupported subcommand %s",
     async (args) => {
       const { ctx, notify } = makeStubCtx();
 

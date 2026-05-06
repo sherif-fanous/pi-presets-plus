@@ -82,7 +82,10 @@ describe("loadAll", () => {
     const ctx = makeCtx(projectDir, fullRegistry);
     const result = await loadAll(ctx);
 
-    expect(result).toEqual({ presets: [], warnings: [] });
+    expect(result.presets).toEqual([]);
+    expect(result.warnings).toEqual([]);
+    expect(result.hotkeyAnalysis.conflicts).toEqual([]);
+    expect(result.hotkeyAnalysis.invalid).toEqual([]);
   });
 
   it("merges both scopes and surfaces warnings from each", async () => {
