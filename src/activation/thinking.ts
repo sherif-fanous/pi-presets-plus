@@ -26,11 +26,29 @@ export function effectiveThinkingLevel(
   return validThinkingLevels(model).includes(declared) ? declared : "off";
 }
 
-/** Return the levels meaningful for a model; unknown models are permissive. */
+/**
+ * Return the levels meaningful for a model; unknown models are permissive.
+ *
+ * `model.reasoning === false` is authoritative and allows only `"off"`.
+ * Reasoning models mirror pi-ai's supported-level parser: a level is
+ * unsupported when the map explicitly stores `null`; missing keys fall through
+ * to provider defaults for levels through `"high"`; `"xhigh"` must be
+ * explicitly mapped to a non-null value. Optional-chained reads keep older
+ * pi-ai bundles that predate `thinkingLevelMap` on the legacy up-to-high
+ * behavior.
+ */
 export function validThinkingLevels(
   model: Model<Api> | undefined,
 ): ThinkingLevel[] {
   if (!model) return [...ALL_THINKING_LEVELS];
+  if (model.reasoning === false) return ["off"];
 
-  return model.reasoning === false ? ["off"] : [...ALL_THINKING_LEVELS];
+  return ALL_THINKING_LEVELS.filter((level) => {
+    const mapped = model.thinkingLevelMap?.[level];
+
+    if (mapped === null) return false;
+    if (level === "xhigh") return mapped !== undefined;
+
+    return true;
+  });
 }

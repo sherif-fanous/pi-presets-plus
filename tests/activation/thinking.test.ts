@@ -10,7 +10,7 @@ import {
   validThinkingLevels,
 } from "../../src/activation/thinking.js";
 import type { Preset } from "../../src/types.js";
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model, ThinkingLevelMap } from "@mariozechner/pi-ai";
 import { describe, expect, it } from "vitest";
 
 const basePreset: Preset = {
@@ -19,11 +19,15 @@ const basePreset: Preset = {
   model: "claude",
 };
 
-function model(reasoning: boolean): Model<Api> {
+function model(
+  reasoning: boolean,
+  thinkingLevelMap?: ThinkingLevelMap,
+): Model<Api> {
   return {
     id: "claude",
     provider: "anthropic",
     reasoning,
+    ...(thinkingLevelMap === undefined ? {} : { thinkingLevelMap }),
   } as Model<Api>;
 }
 
@@ -48,7 +52,62 @@ describe("thinking helpers", () => {
         model(false),
       ),
     ).toBe("off");
-    expect(validThinkingLevels(model(false))).toEqual(["off"]);
+    expect(validThinkingLevels(model(false, { low: "low" }))).toEqual(["off"]);
+  });
+
+  it("keeps levels through high for reasoning models without thinkingLevelMap", () => {
+    expect(validThinkingLevels(model(true))).toEqual([
+      "off",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+    ]);
+  });
+
+  it("keeps levels through high for empty maps", () => {
+    expect(validThinkingLevels(model(true, {}))).toEqual([
+      "off",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+    ]);
+  });
+
+  it("keeps all levels when xhigh is explicitly mapped", () => {
+    expect(validThinkingLevels(model(true, { xhigh: "max" }))).toEqual([
+      "off",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+    ]);
+  });
+
+  it("removes explicitly nulled levels and requires xhigh to be mapped", () => {
+    expect(validThinkingLevels(model(true, { low: null }))).toEqual([
+      "off",
+      "minimal",
+      "medium",
+      "high",
+    ]);
+  });
+
+  it("returns an empty set when every level is explicitly null", () => {
+    expect(
+      validThinkingLevels(
+        model(true, {
+          high: null,
+          low: null,
+          medium: null,
+          minimal: null,
+          off: null,
+          xhigh: null,
+        }),
+      ),
+    ).toEqual([]);
   });
 
   it("keeps omitted thinking level off for non-reasoning models", () => {

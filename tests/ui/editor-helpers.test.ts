@@ -11,6 +11,7 @@ import {
   buildPreset,
   formatHotkeyReloadNotice,
   initialState,
+  snapThinkingSelection,
 } from "../../src/ui/editor.js";
 import type { Api, Model } from "@mariozechner/pi-ai";
 import { describe, expect, it } from "vitest";
@@ -154,6 +155,31 @@ describe("initialState", () => {
     );
 
     expect(state.thinkingLevel).toBe("high");
+  });
+});
+
+describe("snapThinkingSelection", () => {
+  it("snaps to off when a user-selected model nulls the selected level", () => {
+    const state = initialState(
+      { ...existingPreset, thinkingLevel: "low" },
+      fakeModels,
+    );
+    const nextModel = {
+      id: "claude-sonnet-4.5",
+      provider: "anthropic",
+      reasoning: true,
+      thinkingLevelMap: { low: null },
+    } as unknown as Model<Api>;
+
+    const next = snapThinkingSelection(
+      { ...state, model: "claude-sonnet-4.5" },
+      nextModel,
+    );
+
+    expect(next.state.thinkingLevel).toBe("off");
+    expect(next.notice).toBe(
+      "claude-sonnet-4.5 does not support extended thinking — switched to off.",
+    );
   });
 });
 

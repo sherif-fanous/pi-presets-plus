@@ -8,13 +8,20 @@
  * boundary — this helper centralizes that cast and its rationale so
  * individual tests don't repeat the comment.
  */
-import type { Model } from "@mariozechner/pi-ai";
+import type { Model, ThinkingLevelMap } from "@mariozechner/pi-ai";
 import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
 
 export interface RegistryStub {
   models: Record<
     string,
-    Record<string, { hasKey: boolean; reasoning?: boolean }>
+    Record<
+      string,
+      {
+        hasKey: boolean;
+        reasoning?: boolean;
+        thinkingLevelMap?: ThinkingLevelMap;
+      }
+    >
   >;
 }
 
@@ -29,6 +36,9 @@ export function makeStubModelRegistry(stub: RegistryStub): ModelRegistry {
         provider,
         id: modelId,
         reasoning: present.reasoning,
+        ...(present.thinkingLevelMap === undefined
+          ? {}
+          : { thinkingLevelMap: present.thinkingLevelMap }),
       } as unknown as Model<never>;
     },
     hasConfiguredAuth(model: Model<never>): boolean {

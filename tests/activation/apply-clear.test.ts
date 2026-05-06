@@ -15,7 +15,7 @@ import { apply } from "../../src/activation/apply.js";
 import { clear } from "../../src/activation/clear.js";
 import type { LoadedPreset, ThinkingLevel } from "../../src/types.js";
 import { makeStubModelRegistry } from "../helpers/model-registry.js";
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model, ThinkingLevelMap } from "@mariozechner/pi-ai";
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
@@ -226,6 +226,51 @@ describe("apply", () => {
     expect(harness.pi.getThinkingLevel()).toBe("off");
     expect(harness.notifications.join("\n")).toContain('applied "off" instead');
   });
+
+  it("clamps when thinkingLevelMap explicitly nulls the requested level", async () => {
+    const harness = makeHarness(true, { thinkingLevelMap: { low: null } });
+
+    await apply(
+      { ...basePreset, thinkingLevel: "low" },
+      harness.ctx,
+      harness.pi,
+    );
+
+    expect(harness.pi.getThinkingLevel()).toBe("off");
+    expect(harness.notifications.join("\n")).toContain(
+      'preset "plan" requested thinking:low for anthropic/claude. applied "off" instead.',
+    );
+  });
+
+  it("honors requested levels through high when missing from thinkingLevelMap", async () => {
+    const harness = makeHarness(true, { thinkingLevelMap: { xhigh: "max" } });
+
+    await apply(
+      { ...basePreset, thinkingLevel: "low" },
+      harness.ctx,
+      harness.pi,
+    );
+
+    expect(harness.pi.getThinkingLevel()).toBe("low");
+    expect(harness.notifications.join("\n")).not.toContain(
+      "requested thinking:low",
+    );
+  });
+
+  it("clamps xhigh unless thinkingLevelMap explicitly maps it", async () => {
+    const harness = makeHarness(true);
+
+    await apply(
+      { ...basePreset, thinkingLevel: "xhigh" },
+      harness.ctx,
+      harness.pi,
+    );
+
+    expect(harness.pi.getThinkingLevel()).toBe("off");
+    expect(harness.notifications.join("\n")).toContain(
+      'preset "plan" requested thinking:xhigh for anthropic/claude. applied "off" instead.',
+    );
+  });
 });
 
 describe("clear", () => {
@@ -384,7 +429,11 @@ describe("clear", () => {
 
 function makeHarness(
   reasoning = true,
-  options: { allTools?: string[]; failModel?: string } = {},
+  options: {
+    allTools?: string[];
+    failModel?: string;
+    thinkingLevelMap?: ThinkingLevelMap;
+  } = {},
 ): FakeHarness {
   let thinkingLevel: ThinkingLevel = "medium";
   let tools = ["bash"];
@@ -399,7 +448,13 @@ function makeHarness(
     modelRegistry: makeStubModelRegistry({
       models: {
         anthropic: {
-          claude: { hasKey: true, reasoning },
+          claude: {
+            hasKey: true,
+            reasoning,
+            ...(options.thinkingLevelMap === undefined
+              ? {}
+              : { thinkingLevelMap: options.thinkingLevelMap }),
+          },
           old: { hasKey: true, reasoning: true },
           opus: { hasKey: true, reasoning: true },
         },

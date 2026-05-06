@@ -513,12 +513,10 @@ class PresetEditorComponent implements Component, Focusable {
    * constructor — opening must not silently mutate the form.
    */
   private snapThinkingIfInvalid(): void {
-    const valid = validThinkingLevels(this.currentModel());
+    const next = snapThinkingSelection(this.state, this.currentModel());
 
-    if (!valid.includes(this.state.thinkingLevel)) {
-      this.state = { ...this.state, thinkingLevel: "off" };
-      this.notice = `${this.state.model || "selected model"} does not support extended thinking — switched to off.`;
-    }
+    this.state = next.state;
+    if (next.notice !== undefined) this.notice = next.notice;
   }
 
   private modelsForProvider(provider: string): readonly ModelItem[] {
@@ -661,6 +659,9 @@ class PresetEditorComponent implements Component, Focusable {
   }
 
   private renderToolsRows(): string[] {
+    // Tools-capability gating is intentionally out of scope until pi-ai exposes
+    // a supports-tools flag; see gate-thinking-levels-by-model-map.
+
     // Labels pair with `formatToolsSummary` on the picker card so the
     // editor and card share one vocabulary:
     //   session — session tools pass through at apply time (no `tools`
@@ -1087,6 +1088,20 @@ export async function openEditor(
       },
     },
   );
+}
+
+export function snapThinkingSelection(
+  state: EditorFormState,
+  model: Model<Api> | undefined,
+): { state: EditorFormState; notice: string | undefined } {
+  if (validThinkingLevels(model).includes(state.thinkingLevel)) {
+    return { state, notice: undefined };
+  }
+
+  return {
+    state: { ...state, thinkingLevel: "off" },
+    notice: `${state.model || "selected model"} does not support extended thinking — switched to off.`,
+  };
 }
 
 function formatButton(action: ButtonAction): string {
