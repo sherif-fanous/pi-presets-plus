@@ -81,6 +81,11 @@ const IDENTITY_STYLER: Styler = {
   fg: (_color, text) => text,
 };
 
+export interface ClearResult {
+  readonly name: string;
+  readonly parts: readonly ClearPart[];
+}
+
 /**
  * Choose the plain-English lead sentence that sits under the title.
  *
@@ -126,13 +131,23 @@ export async function clear(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
 ): Promise<void> {
+  const result = await clearReturning(ctx, pi);
+
+  ctx.ui.notify(
+    result
+      ? renderClearSummary(result.name, result.parts, ctx.ui.theme)
+      : "no preset is active.",
+    "info",
+  );
+}
+
+export async function clearReturning(
+  ctx: ExtensionCommandContext,
+  pi: ExtensionAPI,
+): Promise<ClearResult | undefined> {
   const active = getActive();
 
-  if (!active) {
-    ctx.ui.notify("no preset is active.", "info");
-
-    return;
-  }
+  if (!active) return undefined;
 
   const currentModel = ctx.model
     ? { provider: ctx.model.provider, id: ctx.model.id }
@@ -149,10 +164,8 @@ export async function clear(
   clearActive();
   pi.appendEntry("presets-plus:active", { name: null });
   updateStatus(ctx, getActive(), () => undefined);
-  ctx.ui.notify(
-    renderClearSummary(active.name, finalParts, ctx.ui.theme),
-    "info",
-  );
+
+  return { name: active.name, parts: finalParts };
 }
 
 export function decideClear(snapshot: ClearSnapshot): ClearDecision {

@@ -7,9 +7,10 @@
  * the caller).
  */
 import { getActive } from "../activation/active-state.js";
-import { clear as clearPreset } from "../activation/clear.js";
+import { clearReturning, renderClearSummary } from "../activation/clear.js";
 import { detectDriftReasons } from "../activation/drift.js";
 import { surfaceWarnings } from "../commands/presets/notify.js";
+import { formatStatusBody } from "../commands/presets/status.js";
 import {
   deleteNeedsHotkeyReload,
   recordReloadPromptDeclined,
@@ -25,6 +26,7 @@ import { openConfirm } from "./confirm.js";
 import { openEditor } from "./editor.js";
 import type { ScopeFilter } from "./filter.js";
 import { centerText, frameLine, frameSegment, padToWidth } from "./frame.js";
+import { openInfoDialog } from "./info-dialog.js";
 import {
   cycleScope as cyclePickerScope,
   initialPickerState,
@@ -194,6 +196,8 @@ class PresetPickerComponent implements Component, Focusable {
       void this.deleteSelection();
     } else if (normalized === "c") {
       void this.clearActivePreset();
+    } else if (normalized === "s") {
+      void this.showActiveStatus();
     }
   }
 
@@ -249,7 +253,11 @@ class PresetPickerComponent implements Component, Focusable {
   }
 
   private async clearActivePreset(): Promise<void> {
-    if (!this.pi) return;
+    if (!this.pi) {
+      await this.showUnavailableDialog("Clear Unavailable");
+
+      return;
+    }
 
     const confirmed = await this.runWithHiddenOverlay(() =>
       openConfirm(
@@ -261,8 +269,47 @@ class PresetPickerComponent implements Component, Focusable {
 
     if (!confirmed) return;
 
-    await clearPreset(this.ctx, this.pi);
+    const result = await clearReturning(this.ctx, this.pi);
+
+    if (result) {
+      await this.runWithHiddenOverlay(() =>
+        openInfoDialog(this.ctx, {
+          body: renderClearSummary(result.name, result.parts, this.theme),
+          title: "Preset Cleared",
+          tone: "info",
+        }),
+      );
+    }
+
     await this.refreshPresets();
+  }
+
+  private async showActiveStatus(): Promise<void> {
+    if (!this.pi) {
+      await this.showUnavailableDialog("Status Unavailable");
+
+      return;
+    }
+
+    const result = await formatStatusBody(this.ctx, this.pi);
+
+    await this.runWithHiddenOverlay(() =>
+      openInfoDialog(this.ctx, {
+        body: withWarnings(result.body, result.warnings),
+        title: "Preset Status",
+        tone: result.severity,
+      }),
+    );
+  }
+
+  private async showUnavailableDialog(title: string): Promise<void> {
+    await this.runWithHiddenOverlay(() =>
+      openInfoDialog(this.ctx, {
+        body: "This action is unavailable because the Pi API was not provided.",
+        title,
+        tone: "warning",
+      }),
+    );
   }
 
   private async deleteSelection(): Promise<void> {
@@ -653,7 +700,7 @@ class PresetPickerComponent implements Component, Focusable {
     const footer =
       this.state.focusMode === "filter"
         ? `${activateHint} · Esc List · ←/→ Cursor · ↑/↓ Move · PgUp/PgDn`
-        : `${activateHint} · n New · e Edit · d Duplicate · x Delete · c Clear · Ctrl+↑/↓ Reorder · / Filter · Esc Close`;
+        : `${activateHint} · n New · e Edit · d Duplicate · x Delete · c Clear · s Status · Ctrl+↑/↓ Reorder · / Filter · Esc Close`;
 
     return this.theme.fg("dim", ` ${footer}`);
   }
@@ -894,4 +941,15 @@ function uniqueCopyName(
   }
 
   return `${base}-${Date.now().toString(36)}`;
+}
+
+function withWarnings(body: string, warnings: readonly string[]): string {
+  if (warnings.length === 0) return body;
+
+  return [
+    `warnings:`,
+    ...warnings.map((warning) => `- ${warning}`),
+    "",
+    body,
+  ].join("\n");
 }

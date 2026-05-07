@@ -11,10 +11,17 @@ import {
   clearActive,
   setActive,
 } from "../../../src/activation/active-state.js";
-import { formatStatus } from "../../../src/commands/presets/status.js";
+import {
+  formatStatus,
+  runStatus,
+} from "../../../src/commands/presets/status.js";
 import type { ActivePresetState, LoadedPreset } from "../../../src/types.js";
 import type { Api, Model } from "@mariozechner/pi-ai";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const loadAll = vi.hoisted(() => vi.fn());
+
+vi.mock("../../../src/store/api.js", () => ({ loadAll }));
 
 const preset: LoadedPreset = {
   model: "claude",
@@ -37,6 +44,65 @@ function pi(thinkingLevel: string, tools: string[]) {
 
 afterEach(() => {
   clearActive();
+  loadAll.mockReset();
+});
+
+describe("runStatus", () => {
+  it("delivers the no-active prompt diagnostic via ctx.ui.notify", async () => {
+    const notifications: Array<[string, string]> = [];
+    const ctx = {
+      ui: {
+        notify: (message: string, severity: string) => {
+          notifications.push([message, severity]);
+        },
+        theme: {
+          bold: (text: string) => text,
+          fg: (_color: string, text: string) => text,
+        },
+      },
+    };
+
+    await runStatus(ctx as never, pi("medium", []) as never);
+
+    expect(notifications).toEqual([["no preset is active.", "info"]]);
+  });
+
+  it("delivers the active-preset diagnostic via ctx.ui.notify", async () => {
+    const active: ActivePresetState = {
+      declared: {
+        model: "claude",
+        provider: "anthropic",
+        thinkingLevel: "high",
+      },
+      dirty: false,
+      name: "plan",
+      restore: { kind: "unknown" },
+      scope: "project",
+    };
+    const notifications: Array<[string, string]> = [];
+    const ctx = {
+      model: model("anthropic", "claude"),
+      ui: {
+        notify: (message: string, severity: string) => {
+          notifications.push([message, severity]);
+        },
+        theme: {
+          bold: (text: string) => text,
+          fg: (_color: string, text: string) => text,
+        },
+      },
+    };
+
+    setActive(active);
+    loadAll.mockResolvedValue({ presets: [preset], warnings: [] });
+
+    await runStatus(ctx as never, pi("high", ["read"]) as never);
+
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]?.[0]).toContain("preset status");
+    expect(notifications[0]?.[0]).toContain("preset:                  plan");
+    expect(notifications[0]?.[1]).toBe("info");
+  });
 });
 
 describe("formatStatus", () => {

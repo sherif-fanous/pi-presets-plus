@@ -15,6 +15,12 @@ import type {
   Theme,
 } from "@mariozechner/pi-coding-agent";
 
+export interface StatusBodyResult {
+  readonly body: string;
+  readonly severity: "info" | "warning";
+  readonly warnings: readonly string[];
+}
+
 interface Styler {
   bold(text: string): string;
   fg(color: string, text: string): string;
@@ -119,37 +125,45 @@ export function formatStatus(
   ].join("\n");
 }
 
-export async function runStatus(
+export async function formatStatusBody(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
-): Promise<void> {
+): Promise<StatusBodyResult> {
   const active = getActive();
 
   if (!active) {
-    ctx.ui.notify("no preset is active.", "info");
-
-    return;
+    return { body: "no preset is active.", severity: "info", warnings: [] };
   }
 
   const { presets, warnings } = await loadAll(ctx);
-
-  surfaceWarnings(ctx, warnings);
-
   const preset = presets.find(
     (candidate) =>
       candidate.name === active.name && candidate.scope === active.scope,
   );
 
   if (!preset) {
-    ctx.ui.notify(
-      `active preset "${active.name}" is no longer loaded.`,
-      "warning",
-    );
-
-    return;
+    return {
+      body: `active preset "${active.name}" is no longer loaded.`,
+      severity: "warning",
+      warnings,
+    };
   }
 
-  ctx.ui.notify(formatStatus(active, preset, ctx, pi, ctx.ui.theme), "info");
+  return {
+    body: formatStatus(active, preset, ctx, pi, ctx.ui.theme),
+    severity: "info",
+    warnings,
+  };
+}
+
+export async function runStatus(
+  ctx: ExtensionCommandContext,
+  pi: ExtensionAPI,
+): Promise<void> {
+  const result = await formatStatusBody(ctx, pi);
+
+  surfaceWarnings(ctx, result.warnings);
+  ctx.ui.notify(result.body, result.severity);
 }
 
 /**

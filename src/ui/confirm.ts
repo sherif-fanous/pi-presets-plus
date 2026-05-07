@@ -4,7 +4,7 @@
  * Owns yes/no keyboard handling for extension-local confirmations; it does
  * NOT own the action being confirmed or any persistence side effects.
  */
-import { centerText, frameLine, frameSegment, padToWidth } from "./frame.js";
+import { centerText, renderDialogFrame, wrapBody } from "./frame.js";
 import type {
   ExtensionCommandContext,
   Theme,
@@ -12,7 +12,6 @@ import type {
 import {
   Key,
   matchesKey,
-  truncateToWidth,
   type Component,
   type Focusable,
 } from "@mariozechner/pi-tui";
@@ -67,41 +66,29 @@ class ConfirmComponent implements Component, Focusable {
     }
   }
 
-  invalidate(): void {}
+  invalidate(): void {
+    // No cached layout or external data to invalidate.
+  }
 
   render(width: number): string[] {
     const frameWidth = Math.max(2, width);
     const bodyWidth = Math.max(1, frameWidth - 2);
-    const messageLines = this.message
-      .split("\n")
-      .flatMap((line) =>
-        line.length === 0 ? [""] : wrapWords(line, bodyWidth - 4),
-      );
+    const messageLines = wrapBody(this.message, bodyWidth - 4);
     const buttons = [
       this.renderButton("yes", "Yes"),
       this.renderButton("no", "No"),
     ].join("   ");
-    const lines = [
-      frameSegment("┌", "─", "┐", frameWidth),
-      frameLine(
-        centerText(
-          this.theme.fg("accent", this.theme.bold(this.title)),
-          bodyWidth,
-        ),
-        frameWidth,
-      ),
-      frameLine("", frameWidth),
-      ...messageLines.map((line) => frameLine(`  ${line}`, frameWidth)),
-      frameLine("", frameWidth),
-      frameLine(centerText(buttons, bodyWidth), frameWidth),
-      frameLine(
-        this.theme.fg("dim", " ←/→ choose · Enter confirm · Esc cancel "),
-        frameWidth,
-      ),
-      frameSegment("└", "─", "┘", frameWidth),
-    ];
 
-    return lines.map((line) => truncateToWidth(line, frameWidth, ""));
+    return renderDialogFrame({
+      bodyLines: [
+        ...messageLines.map((line) => `  ${line}`),
+        "",
+        centerText(buttons, bodyWidth),
+      ],
+      footer: this.theme.fg("dim", " ←/→ choose · Enter confirm · Esc cancel "),
+      title: this.theme.fg("accent", this.theme.bold(this.title)),
+      width: frameWidth,
+    });
   }
 
   private finish(result: boolean): void {
@@ -136,26 +123,4 @@ export async function openConfirm(
       },
     },
   );
-}
-
-function wrapWords(text: string, width: number): string[] {
-  const safeWidth = Math.max(1, width);
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const candidate = current.length === 0 ? word : `${current} ${word}`;
-
-    if (candidate.length <= safeWidth) {
-      current = candidate;
-    } else {
-      if (current.length > 0) lines.push(padToWidth(current, safeWidth));
-      current = word;
-    }
-  }
-
-  if (current.length > 0) lines.push(padToWidth(current, safeWidth));
-
-  return lines.length > 0 ? lines : [""];
 }

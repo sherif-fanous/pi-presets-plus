@@ -7,6 +7,13 @@
  */
 import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
+export interface DialogFrameOptions {
+  readonly bodyLines: readonly string[];
+  readonly footer: string;
+  readonly title: string;
+  readonly width: number;
+}
+
 export function centerText(text: string, width: number): string {
   const textWidth = visibleWidth(text);
 
@@ -55,4 +62,48 @@ export function padToWidth(
   const paddingWidth = Math.max(0, width - visibleWidth(truncated));
 
   return `${truncated}${fill.repeat(paddingWidth)}`;
+}
+
+export function renderDialogFrame(options: DialogFrameOptions): string[] {
+  const frameWidth = Math.max(2, options.width);
+  const bodyWidth = Math.max(1, frameWidth - 2);
+  const lines = [
+    frameSegment("┌", "─", "┐", frameWidth),
+    frameLine(centerText(options.title, bodyWidth), frameWidth),
+    frameLine("", frameWidth),
+    ...options.bodyLines.map((line) => frameLine(line, frameWidth)),
+    frameLine(options.footer, frameWidth),
+    frameSegment("└", "─", "┘", frameWidth),
+  ];
+
+  return lines.map((line) => truncateToWidth(line, frameWidth, ""));
+}
+
+export function wrapBody(text: string, width: number): string[] {
+  const safeWidth = Math.max(1, width);
+
+  return text
+    .split("\n")
+    .flatMap((line) => (line.length === 0 ? [""] : wrapWords(line, safeWidth)));
+}
+
+function wrapWords(text: string, width: number): string[] {
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const candidate = current.length === 0 ? word : `${current} ${word}`;
+
+    if (candidate.length <= width) {
+      current = candidate;
+    } else {
+      if (current.length > 0) lines.push(current);
+      current = word;
+    }
+  }
+
+  if (current.length > 0) lines.push(current);
+
+  return lines.length > 0 ? lines : [""];
 }

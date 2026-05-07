@@ -9,6 +9,7 @@ import {
   frameLine,
   frameSegment,
   padToWidth,
+  wrapBody,
 } from "../../src/ui/frame.js";
 import { describe, expect, it } from "vitest";
 
@@ -37,5 +38,9 @@ describe("frame helpers", () => {
   it("centers text inside a visual width", () => {
     expect(centerText("x", 5)).toBe("  x  ");
     expect(centerText("xx", 5)).toBe(" xx  ");
+  });
+
+  it("wraps body lines without redundant inner padding", () => {
+    expect(wrapBody("alpha beta gamma", 10)).toEqual(["alpha beta", "gamma"]);
   });
 });
