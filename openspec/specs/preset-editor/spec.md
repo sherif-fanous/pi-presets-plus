@@ -136,6 +136,63 @@ The editor's hotkey field SHALL accept a free-text key combination string (e.g. 
 - **WHEN** the hotkey field changes from a previously-saved non-empty value to any other value (including empty)
 - **THEN** the editor SHALL display a notice that the change takes effect after `/reload`
 
+### Requirement: Reload prompt after hotkey-mutating Save
+
+When the editor's Save action completes successfully and the committed preset's hotkey state differs from the runtime hotkey baseline for this extension runtime, the package SHALL open a confirmation overlay titled `"Reload Pi?"` with body text explaining that hotkey changes take effect after a reload, presenting Yes / No actions with No selected by default. On Yes, the package SHALL close the calling overlay flow and call `ctx.reload()`. On No, the package SHALL close the dialog without calling `ctx.reload()`. The editor SHALL close after the overlay is dismissed regardless of which action the user chose.
+
+If the save returns the preset identity and hotkey to the runtime baseline after an earlier un-reloaded edit, no reload prompt SHALL appear. If a hotkey-bearing preset is renamed or moved to another scope, a reload prompt SHALL appear even when the hotkey string is unchanged, because the registered shortcut handler still targets the old identity.
+
+If `ctx.reload` is not available on the surrounding pi build, the prompt SHALL NOT open and the existing inline `formatHotkeyReloadNotice` SHALL remain the only signal. If `ctx.reload()` throws or rejects, the package SHALL surface the error via `ctx.ui.notify(<text>, "error")` and SHALL NOT let the exception escape.
+
+#### Scenario: Save adds a hotkey
+
+- **WHEN** the user creates a new preset with a non-empty hotkey, presses Save, and the persistence succeeds
+- **THEN** a `"Reload Pi?"` overlay SHALL appear with No selected by default
+- **AND** if the user chooses Yes, `ctx.reload()` SHALL be called after the editor and picker overlay flow closes
+- **AND** if the user chooses No, the dialog SHALL close and the editor SHALL close without calling `ctx.reload()`
+
+#### Scenario: Save changes an existing hotkey
+
+- **WHEN** the user edits an existing preset's hotkey from `ctrl+shift+1` to `ctrl+shift+2`, presses Save, and the persistence succeeds
+- **THEN** a `"Reload Pi?"` overlay SHALL appear
+
+#### Scenario: Save removes a hotkey
+
+- **WHEN** the user clears an existing preset's runtime-baseline hotkey field, presses Save, and the persistence succeeds
+- **THEN** a `"Reload Pi?"` overlay SHALL appear
+
+#### Scenario: Save reverts to runtime baseline
+
+- **WHEN** the user saves a preset whose identity and hotkey match the runtime baseline after an earlier un-reloaded edit
+- **THEN** no reload prompt SHALL appear
+
+#### Scenario: Save with no hotkey change
+
+- **WHEN** the user edits any field other than the hotkey or hotkey-bearing identity, presses Save, and the persistence succeeds
+- **THEN** no reload prompt SHALL appear
+
+#### Scenario: Save fails persistence
+
+- **WHEN** the user changes the hotkey, presses Save, and persistence fails
+- **THEN** no reload prompt SHALL appear
+
+#### Scenario: Scope move with unchanged hotkey
+
+- **WHEN** the user changes scope on an existing preset whose runtime-baseline hotkey is unchanged, confirms the move, and the move succeeds
+- **THEN** exactly one reload prompt SHALL appear
+
+#### Scenario: ctx.reload throws
+
+- **WHEN** the user chooses Yes and `ctx.reload()` throws or rejects
+- **THEN** an error notification SHALL surface naming the failure
+- **AND** the exception SHALL NOT propagate out of the editor flow
+
+#### Scenario: ctx.reload not available
+
+- **WHEN** the surrounding pi build does not expose `ctx.reload`
+- **THEN** the reload prompt SHALL NOT open after Save
+- **AND** the existing inline hotkey-reload notice SHALL remain the only signal
+
 ### Requirement: Save / Cancel / Test actions
 
 The editor SHALL expose three actions:
@@ -182,7 +239,9 @@ The editor SHALL expose three actions:
 
 ### Requirement: Picker CRUD action keys are functional
 
-The picker's `n`, `e`, `d`, `x`, `c`, `⌃↑`, and `⌃↓` keys SHALL perform real actions: new (open editor with sensible defaults for a new preset), edit (open editor for selected), duplicate (with confirmation; create copy with unique name suffix and cleared hotkey), delete (with confirmation), clear active preset (with confirmation), and reorder up/down within the selected preset's scope (persists via `reorderWithinScope`). After every successful CRUD operation the picker SHALL refresh by calling `loadAll`.
+The picker's `n`, `e`, `d`, `x`, `c`, `⌃↑`, and `⌃↓` keys SHALL perform real actions: new (open editor with sensible defaults for a new preset), edit (open editor for selected), duplicate (with confirmation; create copy with unique name suffix and cleared hotkey), delete (with confirmation), clear active preset (with confirmation), and reorder up/down within the selected preset's scope (persists via `reorderWithinScope`). After every successful CRUD operation the picker SHALL refresh by calling `loadAll` unless the user chose to reload Pi and the picker closes to allow `ctx.reload()`.
+
+When the `x` (delete) action successfully removes a preset whose runtime-baseline `hotkey` field was non-empty, the picker SHALL open a `"Reload Pi?"` confirmation overlay with No selected by default. On Yes, `ctx.reload()` SHALL be called after the picker closes. On No, the dialog SHALL close and the picker SHALL refresh and remain open as before. If the deleted preset had no runtime-baseline hotkey, no reload prompt SHALL appear.
 
 #### Scenario: New from picker
 
@@ -203,6 +262,25 @@ The picker's `n`, `e`, `d`, `x`, `c`, `⌃↑`, and `⌃↓` keys SHALL perform 
 
 - **WHEN** the user presses `x` on a selected preset and confirms the prompt
 - **THEN** the preset SHALL be removed from its source file and the picker SHALL refresh
+
+#### Scenario: Delete a preset without a hotkey
+
+- **WHEN** the user presses `x` on a selected preset whose runtime-baseline `hotkey` is empty/absent and confirms the prompt
+- **THEN** the preset SHALL be removed from its source file and the picker SHALL refresh
+- **AND** no reload prompt SHALL appear
+
+#### Scenario: Delete a preset with a hotkey
+
+- **WHEN** the user presses `x` on a selected preset whose runtime-baseline `hotkey` is non-empty and confirms the delete prompt
+- **THEN** the preset SHALL be removed
+- **AND** a `"Reload Pi?"` overlay SHALL appear with No selected by default
+- **AND** if the user chooses Yes, `ctx.reload()` SHALL be called after the picker closes
+- **AND** if the user chooses No, the dialog SHALL close and the picker SHALL refresh and remain open
+
+#### Scenario: ctx.reload throws on post-delete prompt
+
+- **WHEN** the user chooses Yes on the post-delete reload prompt and `ctx.reload()` throws
+- **THEN** an error notification SHALL surface and the exception SHALL NOT propagate
 
 #### Scenario: Clear active preset from picker
 

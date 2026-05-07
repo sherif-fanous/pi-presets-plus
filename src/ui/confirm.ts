@@ -118,7 +118,7 @@ class ConfirmComponent implements Component, Focusable {
 }
 
 export async function openConfirm(
-  ctx: ExtensionCommandContext,
+  ctx: Pick<ExtensionCommandContext, "ui">,
   title: string,
   message: string,
 ): Promise<boolean> {

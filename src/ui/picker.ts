@@ -11,6 +11,10 @@ import { clear as clearPreset } from "../activation/clear.js";
 import { detectDriftReasons } from "../activation/drift.js";
 import { surfaceWarnings } from "../commands/presets/notify.js";
 import {
+  deleteNeedsHotkeyReload,
+  recordReloadPromptDeclined,
+} from "../hotkey-reload-baseline.js";
+import {
   addPreset,
   loadAll,
   removePreset,
@@ -33,6 +37,7 @@ import {
   type PickerFocusMode,
   type PickerState,
 } from "./picker-state.js";
+import { confirmReload, reloadAfterOverlayClose } from "./reload-prompt.js";
 import { presetCard } from "./widgets.js";
 import type {
   ExtensionAPI,
@@ -275,6 +280,21 @@ class PresetPickerComponent implements Component, Focusable {
           return;
         }
 
+        if (deleteNeedsHotkeyReload(preset)) {
+          const reloadRequested = await this.runWithHiddenOverlay(() =>
+            confirmReload(this.ctx),
+          );
+
+          if (reloadRequested) {
+            this.finish(undefined);
+            reloadAfterOverlayClose(this.ctx);
+
+            return;
+          }
+
+          recordReloadPromptDeclined(preset, undefined);
+        }
+
         await this.refreshPresets(loadedPresetKey(preset));
       },
     );
@@ -398,6 +418,10 @@ class PresetPickerComponent implements Component, Focusable {
   ): Promise<void> {
     const result = await this.runWithHiddenOverlay(() =>
       openEditor(this.ctx, preset, {
+        onReloadRequested: () => {
+          this.finish(undefined);
+          reloadAfterOverlayClose(this.ctx);
+        },
         onTest: (candidate) =>
           this.onActivate({
             ...candidate,
@@ -408,7 +432,12 @@ class PresetPickerComponent implements Component, Focusable {
       }),
     );
 
-    if (result?.saved) await this.refreshPresets(loadedPresetKey(result.saved));
+    if (result?.saved) {
+      if (result.reloadRequested) return;
+
+      await this.refreshPresets(loadedPresetKey(result.saved));
+    }
+
     if (result?.tested) this.finish({ activated: result.tested });
   }
 
@@ -418,10 +447,14 @@ class PresetPickerComponent implements Component, Focusable {
     try {
       return await fn();
     } finally {
-      this.overlayHandle?.setHidden(false);
-      this.overlayHandle?.focus();
-      this.requestRender();
+      this.restoreOverlay();
     }
+  }
+
+  private restoreOverlay(): void {
+    this.overlayHandle?.setHidden(false);
+    this.overlayHandle?.focus();
+    this.requestRender();
   }
 
   private async refreshPresets(selectionKey?: string): Promise<void> {

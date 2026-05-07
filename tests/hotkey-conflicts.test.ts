@@ -4,6 +4,7 @@
 import {
   annotateAndAnalyzeHotkeys,
   formatPresetIdentity,
+  hotkeyChanged,
 } from "../src/hotkey-conflicts.js";
 import type { LoadedPreset } from "../src/types.js";
 import { describe, expect, it } from "vitest";
@@ -21,6 +22,22 @@ function preset(
     scope,
   };
 }
+
+describe("hotkeyChanged", () => {
+  it.each([
+    ["both empty", "", "", false],
+    ["both undefined", undefined, undefined, false],
+    ["one empty and one whitespace", "", "   ", false],
+    ["same hotkey", "ctrl+1", "ctrl+1", false],
+    ["equivalent hotkey casing", "Ctrl+1", "ctrl+1", false],
+    ["equivalent modifier order", "shift+ctrl+1", "ctrl+shift+1", false],
+    ["different hotkeys", "ctrl+1", "ctrl+2", true],
+    ["removed hotkey", "ctrl+1", "", true],
+    ["added hotkey", "", "ctrl+1", true],
+  ])("detects %s", (_label, prev, next, expected) => {
+    expect(hotkeyChanged(prev, next)).toBe(expected);
+  });
+});
 
 describe("formatPresetIdentity", () => {
   it("formats name and scope without making scope look like part of the name", () => {

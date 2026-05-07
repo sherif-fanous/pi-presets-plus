@@ -9,6 +9,10 @@
 import { getActive, setActive } from "../activation/active-state.js";
 import { validThinkingLevels } from "../activation/thinking.js";
 import {
+  recordReloadPromptDeclined,
+  saveNeedsHotkeyReload,
+} from "../hotkey-reload-baseline.js";
+import {
   addPreset,
   loadAll,
   removePreset,
@@ -27,6 +31,7 @@ import {
   isPiBuiltin,
   parseHotkey,
 } from "./hotkey-input.js";
+import { confirmReload, reloadAfterOverlayClose } from "./reload-prompt.js";
 import type { Api, Model } from "@mariozechner/pi-ai";
 import type {
   ExtensionAPI,
@@ -69,10 +74,12 @@ export interface EditorOptions {
    * the editor falls back to `loadAll(ctx)`.
    */
   presets?: readonly LoadedPreset[];
+  onReloadRequested?(): void;
   onTest?(preset: LoadedPreset): Promise<{ ok: boolean }>;
 }
 
 export interface EditorResult {
+  reloadRequested?: boolean;
   saved?: LoadedPreset;
   /**
    * The synthetic candidate preset assembled from the form when the user
@@ -289,15 +296,29 @@ class PresetEditorComponent implements Component, Focusable {
   }
 
   private async confirm(title: string, message: string): Promise<boolean> {
+    return this.runWithHiddenOverlay(() =>
+      openConfirm(this.ctx, title, message),
+    );
+  }
+
+  private async promptReloadHidden(): Promise<boolean> {
+    return this.runWithHiddenOverlay(() => confirmReload(this.ctx));
+  }
+
+  private async runWithHiddenOverlay<T>(fn: () => Promise<T>): Promise<T> {
     this.overlayHandle?.setHidden(true);
 
     try {
-      return await openConfirm(this.ctx, title, message);
+      return await fn();
     } finally {
-      this.overlayHandle?.setHidden(false);
-      this.overlayHandle?.focus();
-      this.requestRender();
+      this.restoreOverlay();
     }
+  }
+
+  private restoreOverlay(): void {
+    this.overlayHandle?.setHidden(false);
+    this.overlayHandle?.focus();
+    this.requestRender();
   }
 
   private currentModel(): Model<Api> | undefined {
@@ -775,7 +796,27 @@ class PresetEditorComponent implements Component, Focusable {
         preset.name === next.name && preset.scope === this.state.scope,
     );
 
-    this.finish({ saved: loaded ?? { ...next, scope: this.state.scope } });
+    const saved = loaded ?? { ...next, scope: this.state.scope };
+
+    if (saveNeedsHotkeyReload(this.initialPreset, saved)) {
+      const reloadRequested = await this.promptReloadHidden();
+
+      this.finish({ reloadRequested, saved });
+
+      if (reloadRequested) {
+        if (this.options.onReloadRequested) {
+          this.options.onReloadRequested();
+        } else {
+          reloadAfterOverlayClose(this.ctx);
+        }
+      } else {
+        recordReloadPromptDeclined(saved);
+      }
+
+      return;
+    }
+
+    this.finish({ saved });
   }
 
   private async persist(

@@ -99,3 +99,29 @@ export function annotateAndAnalyzeHotkeys(
 export function formatPresetIdentity(identity: PresetIdentity): string {
   return `"${identity.name}" (${identity.scope})`;
 }
+
+/**
+ * Return whether two hotkey declarations differ after commit-time cleanup.
+ *
+ * Both values are trimmed before comparison, and `undefined` is treated the
+ * same as an empty or whitespace-only string. Parseable hotkeys compare by
+ * their normalized chord, so casing and modifier order do not matter; strings
+ * that fail parsing fall back to trimmed literal comparison. This matches
+ * persistence forms where absent and cleared hotkeys both mean "no binding".
+ */
+export function hotkeyChanged(
+  prev: string | undefined,
+  next: string | undefined,
+): boolean {
+  return normalizeHotkeyForChange(prev) !== normalizeHotkeyForChange(next);
+}
+
+function normalizeHotkeyForChange(hotkey: string | undefined): string {
+  const trimmed = hotkey?.trim() ?? "";
+
+  if (trimmed.length === 0) return "";
+
+  const parsed = parseHotkey(trimmed);
+
+  return parsed.ok ? parsed.parsed.normalized : trimmed;
+}

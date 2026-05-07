@@ -23,6 +23,7 @@ import {
   surfaceWarnings,
 } from "./commands/presets/index.js";
 import { applyPresetFlag, registerPresetFlag } from "./flag.js";
+import { setRuntimeHotkeyBaseline } from "./hotkey-reload-baseline.js";
 import { registerHotkeys, type CurrentPresetsLoader } from "./hotkeys.js";
 import { ACTIVATED_MESSAGE_TYPE, renderActivatedMessage } from "./messages.js";
 import { loadAll } from "./store/api.js";
@@ -60,6 +61,7 @@ export default function presetsPlus(pi: ExtensionAPI) {
       const loadCurrentPresets: CurrentPresetsLoader = async (handlerCtx) =>
         (await loadAll(handlerCtx)).presets;
 
+      setRuntimeHotkeyBaseline(presets);
       registerHotkeys(pi, ctx, presets, hotkeyAnalysis, loadCurrentPresets);
 
       updateStatus(ctx, getActive(), (name, scope) =>
