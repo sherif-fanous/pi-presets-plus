@@ -37,16 +37,9 @@ export async function applyPresetFlag(
     return;
   }
 
-  if (preset.unavailable) {
-    ctx.ui.notify(
-      `--preset: "${name}" is unavailable (${preset.unavailable}).`,
-      "warning",
-    );
+  const result = await apply(preset, ctx, pi);
 
-    return;
-  }
-
-  await apply(preset, ctx, pi);
+  if (!result.ok) ctx.ui.notify(result.reason, "error");
 }
 
 export function registerPresetFlag(

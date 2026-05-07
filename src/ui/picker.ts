@@ -7,6 +7,7 @@
  * the caller).
  */
 import { getActive } from "../activation/active-state.js";
+import type { ApplyResult } from "../activation/apply.js";
 import { clearReturning, renderClearSummary } from "../activation/clear.js";
 import { detectDriftReasons } from "../activation/drift.js";
 import { surfaceWarnings } from "../commands/presets/notify.js";
@@ -71,11 +72,10 @@ export interface PickerOptions {
   pageSize?: number;
   /**
    * Activation callback. Returns `{ ok: true }` to close the picker, or
-   * `{ ok: false }` to keep it open (e.g. preset is unavailable, model not
-   * found at apply time, or no API key). The callee is responsible for any
-   * user-facing notification — the picker does not duplicate refusal copy.
+   * `{ ok: false, reason }` to keep it open and surface the refusal in an
+   * overlay-appropriate dialog.
    */
-  onActivate(preset: LoadedPreset): Promise<{ ok: boolean }>;
+  onActivate(preset: LoadedPreset): Promise<ApplyResult>;
   pi?: ExtensionAPI;
 }
 
@@ -130,9 +130,7 @@ class PresetPickerComponent implements Component, Focusable {
     private readonly terminal: Pick<Terminal, "rows">,
     private readonly fixedPageSize: number | undefined,
     private inheritedTools: readonly string[],
-    private readonly onActivate: (
-      preset: LoadedPreset,
-    ) => Promise<{ ok: boolean }>,
+    private readonly onActivate: (preset: LoadedPreset) => Promise<ApplyResult>,
     private readonly done: (result: PickerResult | undefined) => void,
     private readonly requestRender: () => void,
   ) {}
@@ -235,7 +233,17 @@ class PresetPickerComponent implements Component, Focusable {
     try {
       const result = await this.onActivate(preset);
 
-      if (result.ok) this.finish({ activated: preset });
+      if (result.ok) {
+        this.finish({ activated: preset });
+      } else {
+        await this.runWithHiddenOverlay(() =>
+          openInfoDialog(this.ctx, {
+            body: result.reason,
+            title: "Activation failed",
+            tone: "error",
+          }),
+        );
+      }
     } finally {
       this.applying = false;
     }

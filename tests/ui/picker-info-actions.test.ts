@@ -4,6 +4,7 @@
  * These tests exercise picker key routing and overlay restoration with
  * mocked command runners; command formatter details are covered elsewhere.
  */
+import type { ApplyResult } from "../../src/activation/apply.js";
 import type { LoadedPreset } from "../../src/types.js";
 import type { Component } from "@mariozechner/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -105,13 +106,18 @@ function makeCtx(
   } as unknown as PickerHarness & Parameters<typeof openPicker>[0];
 }
 
-async function runPicker(input: string, withPi = true): Promise<PickerHarness> {
+async function runPicker(
+  input: string,
+  withPi = true,
+  onActivate: () => Promise<ApplyResult> = () =>
+    Promise.resolve({ ok: true } as const),
+): Promise<PickerHarness> {
   const ctx = makeCtx(input);
 
   loadAll.mockResolvedValue({ presets: [selected], warnings: [] });
 
   const opened = openPicker(ctx, {
-    onActivate: () => Promise.resolve({ ok: true }),
+    onActivate,
     pi: withPi ? (ctx as never) : undefined,
   });
 
@@ -137,6 +143,27 @@ beforeEach(() => {
 });
 
 describe("openPicker info actions", () => {
+  it("opens activation refusals in an error info-dialog", async () => {
+    const ctx = await runPicker("\r", true, () =>
+      Promise.resolve({
+        kind: "no-key",
+        ok: false,
+        reason:
+          'preset "plan" is unavailable: missing API key. activation skipped.',
+      } as const),
+    );
+
+    expect(openInfoDialog).toHaveBeenCalledWith(ctx, {
+      body: 'preset "plan" is unavailable: missing API key. activation skipped.',
+      title: "Activation failed",
+      tone: "error",
+    });
+    expect(ctx.notify).not.toHaveBeenCalled();
+    expect(ctx.setHidden).toHaveBeenCalledWith(true);
+    expect(ctx.setHidden).toHaveBeenCalledWith(false);
+    expect(ctx.focus).toHaveBeenCalledOnce();
+  });
+
   it("opens status in an info-dialog and restores picker focus", async () => {
     const ctx = await runPicker("s");
 

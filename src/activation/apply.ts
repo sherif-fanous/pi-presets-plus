@@ -28,18 +28,38 @@ import type {
  */
 let selfTriggeredModelSetDepth = 0;
 
+/**
+ * In-memory result from applying a preset.
+ *
+ * Refusal kinds:
+ * - `no-key`: the preset is unavailable because its provider key is missing.
+ * - `no-model`: the preset is unavailable because its model is not installed.
+ * - `unknown-model`: the preset references a provider/model not in the registry.
+ * - `key-revoked`: the model resolved, but `setModel` refused it at apply time.
+ */
+export type ApplyResult =
+  | { ok: true }
+  | {
+      ok: false;
+      kind: "key-revoked" | "no-key" | "no-model" | "unknown-model";
+      reason: string;
+    };
+
+/**
+ * Apply `preset` to Pi state and return a structured refusal on expected
+ * activation failures. Callers surface refusal `reason` through the channel
+ * appropriate to their context; this function still emits non-refusal warning
+ * or informational accompaniments inline for successful activation.
+ */
 export async function apply(
   preset: LoadedPreset,
   ctx: ExtensionContext,
   pi: ExtensionAPI,
-): Promise<{ ok: boolean }> {
+): Promise<ApplyResult> {
   if (preset.unavailable) {
-    ctx.ui.notify(
-      `preset "${preset.name}" is unavailable (${preset.unavailable}). activation skipped.`,
-      "error",
-    );
+    const kind = preset.unavailable;
 
-    return { ok: false };
+    return { ok: false, kind, reason: failureReason(kind, preset) };
   }
 
   const current = getActive();
@@ -58,12 +78,11 @@ export async function apply(
   const model = ctx.modelRegistry.find(preset.provider, preset.model);
 
   if (!model) {
-    ctx.ui.notify(
-      `preset "${preset.name}" references unknown model ${preset.provider}/${preset.model}.`,
-      "error",
-    );
-
-    return { ok: false };
+    return {
+      ok: false,
+      kind: "unknown-model",
+      reason: failureReason("unknown-model", preset),
+    };
   }
 
   const previousBaseline =
@@ -73,8 +92,12 @@ export async function apply(
   const previousAppliedTools = previousBaseline?.lastApplied.tools;
   const previousOwnedTools = previousBaseline?.owned.tools ?? false;
 
-  if (!(await setModelGuarded(pi, ctx, preset.provider, preset.model))) {
-    return { ok: false };
+  if (!(await setModelGuarded(pi, model))) {
+    return {
+      ok: false,
+      kind: "key-revoked",
+      reason: failureReason("key-revoked", preset),
+    };
   }
 
   const effective = effectiveThinkingLevel(preset, model);
@@ -174,6 +197,28 @@ export async function withSelfTriggeredModelSet<T>(
   }
 }
 
+function failureReason(
+  kind: Exclude<ApplyResult, { ok: true }>["kind"],
+  preset: Pick<LoadedPreset, "model" | "name" | "provider">,
+): string {
+  switch (kind) {
+    case "no-key":
+      return `preset "${preset.name}" is unavailable: missing API key. activation skipped.`;
+    case "no-model":
+      return `preset "${preset.name}" is unavailable: model not installed. activation skipped.`;
+    case "unknown-model":
+      return `preset "${preset.name}" references unknown model ${preset.provider}/${preset.model}.`;
+    case "key-revoked":
+      return `no API key configured for ${preset.provider}/${preset.model}.`;
+
+    default: {
+      const exhaustive: never = kind;
+
+      return exhaustive;
+    }
+  }
+}
+
 function filterValidTools(
   desired: readonly string[],
   allTools: readonly { name: string }[],
@@ -185,23 +230,7 @@ function filterValidTools(
 
 async function setModelGuarded(
   pi: Pick<ExtensionAPI, "setModel">,
-  ctx: Pick<ExtensionContext, "modelRegistry" | "ui">,
-  provider: string,
-  modelId: string,
+  model: NonNullable<ReturnType<ExtensionContext["modelRegistry"]["find"]>>,
 ): Promise<boolean> {
-  const model = ctx.modelRegistry.find(provider, modelId);
-
-  if (!model) {
-    ctx.ui.notify(`model not found: ${provider}/${modelId}`, "error");
-
-    return false;
-  }
-
-  const success = await withSelfTriggeredModelSet(() => pi.setModel(model));
-
-  if (!success) {
-    ctx.ui.notify(`no api key configured for ${provider}/${modelId}.`, "error");
-  }
-
-  return success;
+  return withSelfTriggeredModelSet(() => pi.setModel(model));
 }

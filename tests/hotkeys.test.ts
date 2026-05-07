@@ -69,6 +69,7 @@ function preset(
 
 beforeEach(() => {
   applyMock.mockReset();
+  applyMock.mockResolvedValue({ ok: true });
 });
 
 describe("registerHotkeys", () => {
@@ -176,12 +177,19 @@ describe("registerHotkeys", () => {
     expect(applyMock).toHaveBeenCalledWith(current, ctx, pi);
   });
 
-  it("warns instead of applying when the current preset becomes unavailable", async () => {
+  it("notifies once when hotkey activation is refused", async () => {
     const { ctx, notify } = fakeCtx();
     const { pi, shortcuts } = fakePi();
     const stale = preset("plan", "ctrl+shift+1");
     const current = preset("plan", "ctrl+shift+1", "user", {
       unavailable: "no-key",
+    });
+
+    applyMock.mockResolvedValueOnce({
+      kind: "no-key",
+      ok: false,
+      reason:
+        'preset "plan" is unavailable: missing API key. activation skipped.',
     });
 
     registerHotkeys(pi, ctx, [stale], annotateAndAnalyzeHotkeys([stale]), () =>
@@ -190,10 +198,11 @@ describe("registerHotkeys", () => {
 
     await shortcuts.get("ctrl+shift+1")?.handler(ctx as ExtensionContext);
 
-    expect(applyMock).not.toHaveBeenCalled();
+    expect(applyMock).toHaveBeenCalledWith(current, ctx, pi);
+    expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith(
-      'Preset "plan" is unavailable (no-key).',
-      "warning",
+      'preset "plan" is unavailable: missing API key. activation skipped.',
+      "error",
     );
   });
 

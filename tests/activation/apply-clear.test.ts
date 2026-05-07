@@ -26,6 +26,7 @@ interface FakeHarness {
   ctx: ExtensionCommandContext;
   messages: unknown[];
   notifications: string[];
+  notificationCalls: [string, string | undefined][];
   pi: ExtensionAPI;
   setModelCalls: string[];
   setToolsCalls: string[][];
@@ -89,9 +90,12 @@ describe("apply", () => {
     );
 
     expect(harness.setToolsCalls).toEqual([["read"]]);
-    expect(harness.notifications.join("\n")).toContain(
-      "unknown tools: missing",
-    );
+    expect(harness.notificationCalls).toEqual([
+      [
+        'preset "plan" references unknown tools: missing. they were ignored.',
+        "warning",
+      ],
+    ]);
 
     expect(getActive()).toMatchObject({
       restore: {
@@ -159,13 +163,64 @@ describe("apply", () => {
   it("refuses unavailable presets before changing state", async () => {
     const harness = makeHarness();
 
-    await apply(
+    const result = await apply(
       { ...basePreset, unavailable: "no-key" },
       harness.ctx,
       harness.pi,
     );
 
+    expect(result).toEqual({
+      kind: "no-key",
+      ok: false,
+      reason:
+        'preset "plan" is unavailable: missing API key. activation skipped.',
+    });
+    expect(harness.notifications).toEqual([]);
     expect(harness.setModelCalls).toEqual([]);
+    expect(getActive()).toBeUndefined();
+  });
+
+  it("returns no-model refusals without notifying", async () => {
+    const harness = makeHarness();
+
+    const result = await apply(
+      { ...basePreset, unavailable: "no-model" },
+      harness.ctx,
+      harness.pi,
+    );
+
+    expect(result).toMatchObject({ kind: "no-model", ok: false });
+    expect(harness.notifications).toEqual([]);
+  });
+
+  it("returns unknown-model refusals without notifying", async () => {
+    const harness = makeHarness();
+
+    const result = await apply(
+      { ...basePreset, model: "missing" },
+      harness.ctx,
+      harness.pi,
+    );
+
+    expect(result).toEqual({
+      kind: "unknown-model",
+      ok: false,
+      reason: 'preset "plan" references unknown model anthropic/missing.',
+    });
+    expect(harness.notifications).toEqual([]);
+  });
+
+  it("returns key-revoked refusals without notifying", async () => {
+    const harness = makeHarness(true, { failModel: "claude" });
+
+    const result = await apply(basePreset, harness.ctx, harness.pi);
+
+    expect(result).toEqual({
+      kind: "key-revoked",
+      ok: false,
+      reason: "no API key configured for anthropic/claude.",
+    });
+    expect(harness.notifications).toEqual([]);
     expect(getActive()).toBeUndefined();
   });
 
@@ -438,6 +493,7 @@ function makeHarness(
   let thinkingLevel: ThinkingLevel = "medium";
   let tools = ["bash"];
   const notifications: string[] = [];
+  const notificationCalls: [string, string | undefined][] = [];
   const messages: unknown[] = [];
   const setModelCalls: string[] = [];
   const setToolsCalls: string[][] = [];
@@ -462,8 +518,9 @@ function makeHarness(
       },
     }),
     ui: {
-      notify(message: string) {
+      notify(message: string, severity?: string) {
         notifications.push(message);
+        notificationCalls.push([message, severity]);
       },
       setStatus(key: string, value: string | undefined) {
         status[key] = value;
@@ -501,6 +558,7 @@ function makeHarness(
   return {
     ctx,
     messages,
+    notificationCalls,
     notifications,
     pi,
     setModelCalls,

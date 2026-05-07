@@ -85,16 +85,9 @@ export function registerHotkeys(
             return;
           }
 
-          if (current.unavailable) {
-            handlerCtx.ui.notify(
-              `Preset "${registeredName}" is unavailable (${current.unavailable}).`,
-              "warning",
-            );
+          const result = await apply(current, handlerCtx, pi);
 
-            return;
-          }
-
-          await apply(current, handlerCtx, pi);
+          if (!result.ok) handlerCtx.ui.notify(result.reason, "error");
         } catch (err) {
           handlerCtx.ui.notify(
             `pi-presets-plus failed to activate preset "${registeredName}" from hotkey: ${err instanceof Error ? err.message : String(err)}`,

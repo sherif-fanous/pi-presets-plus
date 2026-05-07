@@ -51,6 +51,7 @@ function preset(
 
 beforeEach(() => {
   applyMock.mockReset();
+  applyMock.mockResolvedValue({ ok: true });
 });
 
 describe("applyPresetFlag", () => {
@@ -93,18 +94,25 @@ describe("applyPresetFlag", () => {
     );
   });
 
-  it("warns instead of applying unavailable presets", async () => {
+  it("notifies once when activation refuses a preset", async () => {
     const { ctx, notify } = fakeCtx();
     const pi = fakePi("plan");
+    const selected = preset("plan", "project", { unavailable: "no-key" });
 
-    await applyPresetFlag(pi, ctx, [
-      preset("plan", "project", { unavailable: "no-key" }),
-    ]);
+    applyMock.mockResolvedValueOnce({
+      kind: "no-key",
+      ok: false,
+      reason:
+        'preset "plan" is unavailable: missing API key. activation skipped.',
+    });
 
-    expect(applyMock).not.toHaveBeenCalled();
+    await applyPresetFlag(pi, ctx, [selected]);
+
+    expect(applyMock).toHaveBeenCalledWith(selected, ctx, pi);
+    expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith(
-      '--preset: "plan" is unavailable (no-key).',
-      "warning",
+      'preset "plan" is unavailable: missing API key. activation skipped.',
+      "error",
     );
   });
 });
