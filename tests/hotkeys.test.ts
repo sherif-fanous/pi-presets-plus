@@ -120,7 +120,7 @@ describe("registerHotkeys", () => {
     );
   });
 
-  it("notifies when a hotkey shadows a pi built-in", () => {
+  it("notifies when a hotkey shadows a Pi built-in", () => {
     const { ctx, notify } = fakeCtx();
     const { pi } = fakePi();
     const presets = [preset("plan", "ctrl+l")];
@@ -130,7 +130,7 @@ describe("registerHotkeys", () => {
     );
 
     expect(notify).toHaveBeenCalledWith(
-      'Preset "plan" hotkey "ctrl+l" shadows a pi built-in. The preset binding will take precedence.',
+      'Preset "plan" hotkey "ctrl+l" shadows a Pi built-in. The preset binding will take precedence.',
       "info",
     );
   });
@@ -189,7 +189,7 @@ describe("registerHotkeys", () => {
       kind: "no-key",
       ok: false,
       reason:
-        'preset "plan" is unavailable: missing API key. activation skipped.',
+        'Preset "plan" is unavailable: missing API key. Activation skipped.',
     });
 
     registerHotkeys(pi, ctx, [stale], annotateAndAnalyzeHotkeys([stale]), () =>
@@ -201,7 +201,7 @@ describe("registerHotkeys", () => {
     expect(applyMock).toHaveBeenCalledWith(current, ctx, pi);
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith(
-      'preset "plan" is unavailable: missing API key. activation skipped.',
+      'Preset "plan" is unavailable: missing API key. Activation skipped.',
       "error",
     );
   });
@@ -223,7 +223,7 @@ describe("registerHotkeys", () => {
     await shortcuts.get("ctrl+shift+1")?.handler(ctx as ExtensionContext);
 
     expect(notify).toHaveBeenCalledWith(
-      'pi-presets-plus failed to activate preset "plan" from hotkey: boom',
+      'pi-presets-plus failed to activate preset "plan" from hotkey: boom.',
       "error",
     );
   });

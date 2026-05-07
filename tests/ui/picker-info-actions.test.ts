@@ -149,12 +149,12 @@ describe("openPicker info actions", () => {
         kind: "no-key",
         ok: false,
         reason:
-          'preset "plan" is unavailable: missing API key. activation skipped.',
+          'Preset "plan" is unavailable: missing API key. Activation skipped.',
       } as const),
     );
 
     expect(openInfoDialog).toHaveBeenCalledWith(ctx, {
-      body: 'preset "plan" is unavailable: missing API key. activation skipped.',
+      body: 'Preset "plan" is unavailable: missing API key. Activation skipped.',
       title: "Activation failed",
       tone: "error",
     });
@@ -195,7 +195,7 @@ describe("openPicker info actions", () => {
 
   it("opens no-active status body in an info-dialog", async () => {
     formatStatusBody.mockResolvedValue({
-      body: "no preset is active.",
+      body: "No preset is active.",
       severity: "info",
       warnings: [],
     });
@@ -203,7 +203,7 @@ describe("openPicker info actions", () => {
     await runPicker("s");
 
     expect(openInfoDialog).toHaveBeenCalledWith(expect.anything(), {
-      body: "no preset is active.",
+      body: "No preset is active.",
       title: "Preset Status",
       tone: "info",
     });

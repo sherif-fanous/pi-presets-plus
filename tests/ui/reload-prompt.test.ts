@@ -88,7 +88,7 @@ describe("reloadAfterOverlayClose", () => {
 
     expect(reload).toHaveBeenCalledOnce();
     expect(ctx.notify).toHaveBeenCalledWith(
-      "Failed to reload Pi: boom",
+      "Failed to reload Pi: boom.",
       "error",
     );
   });

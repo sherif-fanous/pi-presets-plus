@@ -5,6 +5,13 @@
  * state, keyboard handling, or activation.
  */
 import type { LoadedPreset } from "../types.js";
+import {
+  MODEL_LABEL,
+  SCOPE_LABEL,
+  STATUS_LABEL,
+  THINKING_LABEL,
+  TOOLS_LABEL,
+} from "./labels.js";
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { truncateToWidth, type Component } from "@mariozechner/pi-tui";
 
@@ -29,7 +36,10 @@ type CardTheme = Pick<Theme, "fg" | "bold">;
 
 type ThinkingColor = Parameters<Theme["fg"]>[0];
 
-const FIELD_LABEL_WIDTH = "Shadowing:".length;
+const FIELD_LABEL_WIDTH = Math.max(
+  "Shadowing:".length,
+  `${THINKING_LABEL}:`.length,
+);
 const PROMPT_PREVIEW_WIDTH = 60;
 
 class PresetCardComponent implements Component {
@@ -56,14 +66,14 @@ class PresetCardComponent implements Component {
 
     lines.push(
       this.renderField(
-        "Scope:",
+        `${SCOPE_LABEL}:`,
         this.theme.fg("muted", formatScopeValue(this.loadedPreset)),
       ),
     );
 
     lines.push(
       this.renderField(
-        "Model:",
+        `${MODEL_LABEL}:`,
         this.theme.fg(
           "muted",
           `${this.loadedPreset.provider} / ${this.loadedPreset.model}`,
@@ -73,7 +83,7 @@ class PresetCardComponent implements Component {
 
     lines.push(
       this.renderField(
-        "Thinking:",
+        `${THINKING_LABEL}:`,
         this.theme.fg(
           thinkingColor(this.loadedPreset.thinkingLevel ?? "off"),
           formatThinkingLevel(this.loadedPreset.thinkingLevel ?? "off"),
@@ -83,7 +93,7 @@ class PresetCardComponent implements Component {
 
     lines.push(
       this.renderField(
-        "Tools:",
+        `${TOOLS_LABEL}:`,
         formatToolsSummary(
           this.loadedPreset.tools,
           this.options.inheritedTools ?? [],
@@ -102,8 +112,8 @@ class PresetCardComponent implements Component {
     if (this.loadedPreset.clampWarning === true) {
       lines.push(
         this.renderField(
-          "Status:",
-          this.theme.fg("warning", "⚠ thinking will be clamped"),
+          `${STATUS_LABEL}:`,
+          this.theme.fg("warning", "⚠ Thinking will be clamped."),
         ),
       );
     }
@@ -111,8 +121,8 @@ class PresetCardComponent implements Component {
     if (this.loadedPreset.hotkeyConflict === true) {
       lines.push(
         this.renderField(
-          "Status:",
-          this.theme.fg("warning", "⚠ hotkey conflict"),
+          `${STATUS_LABEL}:`,
+          this.theme.fg("warning", "⚠ Hotkey conflict."),
         ),
       );
     }
@@ -122,7 +132,7 @@ class PresetCardComponent implements Component {
     if (availabilityStatus.length > 0) {
       lines.push(
         this.renderField(
-          "Status:",
+          `${STATUS_LABEL}:`,
           this.theme.fg("warning", availabilityStatus),
         ),
       );
@@ -167,9 +177,9 @@ class PresetCardComponent implements Component {
 export function formatAvailabilityStatus(loadedPreset: LoadedPreset): string {
   switch (loadedPreset.unavailable) {
     case "no-key":
-      return "Unavailable — missing API key";
+      return "Unavailable — missing API key.";
     case "no-model":
-      return "Unavailable — model not found";
+      return "Unavailable — model not found.";
     case undefined:
       return "";
     default:
@@ -220,10 +230,10 @@ export function formatToolsSummary(
   tools: readonly string[] | undefined,
   inheritedTools: readonly string[] = [],
 ): string {
-  if (tools && tools.length > 0) return `preset: ${tools.join(", ")}`;
-  if (inheritedTools.length === 0) return "session";
+  if (tools && tools.length > 0) return `Preset: ${tools.join(", ")}`;
+  if (inheritedTools.length === 0) return "Session";
 
-  return `session: ${inheritedTools.join(", ")}`;
+  return `Session: ${inheritedTools.join(", ")}`;
 }
 
 /**

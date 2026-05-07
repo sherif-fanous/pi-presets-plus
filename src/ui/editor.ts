@@ -31,6 +31,17 @@ import {
   isPiBuiltin,
   parseHotkey,
 } from "./hotkey-input.js";
+import {
+  CANCEL_LABEL,
+  HOTKEY_CONFLICT_TITLE,
+  HOTKEY_SHADOWS_TITLE,
+  MODEL_LABEL,
+  MOVE_PRESET_TITLE,
+  SAVE_LABEL,
+  TEST_LABEL,
+  THINKING_LABEL,
+  TOOLS_LABEL,
+} from "./labels.js";
 import { confirmReload, reloadAfterOverlayClose } from "./reload-prompt.js";
 import type { Api, Model } from "@mariozechner/pi-ai";
 import type {
@@ -140,6 +151,7 @@ const THINKING_LEVELS = [
   "high",
   "xhigh",
 ] as const satisfies readonly ThinkingLevel[];
+const EDITOR_LABEL_WIDTH = 15;
 
 class PresetEditorComponent implements Component, Focusable {
   private actionInFlight = false;
@@ -285,7 +297,7 @@ class PresetEditorComponent implements Component, Focusable {
       frameLine(
         this.theme.fg(
           "dim",
-          " ↑/↓ or Tab focus · ←/→ change · Space toggle · Enter action · Esc cancel",
+          " Tab/↑/↓ Focus · ←/→ Change · Space Toggle · Enter Action · Esc Cancel",
         ),
         frameWidth,
       ),
@@ -590,7 +602,7 @@ class PresetEditorComponent implements Component, Focusable {
       ),
       renderValueRow(
         this.theme,
-        "Model",
+        MODEL_LABEL,
         this.renderModelValue(),
         this.currentRow() === "model",
       ),
@@ -661,7 +673,7 @@ class PresetEditorComponent implements Component, Focusable {
     const lines = [
       renderValueRow(
         this.theme,
-        "Thinking",
+        THINKING_LABEL,
         options.join("  "),
         this.currentRow() === "thinking",
       ),
@@ -671,7 +683,7 @@ class PresetEditorComponent implements Component, Focusable {
       lines.push(
         this.theme.fg(
           "dim",
-          "    dimmed levels are unavailable for this model",
+          "    Dimmed levels are unavailable for this model.",
         ),
       );
     }
@@ -693,7 +705,12 @@ class PresetEditorComponent implements Component, Focusable {
     const presetMarker = this.state.toolsMode === "preset" ? "●" : "○";
     const mode = `${sessionMarker} session   ${presetMarker} preset`;
     const lines = [
-      renderValueRow(this.theme, "Tools", mode, this.currentRow() === "tools"),
+      renderValueRow(
+        this.theme,
+        TOOLS_LABEL,
+        mode,
+        this.currentRow() === "tools",
+      ),
     ];
 
     if (this.state.toolsMode === "session") {
@@ -702,14 +719,18 @@ class PresetEditorComponent implements Component, Focusable {
       lines.push(
         this.theme.fg(
           "dim",
-          "    session: whatever tools are active right now pass through unchanged",
+          "    Session: whatever tools are active right now pass through unchanged.",
         ),
       );
     } else {
+      if (this.allTools.length === 0) {
+        lines.push(this.theme.fg("dim", "    No tools available"));
+
+        return lines;
+      }
+
       const selected = new Set(this.state.selectedTools);
-      const tools =
-        this.allTools.length > 0 ? this.allTools : ["no tools available"];
-      const renderedTools = tools.map((tool, toolIndex) => {
+      const renderedTools = this.allTools.map((tool, toolIndex) => {
         const marker = selected.has(tool) ? "x" : " ";
         const text = `[${marker}] ${tool}`;
 
@@ -727,7 +748,7 @@ class PresetEditorComponent implements Component, Focusable {
   private renderInstructionsRows(width: number): string[] {
     const preview =
       this.state.instructions.length === 0
-        ? this.theme.fg("dim", "empty — focus here and type")
+        ? this.theme.fg("dim", "Empty — focus here and type.")
         : this.state.instructions.replaceAll("\n", " ↵ ");
 
     return [
@@ -737,7 +758,7 @@ class PresetEditorComponent implements Component, Focusable {
         truncateToWidth(preview, Math.max(1, width - 16), "…"),
         this.currentRow() === "instructions",
       ),
-      this.theme.fg("dim", "    Enter newline · Tab leaves the row"),
+      this.theme.fg("dim", "    Enter Newline · Tab Exit"),
     ];
   }
 
@@ -834,11 +855,11 @@ class PresetEditorComponent implements Component, Focusable {
     }
 
     const confirmed = await this.confirm(
-      "Move preset?",
+      MOVE_PRESET_TITLE,
       `Move "${this.initialPreset.name}" from ${this.initialPreset.scope} to ${this.state.scope}? The old copy will be removed.`,
     );
 
-    if (!confirmed) return { ok: false, reason: "move cancelled." };
+    if (!confirmed) return { ok: false, reason: "Move cancelled." };
 
     const added = await addPreset(next, this.state.scope, this.ctx);
 
@@ -855,7 +876,7 @@ class PresetEditorComponent implements Component, Focusable {
 
   private async testPreset(): Promise<void> {
     if (!this.options.onTest) {
-      this.error = "temporary apply is unavailable here.";
+      this.error = "Temporary apply is unavailable here.";
 
       return;
     }
@@ -916,11 +937,11 @@ class PresetEditorComponent implements Component, Focusable {
 
       if (isPiBuiltin(parsed.parsed)) {
         const confirmed = await this.confirm(
-          "Hotkey shadows pi",
-          `"${parsed.parsed.normalized}" matches a documented pi built-in. Save anyway?`,
+          HOTKEY_SHADOWS_TITLE,
+          `"${parsed.parsed.normalized}" matches a documented Pi built-in. Save anyway?`,
         );
 
-        if (!confirmed) return { ok: false, reason: "save cancelled." };
+        if (!confirmed) return { ok: false, reason: "Save cancelled." };
       }
 
       const conflict = findConflictingPreset(
@@ -931,18 +952,18 @@ class PresetEditorComponent implements Component, Focusable {
 
       if (conflict) {
         const confirmed = await this.confirm(
-          "Hotkey conflict",
+          HOTKEY_CONFLICT_TITLE,
           `"${parsed.parsed.normalized}" is already used by preset "${conflict.name}". Save anyway?`,
         );
 
-        if (!confirmed) return { ok: false, reason: "save cancelled." };
+        if (!confirmed) return { ok: false, reason: "Save cancelled." };
       }
     }
 
     if (this.hasNameCollision()) {
       return {
         ok: false,
-        reason: `a preset named "${this.state.name.trim()}" already exists in ${this.state.scope}.`,
+        reason: `A preset named "${this.state.name.trim()}" already exists in ${this.state.scope}.`,
       };
     }
 
@@ -964,11 +985,11 @@ class PresetEditorComponent implements Component, Focusable {
 
   private validateRequired(): { ok: true } | { ok: false; reason: string } {
     if (this.state.name.trim().length === 0) {
-      return { ok: false, reason: "name is required." };
+      return { ok: false, reason: "Name is required." };
     }
 
     if (this.state.provider.length === 0 || this.state.model.length === 0) {
-      return { ok: false, reason: "provider and model are required." };
+      return { ok: false, reason: "Provider and model are required." };
     }
 
     return { ok: true };
@@ -1141,18 +1162,18 @@ export function snapThinkingSelection(
 
   return {
     state: { ...state, thinkingLevel: "off" },
-    notice: `${state.model || "selected model"} does not support extended thinking — switched to off.`,
+    notice: `${state.model || "Selected model"} does not support extended thinking — switched to off.`,
   };
 }
 
 function formatButton(action: ButtonAction): string {
   switch (action) {
     case "cancel":
-      return "Cancel";
+      return CANCEL_LABEL;
     case "save":
-      return "Save";
+      return SAVE_LABEL;
     case "test":
-      return "Test (apply temporarily)";
+      return TEST_LABEL;
   }
 }
 
@@ -1191,7 +1212,7 @@ function renderValueRow(
   focused: boolean,
 ): string {
   const marker = focused ? theme.fg("accent", "▌") : " ";
-  const paddedLabel = `${label}${" ".repeat(Math.max(0, 12 - label.length))}`;
+  const paddedLabel = `${label}${" ".repeat(Math.max(0, EDITOR_LABEL_WIDTH - label.length))}`;
   const labelText = theme.fg("muted", paddedLabel);
   const renderedValue = focused ? theme.fg("accent", value) : value;
 

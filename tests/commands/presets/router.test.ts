@@ -180,7 +180,7 @@ describe("handlePresetsCommand", () => {
 
     await handlePresetsCommand("reload", ctx);
     expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify.mock.calls[0]?.[0]).toContain("reloaded 0 presets");
+    expect(notify.mock.calls[0]?.[0]).toContain("Reloaded 0 presets");
     expect(notify.mock.calls[0]?.[1]).toBe("info");
   });
 });

@@ -30,7 +30,7 @@ export async function applyPresetFlag(
 
   if (!preset) {
     ctx.ui.notify(
-      `--preset: unknown preset "${name}". Available: ${formatAvailableNames(presets)}.`,
+      `--preset: Unknown preset "${name}". Available: ${formatAvailableNames(presets)}.`,
       "warning",
     );
 
@@ -81,7 +81,7 @@ function formatAvailableNames(presets: readonly LoadedPreset[]): string {
   return [...byName.values()]
     .map((preset) =>
       preset.unavailable
-        ? `${preset.name} (unavailable: ${preset.unavailable})`
+        ? `${preset.name} (Unavailable: ${preset.unavailable})`
         : preset.name,
     )
     .join(", ");

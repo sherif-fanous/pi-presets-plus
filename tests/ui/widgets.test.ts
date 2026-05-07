@@ -43,11 +43,11 @@ describe("preset widget formatting", () => {
     expect(formatAvailabilityStatus(basePreset)).toBe("");
     expect(
       formatAvailabilityStatus({ ...basePreset, unavailable: "no-key" }),
-    ).toBe("Unavailable — missing API key");
+    ).toBe("Unavailable — missing API key.");
 
     expect(
       formatAvailabilityStatus({ ...basePreset, unavailable: "no-model" }),
-    ).toBe("Unavailable — model not found");
+    ).toBe("Unavailable — model not found.");
   });
 
   it("formats the active status dot", () => {
@@ -62,17 +62,17 @@ describe("preset widget formatting", () => {
   });
 
   it("formats tools as session or preset controlled", () => {
-    expect(formatToolsSummary(undefined)).toBe("session");
+    expect(formatToolsSummary(undefined)).toBe("Session");
     expect(formatToolsSummary([], ["read", "bash"])).toBe(
-      "session: read, bash",
+      "Session: read, bash",
     );
 
     expect(formatToolsSummary(["read", "grep"], ["bash"])).toBe(
-      "preset: read, grep",
+      "Preset: read, grep",
     );
 
     expect(formatToolsSummary(["read", "grep", "find", "ls", "bash"])).toBe(
-      "preset: read, grep, find, ls, bash",
+      "Preset: read, grep, find, ls, bash",
     );
   });
 
@@ -108,16 +108,16 @@ describe("preset widget formatting", () => {
 
     expect(lines).toEqual([
       "▌ ● plan",
-      "  Scope:     Project",
-      "  Model:     anthropic / claude-opus-4.5",
-      "  Thinking:  High",
-      "  Tools:     preset: read, grep, find, ls, bash",
-      "  Prompt:    PLAN MODE: inspect first and summarize",
-      "  Status:    ⚠ thinking will be clamped",
-      "  Status:    ⚠ hotkey conflict",
-      "  Status:    Unavailable — missing API key",
-      "  Drift:     ⚠ Dirty — model, tools differ",
-      "  Shadowing: Overridden by project preset",
+      "  Scope:          Project",
+      "  Model:          anthropic / claude-opus-4.5",
+      "  Thinking level: High",
+      "  Tools:          Preset: read, grep, find, ls, bash",
+      "  Prompt:         PLAN MODE: inspect first and summarize",
+      "  Status:         ⚠ Thinking will be clamped.",
+      "  Status:         ⚠ Hotkey conflict.",
+      "  Status:         Unavailable — missing API key.",
+      "  Drift:          ⚠ Dirty — model, tools differ",
+      "  Shadowing:      Overridden by project preset",
     ]);
   });
 });

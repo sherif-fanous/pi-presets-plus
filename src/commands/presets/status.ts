@@ -8,6 +8,21 @@
 import { getActive } from "../../activation/active-state.js";
 import { loadAll } from "../../store/api.js";
 import type { LoadedPreset } from "../../types.js";
+import {
+  BASELINE_MODEL_LABEL,
+  BASELINE_THINKING_LABEL,
+  BASELINE_TOOLS_LABEL,
+  CURRENT_MODEL_LABEL,
+  CURRENT_THINKING_LABEL,
+  CURRENT_TOOLS_LABEL,
+  PRESET_LABEL,
+  PRESET_MODEL_LABEL,
+  PRESET_THINKING_LABEL,
+  PRESET_TOOLS_LABEL,
+  RESTORE_LABEL,
+  SCOPE_LABEL,
+  STATUS_DIALOG_TITLE,
+} from "../../ui/labels.js";
 import { surfaceWarnings } from "./notify.js";
 import type {
   ExtensionAPI,
@@ -31,18 +46,18 @@ const IDENTITY_STYLER: Styler = {
   fg: (_color, text) => text,
 };
 const STATUS_LABELS = [
-  "preset:",
-  "scope:",
-  "restore:",
-  "baseline model:",
-  "baseline thinking level:",
-  "baseline tools:",
-  "preset model:",
-  "preset thinking level:",
-  "preset tools:",
-  "current model:",
-  "current thinking level:",
-  "current tools:",
+  `${PRESET_LABEL}:`,
+  `${SCOPE_LABEL}:`,
+  `${RESTORE_LABEL}:`,
+  `${BASELINE_MODEL_LABEL}:`,
+  `${BASELINE_THINKING_LABEL}:`,
+  `${BASELINE_TOOLS_LABEL}:`,
+  `${PRESET_MODEL_LABEL}:`,
+  `${PRESET_THINKING_LABEL}:`,
+  `${PRESET_TOOLS_LABEL}:`,
+  `${CURRENT_MODEL_LABEL}:`,
+  `${CURRENT_THINKING_LABEL}:`,
+  `${CURRENT_TOOLS_LABEL}:`,
 ] as const;
 const STATUS_LABEL_WIDTH = Math.max(
   ...STATUS_LABELS.map((label) => label.length),
@@ -55,7 +70,7 @@ export function formatStatus(
   pi: Pick<ExtensionAPI, "getActiveTools" | "getThinkingLevel">,
   styler: Pick<Theme, "bold" | "fg"> = IDENTITY_STYLER,
 ): string {
-  if (!active) return "no preset is active.";
+  if (!active) return "No preset is active.";
 
   const currentModel = ctx.model
     ? { provider: ctx.model.provider, id: ctx.model.id }
@@ -64,17 +79,17 @@ export function formatStatus(
 
   if (active.restore.kind === "unknown") {
     return [
-      styler.bold(styler.fg("accent", "preset status")),
-      row("preset:", active.name, styler),
-      row("scope:", active.scope, styler),
+      styler.bold(styler.fg("accent", STATUS_DIALOG_TITLE)),
+      row(`${PRESET_LABEL}:`, active.name, styler),
+      row(`${SCOPE_LABEL}:`, active.scope, styler),
       row(
-        "restore:",
-        "no saved baseline. clear will only turn the preset off",
+        `${RESTORE_LABEL}:`,
+        "No saved baseline. Clear will only turn the preset off.",
         styler,
       ),
-      row("current model:", formatModel(currentModel), styler),
-      row("current thinking level:", pi.getThinkingLevel(), styler),
-      row("current tools:", formatTools(currentTools), styler),
+      row(`${CURRENT_MODEL_LABEL}:`, formatModel(currentModel), styler),
+      row(`${CURRENT_THINKING_LABEL}:`, pi.getThinkingLevel(), styler),
+      row(`${CURRENT_TOOLS_LABEL}:`, formatTools(currentTools), styler),
     ].join("\n");
   }
 
@@ -91,34 +106,34 @@ export function formatStatus(
   );
   const toolsClass = owned.tools
     ? classifyField(currentTools, baseline.tools, lastApplied.tools ?? [])
-    : "not managed by active preset";
+    : "Not managed by active preset";
 
   return [
-    styler.bold(styler.fg("accent", "preset status")),
-    row("preset:", active.name, styler),
-    row("scope:", active.scope, styler),
-    row("baseline model:", formatModel(baseline.model), styler),
-    row("baseline thinking level:", baseline.thinkingLevel, styler),
-    row("baseline tools:", formatTools(baseline.tools), styler),
-    row("preset model:", formatModel(lastApplied.model), styler),
-    row("preset thinking level:", lastApplied.thinkingLevel, styler),
+    styler.bold(styler.fg("accent", STATUS_DIALOG_TITLE)),
+    row(`${PRESET_LABEL}:`, active.name, styler),
+    row(`${SCOPE_LABEL}:`, active.scope, styler),
+    row(`${BASELINE_MODEL_LABEL}:`, formatModel(baseline.model), styler),
+    row(`${BASELINE_THINKING_LABEL}:`, baseline.thinkingLevel, styler),
+    row(`${BASELINE_TOOLS_LABEL}:`, formatTools(baseline.tools), styler),
+    row(`${PRESET_MODEL_LABEL}:`, formatModel(lastApplied.model), styler),
+    row(`${PRESET_THINKING_LABEL}:`, lastApplied.thinkingLevel, styler),
     row(
-      "preset tools:",
+      `${PRESET_TOOLS_LABEL}:`,
       lastApplied.tools ? formatTools(lastApplied.tools) : "none",
       styler,
     ),
     row(
-      "current model:",
+      `${CURRENT_MODEL_LABEL}:`,
       `${formatModel(currentModel)} (${modelClass})`,
       styler,
     ),
     row(
-      "current thinking level:",
+      `${CURRENT_THINKING_LABEL}:`,
       `${pi.getThinkingLevel()} (${thinkingClass})`,
       styler,
     ),
     row(
-      "current tools:",
+      `${CURRENT_TOOLS_LABEL}:`,
       `${formatTools(currentTools)} (${toolsClass})`,
       styler,
     ),
@@ -132,7 +147,7 @@ export async function formatStatusBody(
   const active = getActive();
 
   if (!active) {
-    return { body: "no preset is active.", severity: "info", warnings: [] };
+    return { body: "No preset is active.", severity: "info", warnings: [] };
   }
 
   const { presets, warnings } = await loadAll(ctx);
@@ -143,7 +158,7 @@ export async function formatStatusBody(
 
   if (!preset) {
     return {
-      body: `active preset "${active.name}" is no longer loaded.`,
+      body: `Active preset "${active.name}" is no longer loaded.`,
       severity: "warning",
       warnings,
     };
@@ -184,13 +199,13 @@ function classifyField(
     | string,
   lastApplied: { provider: string; id: string } | readonly string[] | string,
 ):
-  | "already at baseline"
-  | "managed by active preset"
-  | "user manually overrode preset value" {
-  if (sameComparable(current, baseline)) return "already at baseline";
-  if (sameComparable(current, lastApplied)) return "managed by active preset";
+  | "Already at baseline"
+  | "Left as-is — you changed it after activation"
+  | "Managed by active preset" {
+  if (sameComparable(current, baseline)) return "Already at baseline";
+  if (sameComparable(current, lastApplied)) return "Managed by active preset";
 
-  return "user manually overrode preset value";
+  return "Left as-is — you changed it after activation";
 }
 
 function formatModel(model: { provider: string; id: string } | null): string {

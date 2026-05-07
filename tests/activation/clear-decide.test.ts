@@ -208,12 +208,12 @@ describe("renderClearSummary", () => {
 
     const out = renderClearSummary("plan", parts);
 
-    expect(out).toContain("preset cleared: plan");
-    expect(out).toContain("restored your previous settings.");
+    expect(out).toContain("Preset cleared: plan");
+    expect(out).toContain("Restored your previous settings.");
     expect(out).not.toContain("  preset:");
-    expect(out).toContain("model:          anthropic/old");
-    expect(out).toContain("thinking level: medium");
-    expect(out).toContain("tools:          bash");
+    expect(out).toContain("Model:          anthropic/old");
+    expect(out).toContain("Thinking level: medium");
+    expect(out).toContain("Tools:          bash");
   });
 
   it("uses the mixed lead and per-row annotations when some fields were kept", () => {
@@ -224,15 +224,15 @@ describe("renderClearSummary", () => {
     ]);
 
     expect(out).toContain(
-      "restored some settings. kept your manual changes for others.",
+      "Restored some settings. Kept your manual changes for others.",
     );
 
     expect(out).toContain(
-      "model:          openai/gpt (user manually overrode preset value)",
+      "Model:          openai/gpt (Left as-is — you changed it after activation)",
     );
-    expect(out).toContain("thinking level: medium");
+    expect(out).toContain("Thinking level: medium");
     expect(out).toContain(
-      "tools:          foo (not managed by cleared preset)",
+      "Tools:          foo (Not managed by cleared preset)",
     );
   });
 
@@ -244,19 +244,19 @@ describe("renderClearSummary", () => {
     ]);
 
     expect(out).toContain(
-      "no saved baseline. current settings were left as-is.",
+      "No saved baseline. Current settings were left as-is.",
     );
 
     expect(out).toContain(
-      "model:          anthropic/claude (no baseline saved for this field)",
+      "Model:          anthropic/claude (No baseline saved for this field)",
     );
 
     expect(out).toContain(
-      "thinking level: high (no baseline saved for this field)",
+      "Thinking level: high (No baseline saved for this field)",
     );
 
     expect(out).toContain(
-      "tools:          read (no baseline saved for this field)",
+      "Tools:          read (No baseline saved for this field)",
     );
   });
 
@@ -273,9 +273,9 @@ describe("renderClearSummary", () => {
     ]);
 
     expect(out).toContain(
-      "restored your previous settings. some tools are no longer available.",
+      "Restored your previous settings. Some tools are no longer available.",
     );
-    expect(out).toContain("tools:          none (unavailable: bash)");
+    expect(out).toContain("Tools:          none (Unavailable: bash)");
   });
 
   it("renders restore-failed with the failure lead and the unreachable target", () => {
@@ -290,11 +290,11 @@ describe("renderClearSummary", () => {
     ]);
 
     expect(out).toContain(
-      "tried to restore your previous settings but ran into a problem.",
+      "Tried to restore your previous settings but ran into a problem.",
     );
 
     expect(out).toContain(
-      "model:          could not switch back to anthropic/old",
+      "Model:          Could not switch back to anthropic/old.",
     );
   });
 
@@ -305,8 +305,8 @@ describe("renderClearSummary", () => {
       { action: "already-baseline", field: "tools", value: "bash" },
     ]);
 
-    expect(out).toContain("your settings already matched the saved baseline.");
-    expect(out).toContain("model:          anthropic/old");
+    expect(out).toContain("Your settings already matched the saved baseline.");
+    expect(out).toContain("Model:          anthropic/old");
   });
 
   it("uses the kept-everything lead when no field was eligible for restore", () => {
@@ -316,7 +316,7 @@ describe("renderClearSummary", () => {
       { action: "not-owned", field: "tools", value: "foo" },
     ]);
 
-    expect(out).toContain("kept all your manual changes. nothing to restore.");
+    expect(out).toContain("Kept all your manual changes. Nothing to restore.");
   });
 });
 
@@ -334,7 +334,7 @@ describe("chooseClearLead", () => {
         part("unknown", "thinking"),
         part("unknown", "tools"),
       ]),
-    ).toBe("no saved baseline. current settings were left as-is.");
+    ).toBe("No saved baseline. Current settings were left as-is.");
   });
 
   it("returns the failure lead whenever any field failed to restore", () => {
@@ -344,7 +344,7 @@ describe("chooseClearLead", () => {
         part("restored", "thinking"),
         part("already-baseline", "tools"),
       ]),
-    ).toBe("tried to restore your previous settings but ran into a problem.");
+    ).toBe("Tried to restore your previous settings but ran into a problem.");
   });
 
   it("returns the all-already-baseline lead when nothing changed", () => {
@@ -354,7 +354,7 @@ describe("chooseClearLead", () => {
         part("already-baseline", "thinking"),
         part("already-baseline", "tools"),
       ]),
-    ).toBe("your settings already matched the saved baseline.");
+    ).toBe("Your settings already matched the saved baseline.");
   });
 
   it("returns the happy-path lead when every field is restore-like", () => {
@@ -364,7 +364,7 @@ describe("chooseClearLead", () => {
         part("already-baseline", "thinking"),
         part("restored", "tools"),
       ]),
-    ).toBe("restored your previous settings.");
+    ).toBe("Restored your previous settings.");
   });
 
   it("surfaces unavailable-tools in the lead when restore-like with restored-partial", () => {
@@ -375,7 +375,7 @@ describe("chooseClearLead", () => {
         part("restored-partial", "tools"),
       ]),
     ).toBe(
-      "restored your previous settings. some tools are no longer available.",
+      "Restored your previous settings. Some tools are no longer available.",
     );
   });
 
@@ -386,7 +386,7 @@ describe("chooseClearLead", () => {
         part("baseline-null", "thinking"),
         part("not-owned", "tools"),
       ]),
-    ).toBe("kept all your manual changes. nothing to restore.");
+    ).toBe("Kept all your manual changes. Nothing to restore.");
   });
 
   it("returns the mixed lead when restore-like and kept-like fields coexist", () => {
@@ -396,6 +396,6 @@ describe("chooseClearLead", () => {
         part("restored", "thinking"),
         part("not-owned", "tools"),
       ]),
-    ).toBe("restored some settings. kept your manual changes for others.");
+    ).toBe("Restored some settings. Kept your manual changes for others.");
   });
 });

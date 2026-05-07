@@ -54,7 +54,7 @@ export function registerHotkeys(
 
     if (isPiBuiltin(parsed)) {
       ctx.ui.notify(
-        `${formatPresetSubject(preset)} hotkey "${preset.hotkey}" shadows a pi built-in. The preset binding will take precedence.`,
+        `${formatPresetSubject(preset)} hotkey "${preset.hotkey}" shadows a Pi built-in. The preset binding will take precedence.`,
         "info",
       );
     }
@@ -90,7 +90,7 @@ export function registerHotkeys(
           if (!result.ok) handlerCtx.ui.notify(result.reason, "error");
         } catch (err) {
           handlerCtx.ui.notify(
-            `pi-presets-plus failed to activate preset "${registeredName}" from hotkey: ${err instanceof Error ? err.message : String(err)}`,
+            `pi-presets-plus failed to activate preset "${registeredName}" from hotkey: ${err instanceof Error ? err.message : String(err)}.`,
             "error",
           );
         }

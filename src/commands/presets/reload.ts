@@ -13,7 +13,7 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
  */
 export async function runReload(ctx: ExtensionContext): Promise<void> {
   const { presets, warnings } = await loadAll(ctx);
-  const summary = `reloaded ${presets.length} preset${presets.length === 1 ? "" : "s"}.`;
+  const summary = `Reloaded ${presets.length} preset${presets.length === 1 ? "" : "s"}.`;
 
   if (warnings.length === 0) {
     ctx.ui.notify(summary, "info");

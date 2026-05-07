@@ -76,7 +76,7 @@ describe("applyPresetFlag", () => {
     ]);
 
     expect(notify).toHaveBeenCalledWith(
-      '--preset: unknown preset "bad". Available: plan, review.',
+      '--preset: Unknown preset "bad". Available: plan, review.',
       "warning",
     );
   });
@@ -89,7 +89,7 @@ describe("applyPresetFlag", () => {
     ]);
 
     expect(notify).toHaveBeenCalledWith(
-      '--preset: unknown preset "bad". Available: plan (unavailable: no-key).',
+      '--preset: Unknown preset "bad". Available: plan (Unavailable: no-key).',
       "warning",
     );
   });
@@ -103,7 +103,7 @@ describe("applyPresetFlag", () => {
       kind: "no-key",
       ok: false,
       reason:
-        'preset "plan" is unavailable: missing API key. activation skipped.',
+        'Preset "plan" is unavailable: missing API key. Activation skipped.',
     });
 
     await applyPresetFlag(pi, ctx, [selected]);
@@ -111,7 +111,7 @@ describe("applyPresetFlag", () => {
     expect(applyMock).toHaveBeenCalledWith(selected, ctx, pi);
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith(
-      'preset "plan" is unavailable: missing API key. activation skipped.',
+      'Preset "plan" is unavailable: missing API key. Activation skipped.',
       "error",
     );
   });

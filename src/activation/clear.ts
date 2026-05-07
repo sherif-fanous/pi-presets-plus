@@ -6,6 +6,12 @@
  * picker UI, or status formatting beyond its own summary.
  */
 import type { ActivePresetState, ThinkingLevel } from "../types.js";
+import {
+  CLEAR_DIALOG_TITLE,
+  MODEL_LABEL,
+  THINKING_LABEL,
+  TOOLS_LABEL,
+} from "../ui/labels.js";
 import { updateStatus } from "../ui/status.js";
 import { clearActive, getActive } from "./active-state.js";
 import { withSelfTriggeredModelSet } from "./apply.js";
@@ -71,9 +77,9 @@ interface Styler {
 }
 
 const FIELD_LABELS: Record<ClearField, string> = {
-  model: "model",
-  thinking: "thinking level",
-  tools: "tools",
+  model: MODEL_LABEL,
+  thinking: THINKING_LABEL,
+  tools: TOOLS_LABEL,
 };
 
 const IDENTITY_STYLER: Styler = {
@@ -103,28 +109,28 @@ export interface ClearResult {
  */
 export function chooseClearLead(parts: readonly ClearPart[]): string {
   if (parts.every((part) => part.action === "unknown")) {
-    return "no saved baseline. current settings were left as-is.";
+    return "No saved baseline. Current settings were left as-is.";
   }
 
   if (parts.some((part) => part.action === "restore-failed")) {
-    return "tried to restore your previous settings but ran into a problem.";
+    return "Tried to restore your previous settings but ran into a problem.";
   }
 
   if (parts.every((part) => part.action === "already-baseline")) {
-    return "your settings already matched the saved baseline.";
+    return "Your settings already matched the saved baseline.";
   }
 
   if (parts.every((part) => isRestoreLike(part.action))) {
     return parts.some((part) => part.action === "restored-partial")
-      ? "restored your previous settings. some tools are no longer available."
-      : "restored your previous settings.";
+      ? "Restored your previous settings. Some tools are no longer available."
+      : "Restored your previous settings.";
   }
 
   if (parts.every((part) => isKeptLike(part.action))) {
-    return "kept all your manual changes. nothing to restore.";
+    return "Kept all your manual changes. Nothing to restore.";
   }
 
-  return "restored some settings. kept your manual changes for others.";
+  return "Restored some settings. Kept your manual changes for others.";
 }
 
 export async function clear(
@@ -136,7 +142,7 @@ export async function clear(
   ctx.ui.notify(
     result
       ? renderClearSummary(result.name, result.parts, ctx.ui.theme)
-      : "no preset is active.",
+      : "No preset is active.",
     "info",
   );
 }
@@ -296,7 +302,7 @@ export function renderClearSummary(
   const labels = parts.map((part) => `${FIELD_LABELS[part.field]}:`);
   const labelWidth = Math.max(...labels.map((label) => label.length));
   const title = safeStyler.bold(
-    safeStyler.fg("accent", `preset cleared: ${name}`),
+    safeStyler.fg("accent", `${CLEAR_DIALOG_TITLE}: ${name}`),
   );
   const lead = chooseClearLead(parts);
   const rows = parts.map((part) => {
@@ -356,7 +362,7 @@ function formatModel(model: { provider: string; id: string } | null): string {
  *
  * The vocabulary intentionally parallels `formatStatus` so a user reading
  * `/presets status` and then `/presets clear <name>` sees the same phrases
- * for "user manually overrode preset value" / "not managed by …" /
+ * for manual overrides / "not managed by …" /
  * "no baseline saved for this field". Restored / already-baseline rows
  * stay bare — the lead sentence above the rows already explains the
  * disposition.
@@ -369,21 +375,21 @@ function formatRowValue(part: ClearPart): string {
 
     case "baseline-null":
     case "unknown":
-      return `${part.value} (no baseline saved for this field)`;
+      return `${part.value} (No baseline saved for this field)`;
 
     case "not-owned":
-      return `${part.value} (not managed by cleared preset)`;
+      return `${part.value} (Not managed by cleared preset)`;
 
     case "restore-failed":
-      return `could not switch back to ${part.value}`;
+      return `Could not switch back to ${part.value}.`;
 
     case "restored-partial":
       return part.dropped && part.dropped.length > 0
-        ? `${part.value} (unavailable: ${part.dropped.join(", ")})`
+        ? `${part.value} (Unavailable: ${part.dropped.join(", ")})`
         : part.value;
 
     case "user-override":
-      return `${part.value} (user manually overrode preset value)`;
+      return `${part.value} (Left as-is — you changed it after activation)`;
   }
 }
 

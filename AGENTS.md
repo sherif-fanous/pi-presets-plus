@@ -45,12 +45,31 @@ noisy and encourage reflexive "fix it to shut the tool up" refactors.
 
 Prettier, Biome, ESLint, and `tsc` enforce formatting, import order,
 naming, file-section ordering, kebab-case filenames, function-declaration
-style, and bans on `any` / `!` / `console.*` / one-letter identifiers.
-Run `mise run check` to surface violations across all four tools — most
-are auto-fixable via `mise run format` or `mise run lint-fix`.
+style, user-facing string vocabulary, and bans on `any` / `!` /
+`console.*` / one-letter identifiers. Run `mise run check` to surface
+violations across all four tools — most are auto-fixable via
+`mise run format` or `mise run lint-fix`.
 
 The conventions below are the ones the linter cannot enforce. They are
 project-wide unless noted.
+
+### User-facing strings
+
+- Labels in dialogs, status/clear rows, picker cards, and footer hints use
+  Title Case with a trailing colon when rendered as key/value labels, e.g.
+  `Preset:`, `Scope:`, `Baseline model:`, `Thinking level:`. Editor
+  form rows use the same Title-Case label text without a colon because
+  their layout is not a key/value dialog row.
+- Prose in notifications, dialog bodies, inline editor notices, warnings,
+  and lead sentences uses sentence-case English and complete sentences with
+  terminal periods. Single-line labels do not carry trailing periods;
+  multi-sentence prose blocks do.
+- Pi command names stay literal and unchanged in spelling/case:
+  `/presets`, `/presets clear`, `/reload`, `/model`.
+- Use `Pi` as a capitalized product noun in prose (`Reload Pi?`), and use
+  lowercase only for the `pi` CLI binary or package names such as `pi-ai`.
+- Button and footer action labels use Title Case, e.g. `Save`, `Cancel`,
+  `Test (apply temporarily)`, `Activate`, `Filter`, `Status`, `Quit`.
 
 ### Architecture
 

@@ -120,7 +120,7 @@ export function validatePresetShape(
     candidatePreset === null ||
     Array.isArray(candidatePreset)
   ) {
-    return { ok: false, reason: "preset is not an object" };
+    return { ok: false, reason: "Preset is not an object." };
   }
 
   const obj = candidatePreset as Record<string, unknown>;
@@ -132,7 +132,7 @@ export function validatePresetShape(
     if (typeof value !== "string" || value.length === 0) {
       return {
         ok: false,
-        reason: `missing or empty required field "${field}"`,
+        reason: `Missing or empty required field "${field}".`,
       };
     }
 
@@ -162,7 +162,7 @@ export function validatePresetShape(
 
       return {
         ok: false,
-        reason: `invalid thinkingLevel ${label} (expected one of ${THINKING_LEVELS.join(", ")})`,
+        reason: `Invalid thinkingLevel ${label} (expected one of ${THINKING_LEVELS.join(", ")}).`,
       };
     }
   }
@@ -172,23 +172,23 @@ export function validatePresetShape(
       !Array.isArray(obj.tools) ||
       obj.tools.some((tool) => typeof tool !== "string")
     ) {
-      return { ok: false, reason: `"tools" must be an array of strings` };
+      return { ok: false, reason: `"tools" must be an array of strings.` };
     }
   }
 
   if (obj.instructions !== undefined && typeof obj.instructions !== "string") {
-    return { ok: false, reason: `"instructions" must be a string` };
+    return { ok: false, reason: `"instructions" must be a string.` };
   }
 
   if (obj.hotkey !== undefined && typeof obj.hotkey !== "string") {
-    return { ok: false, reason: `"hotkey" must be a string` };
+    return { ok: false, reason: `"hotkey" must be a string.` };
   }
 
   if (
     obj.order !== undefined &&
     (typeof obj.order !== "number" || !Number.isFinite(obj.order))
   ) {
-    return { ok: false, reason: `"order" must be a finite number` };
+    return { ok: false, reason: `"order" must be a finite number.` };
   }
 
   return { ok: true };

@@ -22,7 +22,7 @@ export function updateStatus(
   ) => LoadedPreset | undefined,
 ): void {
   if (!active) {
-    ctx.ui.setStatus(STATUS_KEY, dim(ctx, "preset: none"));
+    ctx.ui.setStatus(STATUS_KEY, dim(ctx, "Preset: none"));
 
     return;
   }
@@ -30,12 +30,12 @@ export function updateStatus(
   const preset = lookup(active.name, active.scope);
 
   if (!preset) {
-    ctx.ui.setStatus(STATUS_KEY, dim(ctx, "preset: none"));
+    ctx.ui.setStatus(STATUS_KEY, dim(ctx, "Preset: none"));
 
     return;
   }
 
-  const label = dim(ctx, `preset: ${preset.name}`);
+  const label = dim(ctx, `Preset: ${preset.name}`);
 
   if (!active.dirty) {
     ctx.ui.setStatus(STATUS_KEY, label);

@@ -45,7 +45,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
     if (isNotFoundError(err)) return emptyResult();
 
     return emptyResult(
-      `failed to read preset file ${path}: ${describeError(err)}`,
+      `Failed to read preset file ${path}: ${describeError(err)}`,
     );
   }
 
@@ -55,7 +55,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
     parsedData = JSON.parse(rawData);
   } catch (err) {
     return emptyResult(
-      `preset file ${path} contains invalid JSON: ${describeError(err)}`,
+      `The preset file ${path} contains invalid JSON: ${describeError(err)}`,
     );
   }
 
@@ -65,7 +65,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
     Array.isArray(parsedData)
   ) {
     return emptyResult(
-      `preset file ${path} top-level must be an object with a "version" and "presets" field.`,
+      `The preset file ${path} top-level must be an object with a "version" and "presets" field.`,
     );
   }
 
@@ -73,13 +73,13 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
 
   if (obj.version !== 1) {
     return emptyResult(
-      `preset file ${path} declares unsupported version ${JSON.stringify(obj.version)}; expected 1. file ignored and left untouched.`,
+      `The preset file ${path} declares unsupported version ${JSON.stringify(obj.version)}; expected 1. File ignored and left untouched.`,
     );
   }
 
   if (!Array.isArray(obj.presets)) {
     return emptyResult(
-      `preset file ${path} is missing a top-level "presets" array.`,
+      `The preset file ${path} is missing a top-level "presets" array.`,
     );
   }
 
@@ -97,7 +97,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
       const label = describeInvalidPreset(candidatePreset, i);
 
       warnings.push(
-        `preset ${label} in ${path} skipped: ${result.reason ?? "invalid shape"}.`,
+        `Preset ${label} in ${path} skipped: ${result.reason ?? "Invalid shape"}.`,
       );
 
       continue;
@@ -122,7 +122,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
 
         if (dropped) {
           warnings.push(
-            `preset "${dropped.name}" in ${path} skipped: duplicate name (first occurrence kept).`,
+            `Preset "${dropped.name}" in ${path} skipped: duplicate name (first occurrence kept).`,
           );
         }
 

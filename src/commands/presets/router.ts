@@ -73,7 +73,7 @@ export async function handlePresetsCommand(
 
   if (subCommand === "list") {
     ctx.ui.notify(
-      '"list" is not a supported /presets subcommand. run /presets to open the picker.',
+      '"list" is not a supported /presets subcommand. Run /presets to open the picker.',
       "warning",
     );
 
@@ -111,7 +111,7 @@ async function runPicker(
 ): Promise<void> {
   if (!pi) {
     ctx.ui.notify(
-      "preset picker is only available in interactive mode.",
+      "Preset picker is only available in interactive mode.",
       "warning",
     );
 

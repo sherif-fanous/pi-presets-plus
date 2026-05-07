@@ -64,7 +64,7 @@ describe("runStatus", () => {
 
     await runStatus(ctx as never, pi("medium", []) as never);
 
-    expect(notifications).toEqual([["no preset is active.", "info"]]);
+    expect(notifications).toEqual([["No preset is active.", "info"]]);
   });
 
   it("delivers the active-preset diagnostic via ctx.ui.notify", async () => {
@@ -99,8 +99,8 @@ describe("runStatus", () => {
     await runStatus(ctx as never, pi("high", ["read"]) as never);
 
     expect(notifications).toHaveLength(1);
-    expect(notifications[0]?.[0]).toContain("preset status");
-    expect(notifications[0]?.[0]).toContain("preset:                  plan");
+    expect(notifications[0]?.[0]).toContain("Preset Status");
+    expect(notifications[0]?.[0]).toContain("Preset:                  plan");
     expect(notifications[0]?.[1]).toBe("info");
   });
 });
@@ -142,27 +142,27 @@ describe("formatStatus", () => {
       pi("high", ["read"]),
     );
 
-    expect(out).toContain("preset status");
-    expect(out).toContain("preset:                  plan");
-    expect(out).toContain("scope:                   project");
+    expect(out).toContain("Preset Status");
+    expect(out).toContain("Preset:                  plan");
+    expect(out).toContain("Scope:                   project");
     expect(out).not.toContain("restore:");
-    expect(out).toContain("baseline model:          anthropic/old");
-    expect(out).toContain("baseline thinking level: medium");
-    expect(out).toContain("baseline tools:          bash");
-    expect(out).toContain("preset model:            anthropic/claude");
-    expect(out).toContain("preset thinking level:   high");
-    expect(out).toContain("preset tools:            read");
+    expect(out).toContain("Baseline model:          anthropic/old");
+    expect(out).toContain("Baseline thinking level: medium");
+    expect(out).toContain("Baseline tools:          bash");
+    expect(out).toContain("Preset model:            anthropic/claude");
+    expect(out).toContain("Preset thinking level:   high");
+    expect(out).toContain("Preset tools:            read");
 
     expect(out).toContain(
-      "current model:           anthropic/claude (managed by active preset)",
+      "Current model:           anthropic/claude (Managed by active preset)",
     );
 
     expect(out).toContain(
-      "current thinking level:  high (managed by active preset)",
+      "Current thinking level:  high (Managed by active preset)",
     );
 
     expect(out).toContain(
-      "current tools:           read (managed by active preset)",
+      "Current tools:           read (Managed by active preset)",
     );
 
     expect(out).not.toContain("tools managed:");
@@ -204,15 +204,15 @@ describe("formatStatus", () => {
     );
 
     expect(out).toContain(
-      "current model:           openai/gpt (user manually overrode preset value)",
+      "Current model:           openai/gpt (Left as-is — you changed it after activation)",
     );
 
     expect(out).toContain(
-      "current thinking level:  low (user manually overrode preset value)",
+      "Current thinking level:  low (Left as-is — you changed it after activation)",
     );
 
     expect(out).toContain(
-      "current tools:           foo (not managed by active preset)",
+      "Current tools:           foo (Not managed by active preset)",
     );
 
     expect(out).not.toContain("tools managed:");
@@ -241,10 +241,10 @@ describe("formatStatus", () => {
     );
 
     expect(out).toContain(
-      "restore:                 no saved baseline. clear will only turn the preset off",
+      "Restore:                 No saved baseline. Clear will only turn the preset off.",
     );
-    expect(out).not.toContain("baseline model");
-    expect(out).not.toContain("preset model:");
-    expect(out).toContain("current model:           anthropic/claude");
+    expect(out).not.toContain("Baseline model");
+    expect(out).not.toContain("Preset model:");
+    expect(out).toContain("Current model:           anthropic/claude");
   });
 });

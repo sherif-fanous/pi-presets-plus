@@ -92,7 +92,7 @@ describe("apply", () => {
     expect(harness.setToolsCalls).toEqual([["read"]]);
     expect(harness.notificationCalls).toEqual([
       [
-        'preset "plan" references unknown tools: missing. they were ignored.',
+        'Preset "plan" references unknown tools: missing. They were ignored.',
         "warning",
       ],
     ]);
@@ -173,7 +173,7 @@ describe("apply", () => {
       kind: "no-key",
       ok: false,
       reason:
-        'preset "plan" is unavailable: missing API key. activation skipped.',
+        'Preset "plan" is unavailable: missing API key. Activation skipped.',
     });
     expect(harness.notifications).toEqual([]);
     expect(harness.setModelCalls).toEqual([]);
@@ -205,7 +205,7 @@ describe("apply", () => {
     expect(result).toEqual({
       kind: "unknown-model",
       ok: false,
-      reason: 'preset "plan" references unknown model anthropic/missing.',
+      reason: 'Preset "plan" references unknown model anthropic/missing.',
     });
     expect(harness.notifications).toEqual([]);
   });
@@ -218,7 +218,7 @@ describe("apply", () => {
     expect(result).toEqual({
       kind: "key-revoked",
       ok: false,
-      reason: "no API key configured for anthropic/claude.",
+      reason: "No API key configured for anthropic/claude.",
     });
     expect(harness.notifications).toEqual([]);
     expect(getActive()).toBeUndefined();
@@ -279,7 +279,7 @@ describe("apply", () => {
     await apply(basePreset, harness.ctx, harness.pi);
 
     expect(harness.pi.getThinkingLevel()).toBe("off");
-    expect(harness.notifications.join("\n")).toContain('applied "off" instead');
+    expect(harness.notifications.join("\n")).toContain('Applied "off" instead');
   });
 
   it("clamps when thinkingLevelMap explicitly nulls the requested level", async () => {
@@ -293,7 +293,7 @@ describe("apply", () => {
 
     expect(harness.pi.getThinkingLevel()).toBe("off");
     expect(harness.notifications.join("\n")).toContain(
-      'preset "plan" requested thinking:low for anthropic/claude. applied "off" instead.',
+      'Preset "plan" requested thinking level "low" for anthropic/claude. Applied "off" instead.',
     );
   });
 
@@ -323,7 +323,7 @@ describe("apply", () => {
 
     expect(harness.pi.getThinkingLevel()).toBe("off");
     expect(harness.notifications.join("\n")).toContain(
-      'preset "plan" requested thinking:xhigh for anthropic/claude. applied "off" instead.',
+      'Preset "plan" requested thinking level "xhigh" for anthropic/claude. Applied "off" instead.',
     );
   });
 });
@@ -339,18 +339,18 @@ describe("clear", () => {
     expect(harness.pi.getThinkingLevel()).toBe("medium");
     expect(harness.setToolsCalls.at(-1)).toEqual(["bash"]);
     expect(getActive()).toBeUndefined();
-    expect(harness.notifications.at(-1)).toContain("preset cleared: plan");
+    expect(harness.notifications.at(-1)).toContain("Preset cleared: plan");
     expect(harness.notifications.at(-1)).toContain(
-      "restored your previous settings.",
+      "Restored your previous settings.",
     );
 
     expect(harness.notifications.at(-1)).toContain(
-      "model:          anthropic/old",
+      "Model:          anthropic/old",
     );
 
-    expect(harness.notifications.at(-1)).toContain("thinking level: medium");
+    expect(harness.notifications.at(-1)).toContain("Thinking level: medium");
 
-    expect(harness.notifications.at(-1)).toContain("tools:          bash");
+    expect(harness.notifications.at(-1)).toContain("Tools:          bash");
   });
 
   it("restores to pre-chain baseline for sequential applies", async () => {
@@ -378,7 +378,7 @@ describe("clear", () => {
 
     expect(harness.setToolsCalls).toEqual([["read"]]);
     expect(harness.notifications.at(-1)).toContain(
-      "tools:          read (not managed by cleared preset)",
+      "Tools:          read (Not managed by cleared preset)",
     );
   });
 
@@ -393,7 +393,7 @@ describe("clear", () => {
     expect(harness.pi.getThinkingLevel()).toBe("medium");
     expect(harness.setToolsCalls.at(-1)).toEqual(["bash"]);
     expect(harness.notifications.at(-1)).toContain(
-      "model:          openai/gpt (user manually overrode preset value)",
+      "Model:          openai/gpt (Left as-is — you changed it after activation)",
     );
   });
 
@@ -406,7 +406,7 @@ describe("clear", () => {
 
     expect(harness.setToolsCalls).toEqual([["read"], ["bash", "read"]]);
     expect(harness.notifications.at(-1)).toContain(
-      "tools:          bash, read (user manually overrode preset value)",
+      "Tools:          bash, read (Left as-is — you changed it after activation)",
     );
   });
 
@@ -418,7 +418,7 @@ describe("clear", () => {
 
     expect(getActive()).toBeUndefined();
     expect(harness.notifications.at(-1)).toContain(
-      "model:          could not switch back to anthropic/old",
+      "Model:          Could not switch back to anthropic/old.",
     );
     expect(harness.pi.getThinkingLevel()).toBe("medium");
   });
@@ -431,7 +431,7 @@ describe("clear", () => {
 
     expect(harness.setToolsCalls.at(-1)).toEqual([]);
     expect(harness.notifications.at(-1)).toContain(
-      "tools:          none (unavailable: bash)",
+      "Tools:          none (Unavailable: bash)",
     );
   });
 
@@ -469,7 +469,7 @@ describe("clear", () => {
     expect(harness.setToolsCalls).toEqual([]);
     expect(getActive()).toBeUndefined();
     expect(harness.notifications.at(-1)).toContain(
-      "model:          anthropic/old (no baseline saved for this field)",
+      "Model:          anthropic/old (No baseline saved for this field)",
     );
   });
 
@@ -478,7 +478,7 @@ describe("clear", () => {
 
     await clear(harness.ctx, harness.pi);
 
-    expect(harness.notifications).toEqual(["no preset is active."]);
+    expect(harness.notifications).toEqual(["No preset is active."]);
   });
 });
 

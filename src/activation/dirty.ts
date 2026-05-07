@@ -44,7 +44,7 @@ function refreshStatus(
   active: ActivePresetState | undefined,
 ): void {
   // Synthesize a `LoadedPreset` from the active state so `updateStatus`
-  // can render `preset: <name>` without re-reading the preset JSON files.
+  // can render `Preset: <name>` without re-reading the preset JSON files.
   // The badge only needs `name` + `scope`; everything else is filler.
   const synthetic: LoadedPreset | undefined = active
     ? {

@@ -29,6 +29,22 @@ import type { ScopeFilter } from "./filter.js";
 import { centerText, frameLine, frameSegment, padToWidth } from "./frame.js";
 import { openInfoDialog } from "./info-dialog.js";
 import {
+  ACTIVATE_LABEL,
+  ACTIVATION_FAILED_TITLE,
+  CLEAR_LABEL,
+  CLOSE_LABEL,
+  CURSOR_LABEL,
+  DELETE_LABEL,
+  DUPLICATE_LABEL,
+  EDIT_LABEL,
+  FILTER_LABEL,
+  LIST_LABEL,
+  NEW_LABEL,
+  REORDER_LABEL,
+  STATUS_ACTION_LABEL,
+  STATUS_DIALOG_TITLE,
+} from "./labels.js";
+import {
   cycleScope as cyclePickerScope,
   initialPickerState,
   moveSelection as movePickerSelection,
@@ -239,7 +255,7 @@ class PresetPickerComponent implements Component, Focusable {
         await this.runWithHiddenOverlay(() =>
           openInfoDialog(this.ctx, {
             body: result.reason,
-            title: "Activation failed",
+            title: ACTIVATION_FAILED_TITLE,
             tone: "error",
           }),
         );
@@ -304,7 +320,7 @@ class PresetPickerComponent implements Component, Focusable {
     await this.runWithHiddenOverlay(() =>
       openInfoDialog(this.ctx, {
         body: withWarnings(result.body, result.warnings),
-        title: "Preset Status",
+        title: STATUS_DIALOG_TITLE,
         tone: result.severity,
       }),
     );
@@ -694,7 +710,7 @@ class PresetPickerComponent implements Component, Focusable {
     const query = this.filterInput.getValue();
 
     if (this.state.focusMode !== "filter" && query.length === 0) {
-      return `${label}${this.theme.fg("dim", "type to filter")}`;
+      return `${label}${this.theme.fg("dim", "Type to filter.")}`;
     }
 
     const inputLine = this.filterInput.render(inputWidth)[0] ?? "";
@@ -704,11 +720,13 @@ class PresetPickerComponent implements Component, Focusable {
 
   private renderFooterContent(): string {
     const noMatches = this.visiblePresets().length === 0;
-    const activateHint = noMatches ? "⏎ Activate (no matches)" : "⏎ Activate";
+    const activateHint = noMatches
+      ? `⏎ ${ACTIVATE_LABEL} (no matches)`
+      : `⏎ ${ACTIVATE_LABEL}`;
     const footer =
       this.state.focusMode === "filter"
-        ? `${activateHint} · Esc List · ←/→ Cursor · ↑/↓ Move · PgUp/PgDn`
-        : `${activateHint} · n New · e Edit · d Duplicate · x Delete · c Clear · s Status · Ctrl+↑/↓ Reorder · / Filter · Esc Close`;
+        ? `${activateHint} · Esc ${LIST_LABEL} · ←/→ ${CURSOR_LABEL} · ↑/↓ Move · PgUp/PgDn`
+        : `${activateHint} · n ${NEW_LABEL} · e ${EDIT_LABEL} · d ${DUPLICATE_LABEL} · x ${DELETE_LABEL} · c ${CLEAR_LABEL} · s ${STATUS_ACTION_LABEL} · Ctrl+↑/↓ ${REORDER_LABEL} · / ${FILTER_LABEL} · Esc ${CLOSE_LABEL}`;
 
     return this.theme.fg("dim", ` ${footer}`);
   }

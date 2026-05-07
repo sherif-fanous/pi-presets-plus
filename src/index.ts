@@ -71,7 +71,7 @@ export default function presetsPlus(pi: ExtensionAPI) {
       );
     } catch (err) {
       ctx.ui.notify(
-        `pi-presets-plus failed to load preset files: ${err instanceof Error ? err.message : String(err)}`,
+        `pi-presets-plus failed to load preset files: ${err instanceof Error ? err.message : String(err)}.`,
         "error",
       );
     }
@@ -143,7 +143,7 @@ function restoreActiveFromBranch(
 
   if (!preset) {
     ctx.ui.notify(
-      `restored session referenced preset "${data.name}" which is not loaded. not attaching.`,
+      `Restored session referenced preset "${data.name}" which is not loaded. Not attaching.`,
       "warning",
     );
     clearActive();
@@ -153,7 +153,7 @@ function restoreActiveFromBranch(
 
   if (preset.unavailable) {
     ctx.ui.notify(
-      `restored session referenced preset "${data.name}" which is unavailable (${preset.unavailable}). not attaching.`,
+      `Restored session referenced preset "${data.name}" which is unavailable (${preset.unavailable}). Not attaching.`,
       "warning",
     );
     clearActive();

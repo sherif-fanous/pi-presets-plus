@@ -6,6 +6,7 @@
  * reload.
  */
 import { openConfirm } from "./confirm.js";
+import { RELOAD_PROMPT_TITLE } from "./labels.js";
 import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 
 const RELOAD_PROMPT_BODY =
@@ -20,7 +21,7 @@ interface ReloadContext {
 export async function confirmReload(ctx: ReloadContext): Promise<boolean> {
   if (typeof ctx.reload !== "function") return false;
 
-  return openConfirm(ctx, "Reload Pi?", RELOAD_PROMPT_BODY);
+  return openConfirm(ctx, RELOAD_PROMPT_TITLE, RELOAD_PROMPT_BODY);
 }
 
 /**
@@ -53,6 +54,6 @@ async function reloadPi(
   try {
     await ctx.reload();
   } catch (error) {
-    ctx.ui.notify(`Failed to reload Pi: ${formatError(error)}`, "error");
+    ctx.ui.notify(`Failed to reload Pi: ${formatError(error)}.`, "error");
   }
 }

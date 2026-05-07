@@ -127,10 +127,10 @@ describe("dirty helpers", () => {
     setActive(baselineActive);
     await markDirty(ctx);
 
-    expect(status["presets-plus"]).toBe("preset: plan!");
+    expect(status["presets-plus"]).toBe("Preset: plan!");
 
     await markClean(ctx);
 
-    expect(status["presets-plus"]).toBe("preset: plan");
+    expect(status["presets-plus"]).toBe("Preset: plan");
   });
 });
