@@ -152,6 +152,7 @@ const THINKING_LEVELS = [
   "xhigh",
 ] as const satisfies readonly ThinkingLevel[];
 const EDITOR_LABEL_WIDTH = 15;
+const EMPTY_INPUT_PLACEHOLDER = "—";
 
 class PresetEditorComponent implements Component, Focusable {
   private actionInFlight = false;
@@ -210,6 +211,21 @@ class PresetEditorComponent implements Component, Focusable {
 
     if (matchesKey(input, Key.escape)) {
       this.finish(undefined);
+
+      return;
+    }
+
+    // Audited pi-tui Input.handleInput and this editor's textarea handler:
+    // neither binds Ctrl+S nor Ctrl+T, so intercept before row delegation.
+    // Re-audit if pi-tui's Input changes its key map.
+    if (matchesKey(input, Key.ctrl("s"))) {
+      this.activateButton("save");
+
+      return;
+    }
+
+    if (this.options.onTest !== undefined && matchesKey(input, Key.ctrl("t"))) {
+      this.activateButton("test");
 
       return;
     }
@@ -291,12 +307,8 @@ class PresetEditorComponent implements Component, Focusable {
       frameLine("", frameWidth),
       ...this.renderRows(bodyWidth).map((line) => frameLine(line, frameWidth)),
       frameLine("", frameWidth),
-      frameLine(
-        this.theme.fg(
-          "dim",
-          " Tab/↑/↓ Focus · ←/→ Change · Space Toggle · Enter Action · Esc Cancel",
-        ),
-        frameWidth,
+      ...this.renderFooterHints().map((hint) =>
+        frameLine(this.theme.fg("dim", hint), frameWidth),
       ),
       frameSegment("└", "─", "┘", frameWidth),
     ];
@@ -341,8 +353,14 @@ class PresetEditorComponent implements Component, Focusable {
     return EDITOR_ROWS[this.focusedRowIndex] ?? "name";
   }
 
-  private async executeButton(): Promise<void> {
-    switch (this.buttonAction) {
+  private activateButton(action: ButtonAction): void {
+    void this.runAsync(() => this.executeButton(action));
+  }
+
+  private async executeButton(
+    action: ButtonAction = this.buttonAction,
+  ): Promise<void> {
+    switch (action) {
       case "cancel":
         this.finish(undefined);
 
@@ -370,7 +388,7 @@ class PresetEditorComponent implements Component, Focusable {
     } else if (matchesKey(input, Key.right)) {
       this.moveButton(1);
     } else if (matchesKey(input, Key.enter) || input === " ") {
-      void this.runAsync(() => this.executeButton());
+      this.activateButton(this.buttonAction);
     }
   }
 
@@ -573,14 +591,22 @@ class PresetEditorComponent implements Component, Focusable {
     return [...new Set(this.models.map((item) => item.provider))];
   }
 
+  private renderFooterHints(): string[] {
+    const shortcutTokens = ["^S Save"];
+
+    if (this.options.onTest !== undefined) shortcutTokens.push("^T Test");
+
+    shortcutTokens.push("Esc Cancel");
+
+    return [
+      " Tab/↑/↓ Move · ←/→ Change · Space Toggle · Enter Action",
+      ` ${shortcutTokens.join(" · ")}`,
+    ];
+  }
+
   private renderRows(width: number): string[] {
     const rows = [
-      renderValueRow(
-        this.theme,
-        "Name",
-        this.nameInput.render(Math.max(1, width - 16))[0] ?? "",
-        this.currentRow() === "name",
-      ),
+      this.renderNameRow(width),
       renderChoiceRow(
         this.theme,
         "Scope",
@@ -603,12 +629,7 @@ class PresetEditorComponent implements Component, Focusable {
       ...this.renderThinkingRows(),
       ...this.renderToolsRows(),
       ...this.renderInstructionsRows(width),
-      renderValueRow(
-        this.theme,
-        "Hotkey",
-        this.hotkeyInput.render(Math.max(1, width - 16))[0] ?? "",
-        this.currentRow() === "hotkey",
-      ),
+      this.renderHotkeyRow(width),
       ...this.renderMessages(),
       renderChoiceRow(
         this.theme,
@@ -620,6 +641,48 @@ class PresetEditorComponent implements Component, Focusable {
     ];
 
     return rows.map((line) => padToWidth(line, width));
+  }
+
+  private renderHotkeyRow(width: number): string {
+    return this.renderTextInputRow(
+      "Hotkey",
+      "hotkey",
+      this.hotkeyInput,
+      this.state.hotkey,
+      width,
+    );
+  }
+
+  private renderNameRow(width: number): string {
+    return this.renderTextInputRow(
+      "Name",
+      "name",
+      this.nameInput,
+      this.state.name,
+      width,
+    );
+  }
+
+  private renderTextInputRow(
+    label: string,
+    row: Extract<EditorRowId, "hotkey" | "name">,
+    input: Input,
+    text: string,
+    width: number,
+  ): string {
+    if (this.currentRow() === row) {
+      return renderValueRow(
+        this.theme,
+        label,
+        input.render(Math.max(1, width - 16))[0] ?? "",
+        true,
+      );
+    }
+
+    const value =
+      text.length > 0 ? text : this.theme.fg("dim", EMPTY_INPUT_PLACEHOLDER);
+
+    return renderValueRow(this.theme, label, value, false);
   }
 
   /**
@@ -715,7 +778,7 @@ class PresetEditorComponent implements Component, Focusable {
   private renderInstructionsRows(width: number): string[] {
     const preview =
       this.state.instructions.length === 0
-        ? this.theme.fg("dim", "Empty — focus here and type.")
+        ? this.theme.fg("dim", EMPTY_INPUT_PLACEHOLDER)
         : this.state.instructions.replaceAll("\n", " ↵ ");
 
     return [
