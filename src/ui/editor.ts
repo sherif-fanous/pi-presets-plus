@@ -31,6 +31,7 @@ import {
   isPiBuiltin,
   parseHotkey,
 } from "./hotkey-input.js";
+import { openInfoDialog } from "./info-dialog.js";
 import {
   CANCEL_LABEL,
   HOTKEY_CONFLICT_TITLE,
@@ -101,6 +102,18 @@ export interface EditorResult {
   tested?: LoadedPreset;
 }
 
+interface EditorRowHelpEntry {
+  readonly body: readonly string[];
+  /**
+   * Extra paragraphs shown only when the editor is opened for an existing
+   * preset (`this.initialPreset !== undefined`). Lets us mention
+   * edit-only consequences (rename moves the file, scope-change moves the
+   * file) without cluttering the new-preset experience.
+   */
+  readonly editAddendum?: readonly string[];
+  readonly title: string;
+}
+
 interface ModelItem {
   /**
    * True when the model has a resolvable API key / auth configured.
@@ -131,8 +144,89 @@ type EditorRowId =
 
 type ToolsMode = "preset" | "session";
 
+const EDITOR_ROW_HELP: Record<EditorRowId, EditorRowHelpEntry> = {
+  buttons: {
+    body: [
+      "Save writes this preset to disk after checking the values you entered.",
+      "Cancel closes the editor and discards any changes you made.",
+      "Test applies this preset to the current session without saving it \u2014 useful for trying things out.",
+    ],
+    title: "Actions",
+  },
+  hotkey: {
+    body: [
+      "Hotkeys let you switch to this preset with a single key combination.",
+      "Use Pi's format, like ctrl+shift+1 or ctrl+m. Leave it blank if you don't want a hotkey.",
+      "If your choice conflicts with another preset or a Pi built-in, you'll see a warning, but you can still save.",
+    ],
+    title: "Hotkey",
+  },
+  instructions: {
+    body: [
+      "Whatever you write here gets added to Pi's system prompt when this preset is active. It doesn't replace what Pi already has \u2014 it adds to it.",
+      "Use it to describe your project's conventions, the tone you want, or any rules Pi should follow.",
+    ],
+    title: "Prompt",
+  },
+  model: {
+    body: [
+      "Pick which model Pi should use whenever this preset is active.",
+      "Models marked (no key) don't have an API key set up yet, but you can still pick them \u2014 handy if you need to repair a preset whose key was removed.",
+    ],
+    title: "Model",
+  },
+  name: {
+    body: [
+      "Give your preset a short, memorable name.",
+      "Names need to be unique within their scope, so two user-scope presets can't share a name.",
+    ],
+    editAddendum: [
+      "If you rename this preset, its file is renamed automatically too.",
+    ],
+    title: "Name",
+  },
+  provider: {
+    body: [
+      "The provider is the service that hosts the model, like OpenAI or Anthropic.",
+      "Only providers Pi knows about show up here. Switching providers refreshes the model list.",
+    ],
+    title: "Provider",
+  },
+  scope: {
+    body: [
+      "User presets follow you everywhere \u2014 across every project on your machine. Project presets stay tied to this project, which makes them easy to share with collaborators.",
+    ],
+    editAddendum: [
+      "If you switch scope on an existing preset, its file moves to the new location.",
+    ],
+    title: "Scope",
+  },
+  thinking: {
+    body: [
+      "Thinking is how much extra reasoning effort Pi asks the model to spend. Higher levels can produce better answers but take longer and cost more.",
+      "Off means no extra reasoning. Some models support fewer levels than others.",
+    ],
+    title: "Thinking",
+  },
+  tools: {
+    body: [
+      "Tools are the abilities Pi has during a session \u2014 things like reading files, running commands, or searching the web.",
+      "Session means this preset uses whatever tools are active when you apply it.",
+      "Preset means this preset always uses the specific tools you pick here, no matter what's currently active.",
+    ],
+    title: "Tools",
+  },
+};
+
 const ALL_BUTTONS: readonly ButtonAction[] = ["save", "cancel", "test"];
-const EDITOR_ROWS = [
+
+/**
+ * Source-of-truth row order for the editor's focus chain.
+ *
+ * Exported so tests can iterate every row without depending on positional
+ * indices that would silently shift if the order changes here.
+ */
+export const EDITOR_ROWS = [
   "name",
   "scope",
   "provider",
@@ -143,6 +237,7 @@ const EDITOR_ROWS = [
   "hotkey",
   "buttons",
 ] as const satisfies readonly EditorRowId[];
+
 const THINKING_LEVELS = [
   "off",
   "minimal",
@@ -153,8 +248,6 @@ const THINKING_LEVELS = [
 ] as const satisfies readonly ThinkingLevel[];
 const EDITOR_LABEL_WIDTH = 15;
 const EMPTY_INPUT_PLACEHOLDER = "—";
-/** Kept named so row-level help can reuse the Prompt hint text. */
-const PROMPT_NEWLINE_HINT = "Enter inserts a newline. Tab exits.";
 
 class PresetEditorComponent implements Component, Focusable {
   private actionInFlight = false;
@@ -217,9 +310,15 @@ class PresetEditorComponent implements Component, Focusable {
       return;
     }
 
-    // Audited pi-tui Input.handleInput and this editor's textarea handler:
-    // neither binds Ctrl+S nor Ctrl+T, so intercept before row delegation.
-    // Re-audit if pi-tui's Input changes its key map.
+    // Audited pi-tui Input.handleInput, this editor's textarea handler, and
+    // the shortcut chain below: none bind F1, Ctrl+S, or Ctrl+T, so intercept
+    // before row delegation. Re-audit if pi-tui's Input changes its key map.
+    if (isEditorHelpKey(input)) {
+      void this.runAsync(() => this.openHelpForFocusedRow());
+
+      return;
+    }
+
     if (matchesKey(input, Key.ctrl("s"))) {
       this.activateButton("save");
 
@@ -324,6 +423,25 @@ class PresetEditorComponent implements Component, Focusable {
 
   private async promptReloadHidden(): Promise<boolean> {
     return this.runWithHiddenOverlay(() => confirmReload(this.ctx));
+  }
+
+  private async openHelpForFocusedRow(): Promise<void> {
+    const entry = EDITOR_ROW_HELP[this.currentRow()];
+    // Edit-mode addenda surface consequences that only apply to existing
+    // presets (rename migrates the file, scope-change moves the file)
+    // without cluttering the new-preset experience.
+    const isEdit = this.initialPreset !== undefined;
+    const paragraphs = [
+      ...entry.body,
+      ...(isEdit ? (entry.editAddendum ?? []) : []),
+    ];
+
+    await this.runWithHiddenOverlay(() =>
+      openInfoDialog(this.ctx, {
+        body: paragraphs.join("\n\n"),
+        title: entry.title,
+      }),
+    );
   }
 
   private async runWithHiddenOverlay<T>(fn: () => Promise<T>): Promise<T> {
@@ -597,6 +715,7 @@ class PresetEditorComponent implements Component, Focusable {
       "←/→ Change",
       "Space Toggle",
       "Enter Action",
+      "F1 Help",
       "^S Save",
     ];
 
@@ -788,7 +907,6 @@ class PresetEditorComponent implements Component, Focusable {
         truncateToWidth(preview, Math.max(1, width - 16), "…"),
         this.currentRow() === "instructions",
       ),
-      this.theme.fg("dim", `    ${PROMPT_NEWLINE_HINT}`),
     ];
   }
 
@@ -1250,6 +1368,51 @@ function formatButton(action: ButtonAction): string {
 
 function formatThinking(level: ThinkingLevel): string {
   return level;
+}
+
+function isEditorHelpKey(input: string): boolean {
+  if (matchesKey(input, Key.f1)) return true;
+
+  // pi-tui's matchesKey for F-keys checks only the legacy table
+  // (\x1bOP, \x1b[11~, \x1b[[A) and never falls through to the Kitty
+  // matcher, so when pi-tui auto-enables Kitty's enhanced keyboard
+  // protocol (terminal.js sends \x1b[>7u after the handshake) F1 in
+  // its Kitty-protocol forms is silently dropped. Two such forms exist:
+  //
+  // 1. Legacy-with-event-info (observed in Ghostty: F1 press arrived as
+  //    `\x1b[1;1:1P`, release as `\x1b[1;1:3P`):
+  //      CSI 1 ; <mod> : <event> P
+  //    Final byte is the legacy SS3 letter (P for F1). The `:event`
+  //    subfield is added when the event-types flag is pushed.
+  //
+  // 2. Codepoint form (per the Kitty keyboard-protocol spec):
+  //      CSI 57364 ; <mod> : <event> u
+  //    Final byte is `u`; codepoint 57364 = F1, 57365 = F2, etc.
+  //
+  // Empirical evidence: a temporary `appendFileSync` instrumentation in
+  // `handleInput` recorded what each terminal actually sends inside pi.
+  // iTerm2 sent `\x1b[11~` (already covered by the legacy `Key.f1`
+  // table); Ghostty sent the legacy-with-event-info `\x1b[1;1:1P`
+  // variant; kitty/WezTerm/recent Alacritty are expected to use either
+  // form. The six fallbacks below cover both encodings with and without
+  // the modifier and event subfields.
+  //
+  // We match only press events (event subfield 1, or omitted). pi-tui's
+  // isKeyRelease does not recognize `:3P` either, so F1 release leaks
+  // through to the focused component; matching only press here means
+  // the release falls through to row delegation and is harmlessly
+  // ignored.
+  //
+  // Re-audit when pi-tui's matchesKey and isKeyRelease grow F-key
+  // Kitty support; this workaround can then go away.
+  return (
+    input === "\x1b[1P" ||
+    input === "\x1b[1;1P" ||
+    input === "\x1b[1;1:1P" ||
+    input === "\x1b[57364u" ||
+    input === "\x1b[57364;1u" ||
+    input === "\x1b[57364;1:1u"
+  );
 }
 
 function isPrintableText(text: string): boolean {

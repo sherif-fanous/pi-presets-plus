@@ -12,6 +12,17 @@ const addPreset = vi.fn();
 const loadAll = vi.fn();
 const removePreset = vi.fn();
 const updatePreset = vi.fn();
+const openInfoDialog =
+  vi.fn<
+    (
+      ctx: unknown,
+      options: { readonly body: string; readonly title: string },
+    ) => Promise<void>
+  >();
+
+vi.mock("../../src/ui/info-dialog.js", () => ({
+  openInfoDialog,
+}));
 
 vi.mock("../../src/store/api.js", () => ({
   addPreset,
@@ -20,11 +31,14 @@ vi.mock("../../src/store/api.js", () => ({
   updatePreset,
 }));
 
-const { openEditor } = await import("../../src/ui/editor.js");
+const { EDITOR_ROWS, openEditor } = await import("../../src/ui/editor.js");
 
 interface EditorHarness extends Component {
   handleInput(input: string): void;
 }
+
+const f1Input = "\u001bOP";
+const promptNewlineHint = "Enter inserts a newline. Tab exits.";
 
 const passthroughTheme = {
   bold: (text: string) => text,
@@ -42,7 +56,13 @@ function lineContaining(editor: EditorHarness, text: string): string {
   return line;
 }
 
-function makeCtx(capture: (editor: EditorHarness) => void) {
+function makeCtx(
+  capture: (editor: EditorHarness) => void,
+  overlayHandle: {
+    readonly focus: ReturnType<typeof vi.fn>;
+    readonly setHidden: ReturnType<typeof vi.fn>;
+  },
+) {
   return {
     modelRegistry: {
       getAll: () => [model],
@@ -57,6 +77,7 @@ function makeCtx(capture: (editor: EditorHarness) => void) {
             keybindings: unknown,
             done: (result: unknown) => void,
           ) => Component,
+          options?: { onHandle?(handle: typeof overlayHandle): void },
         ) =>
           new Promise((resolve) => {
             const editor = factory(
@@ -67,6 +88,7 @@ function makeCtx(capture: (editor: EditorHarness) => void) {
             ) as EditorHarness;
 
             capture(editor);
+            options?.onHandle?.(overlayHandle);
           }),
       ),
     },
@@ -84,12 +106,17 @@ async function openHarness(
   } = {},
 ): Promise<{
   readonly editor: EditorHarness;
+  readonly overlayHandle: {
+    readonly focus: ReturnType<typeof vi.fn>;
+    readonly setHidden: ReturnType<typeof vi.fn>;
+  };
   readonly result: Promise<unknown>;
 }> {
   let editor: EditorHarness | undefined;
+  const overlayHandle = { focus: vi.fn(), setHidden: vi.fn() };
   const ctx = makeCtx((nextEditor) => {
     editor = nextEditor;
-  });
+  }, overlayHandle);
   const result = openEditor(ctx as never, options.initial, {
     onTest: options.onTest,
     presets: options.initial ? [options.initial] : [],
@@ -99,7 +126,7 @@ async function openHarness(
 
   if (!editor) throw new Error("Editor was not created.");
 
-  return { editor, result };
+  return { editor, overlayHandle, result };
 }
 
 function preset(overrides: Partial<LoadedPreset> = {}): LoadedPreset {
@@ -123,6 +150,7 @@ beforeEach(() => {
   addPreset.mockResolvedValue({ ok: true });
   loadAll.mockResolvedValue({ presets: [preset()], warnings: [] });
   removePreset.mockResolvedValue({ ok: true });
+  openInfoDialog.mockResolvedValue(undefined);
   updatePreset.mockResolvedValue({ ok: true });
 });
 
@@ -237,6 +265,101 @@ describe("preset editor input UX", () => {
     handleInput.mockRestore();
   });
 
+  it("opens focused-row help with F1", async () => {
+    // Drive the loop by row identity (not positional index) so the test
+    // stays correct if EDITOR_ROWS is reordered. The keyed lookup pairs
+    // each EditorRowId with the title authored in EDITOR_ROW_HELP; if
+    // a row's title or set of rows changes, this map must change too.
+    const titlesByRow: Record<(typeof EDITOR_ROWS)[number], string> = {
+      buttons: "Actions",
+      hotkey: "Hotkey",
+      instructions: "Prompt",
+      model: "Model",
+      name: "Name",
+      provider: "Provider",
+      scope: "Scope",
+      thinking: "Thinking",
+      tools: "Tools",
+    };
+
+    for (const row of EDITOR_ROWS) {
+      const { editor } = await openHarness({ initial: preset() });
+      const targetIndex = EDITOR_ROWS.indexOf(row);
+
+      moveFocus(editor, targetIndex);
+      editor.handleInput(f1Input);
+
+      await Promise.resolve();
+
+      const helpOptions = openInfoDialog.mock.calls.at(-1)?.[1];
+
+      expect(helpOptions?.body).toEqual(expect.any(String));
+      expect(helpOptions?.title).toBe(titlesByRow[row]);
+    }
+  });
+
+  it("recognizes Kitty F1 sequences across terminals", async () => {
+    // Two encodings cover the F-key forms pi-tui's matchesKey doesn't:
+    //   - Legacy-with-event-info (observed in Ghostty):
+    //       \x1b[1P, \x1b[1;1P, \x1b[1;1:1P
+    //   - Codepoint form (per Kitty keyboard-protocol spec):
+    //       \x1b[57364u, \x1b[57364;1u, \x1b[57364;1:1u
+    for (const input of [
+      "\u001b[1P",
+      "\u001b[1;1P",
+      "\u001b[1;1:1P",
+      "\u001b[57364u",
+      "\u001b[57364;1u",
+      "\u001b[57364;1:1u",
+    ]) {
+      const { editor } = await openHarness({ initial: preset() });
+
+      editor.handleInput(input);
+
+      await Promise.resolve();
+
+      const helpOptions = openInfoDialog.mock.calls.at(-1)?.[1];
+
+      expect(helpOptions?.body).toEqual(expect.any(String));
+      expect(helpOptions?.title).toBe("Name");
+    }
+  });
+
+  it("opens Prompt help without changing the prompt buffer", async () => {
+    const { editor } = await openHarness({ initial: preset() });
+
+    moveFocus(editor, 6);
+    editor.handleInput("!");
+
+    const beforeHelp = renderText(editor);
+
+    editor.handleInput(f1Input);
+
+    await Promise.resolve();
+
+    const helpOptions = openInfoDialog.mock.calls.at(-1)?.[1];
+
+    expect(renderText(editor)).toBe(beforeHelp);
+    expect(helpOptions?.body).toContain("added to Pi's system prompt");
+    expect(helpOptions?.title).toBe("Prompt");
+  });
+
+  it("invokes the overlay-hide/show lifecycle when help is opened and resolved", async () => {
+    const { editor, overlayHandle } = await openHarness({ initial: preset() });
+
+    moveFocus(editor, 6);
+    editor.handleInput(f1Input);
+
+    await Promise.resolve();
+
+    expect(overlayHandle.setHidden).toHaveBeenNthCalledWith(1, true);
+    expect(overlayHandle.setHidden).toHaveBeenLastCalledWith(false);
+    expect(overlayHandle.focus).toHaveBeenCalledOnce();
+    expect(lineContaining(editor, "Prompt")).toContain(
+      "keep the prompt stable",
+    );
+  });
+
   it("renders shortcut-aware footer hints on one line", async () => {
     const withoutTest = await openHarness({ initial: preset() });
     const withTest = await openHarness({
@@ -253,19 +376,19 @@ describe("preset editor input UX", () => {
     );
 
     expect(footerWithoutTestCallback).toContain(
-      "⇥/↑/↓ Move · ←/→ Change · Space Toggle · Enter Action · ^S Save · Esc Cancel",
+      "⇥/↑/↓ Move · ←/→ Change · Space Toggle · Enter Action · F1 Help · ^S Save · Esc Cancel",
     );
     expect(footerWithoutTestCallback).not.toContain("^T Test");
     expect(footerWithoutTestCallback).not.toContain("Tab/↑/↓ Move");
     expect(footerWithTestCallback).toContain(
-      "⇥/↑/↓ Move · ←/→ Change · Space Toggle · Enter Action · ^S Save · ^T Test · Esc Cancel",
+      "⇥/↑/↓ Move · ←/→ Change · Space Toggle · Enter Action · F1 Help · ^S Save · ^T Test · Esc Cancel",
     );
   });
 
-  it("renders the prompt inline hint", async () => {
+  it("does not render the prompt inline hint", async () => {
     const { editor } = await openHarness({ initial: preset() });
 
-    expect(renderText(editor)).toContain("Enter inserts a newline. Tab exits.");
+    expect(renderText(editor)).not.toContain(promptNewlineHint);
   });
 
   it("renders the session tools inline hint", async () => {
