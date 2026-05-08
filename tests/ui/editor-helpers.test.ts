@@ -197,7 +197,7 @@ describe("snapThinkingSelection", () => {
 });
 
 describe("renderThinkingRowsForState", () => {
-  it("renders no inline notice on a non-reasoning model with level=off", () => {
+  it("renders no snap notice and a no-thinking hint for a non-reasoning model", () => {
     const state = initialState(existingPreset, fakeModels);
     const nonReasoningModel = {
       id: "gpt-5",
@@ -220,8 +220,50 @@ describe("renderThinkingRowsForState", () => {
     expect(lines).toHaveLength(2);
     expect(rendered).not.toContain("does not support extended thinking");
     expect(rendered).not.toContain("switched to off");
-    expect(rendered).toContain("Dimmed levels are unavailable for this model.");
+    expect(rendered).toContain("This model does not support thinking.");
+    expect(rendered).not.toContain(
+      "Dimmed levels are unavailable for this model.",
+    );
     expect(rendered).toContain("● off");
+  });
+
+  it("renders the dimmed-levels hint for a reasoning model without a level map", () => {
+    const state = initialState(existingPreset, fakeModels);
+    const reasoningModelWithoutMap = fakeModels[0]?.model;
+
+    if (!reasoningModelWithoutMap) throw new Error("Missing fake model.");
+
+    const lines = renderThinkingRowsForState(
+      passthroughTheme,
+      state,
+      reasoningModelWithoutMap,
+      false,
+    );
+    const rendered = lines.join("\n");
+
+    expect(rendered).toContain("Dimmed levels are unavailable for this model.");
+    expect(rendered).not.toContain("This model does not support thinking.");
+  });
+
+  it("renders the dimmed-levels hint for a reasoning model with partial support", () => {
+    const state = initialState(existingPreset, fakeModels);
+    const partialReasoningModel = {
+      id: "claude-sonnet-4.5",
+      provider: "anthropic",
+      reasoning: true,
+      thinkingLevelMap: { low: null },
+    } as Model<Api>;
+
+    const lines = renderThinkingRowsForState(
+      passthroughTheme,
+      { ...state, model: "claude-sonnet-4.5", thinkingLevel: "off" },
+      partialReasoningModel,
+      false,
+    );
+    const rendered = lines.join("\n");
+
+    expect(rendered).toContain("Dimmed levels are unavailable for this model.");
+    expect(rendered).not.toContain("This model does not support thinking.");
   });
 });
 

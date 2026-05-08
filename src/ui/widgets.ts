@@ -65,19 +65,13 @@ class PresetCardComponent implements Component {
     const lines = [`${titlePrefix}${dot} ${displayName}`];
 
     lines.push(
-      this.renderField(
-        `${SCOPE_LABEL}:`,
-        this.theme.fg("muted", formatScopeValue(this.loadedPreset)),
-      ),
+      this.renderField(`${SCOPE_LABEL}:`, formatScopeValue(this.loadedPreset)),
     );
 
     lines.push(
       this.renderField(
         `${MODEL_LABEL}:`,
-        this.theme.fg(
-          "muted",
-          `${this.loadedPreset.provider} / ${this.loadedPreset.model}`,
-        ),
+        `${this.loadedPreset.provider} / ${this.loadedPreset.model}`,
       ),
     );
 
@@ -177,9 +171,9 @@ class PresetCardComponent implements Component {
 export function formatAvailabilityStatus(loadedPreset: LoadedPreset): string {
   switch (loadedPreset.unavailable) {
     case "no-key":
-      return "Unavailable — missing API key.";
+      return "This preset's provider has no API key configured.";
     case "no-model":
-      return "Unavailable — model not found.";
+      return "This preset's model is no longer available.";
     case undefined:
       return "";
     default:

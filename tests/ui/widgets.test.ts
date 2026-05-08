@@ -41,13 +41,20 @@ describe("preset widget formatting", () => {
 
   it("formats readable availability statuses", () => {
     expect(formatAvailabilityStatus(basePreset)).toBe("");
-    expect(
-      formatAvailabilityStatus({ ...basePreset, unavailable: "no-key" }),
-    ).toBe("Unavailable — missing API key.");
 
-    expect(
-      formatAvailabilityStatus({ ...basePreset, unavailable: "no-model" }),
-    ).toBe("Unavailable — model not found.");
+    const noKey = formatAvailabilityStatus({
+      ...basePreset,
+      unavailable: "no-key",
+    });
+    const noModel = formatAvailabilityStatus({
+      ...basePreset,
+      unavailable: "no-model",
+    });
+
+    expect(noKey).toBe("This preset's provider has no API key configured.");
+    expect(noModel).toBe("This preset's model is no longer available.");
+    expect(noKey).not.toMatch(/^Unavailable [—-]/u);
+    expect(noModel).not.toMatch(/^Unavailable [—-]/u);
   });
 
   it("formats the active status dot", () => {
@@ -84,6 +91,27 @@ describe("preset widget formatting", () => {
     );
   });
 
+  it("keeps Scope and Model values unmuted while labels stay muted", () => {
+    const colorTheme: Pick<Theme, "fg" | "bold"> = {
+      bold: (text) => text,
+      fg: (color, text) => `<${color}>${text}</${color}>`,
+    };
+
+    const lines = presetCard(basePreset, colorTheme, {
+      active: false,
+      selected: false,
+    }).render(120);
+
+    expect(lines).toContain("  <muted>Scope:</muted>          User");
+    expect(lines).toContain(
+      "  <muted>Model:</muted>          anthropic / claude-opus-4.5",
+    );
+    expect(lines.join("\n")).not.toContain("<muted>User</muted>");
+    expect(lines.join("\n")).not.toContain(
+      "<muted>anthropic / claude-opus-4.5</muted>",
+    );
+  });
+
   it("renders readable key/value card combinations for visual smoke coverage", () => {
     const lines = presetCard(
       {
@@ -115,7 +143,7 @@ describe("preset widget formatting", () => {
       "  Prompt:         PLAN MODE: inspect first and summarize",
       "  Status:         ⚠ Thinking will be clamped.",
       "  Status:         ⚠ Hotkey conflict.",
-      "  Status:         Unavailable — missing API key.",
+      "  Status:         This preset's provider has no API key configured.",
       "  Drift:          ⚠ Dirty — model, tools differ",
       "  Shadowing:      Overridden by project preset",
     ]);

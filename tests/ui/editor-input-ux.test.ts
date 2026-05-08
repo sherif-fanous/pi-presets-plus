@@ -237,20 +237,42 @@ describe("preset editor input UX", () => {
     handleInput.mockRestore();
   });
 
-  it("renders shortcut-aware footer hints", async () => {
+  it("renders shortcut-aware footer hints on one line", async () => {
     const withoutTest = await openHarness({ initial: preset() });
     const withTest = await openHarness({
       initial: preset(),
       onTest: vi.fn().mockResolvedValue({ ok: false }),
     });
+    const footerWithoutTestCallback = lineContaining(
+      withoutTest.editor,
+      "⇥/↑/↓ Move",
+    );
+    const footerWithTestCallback = lineContaining(
+      withTest.editor,
+      "⇥/↑/↓ Move",
+    );
 
-    expect(renderText(withoutTest.editor)).toContain("Tab/↑/↓ Move");
-    expect(renderText(withoutTest.editor)).toContain("←/→ Change");
-    expect(renderText(withoutTest.editor)).toContain("Space Toggle");
-    expect(renderText(withoutTest.editor)).toContain("Enter Action");
-    expect(renderText(withoutTest.editor)).toContain("^S Save");
-    expect(renderText(withoutTest.editor)).toContain("Esc Cancel");
-    expect(renderText(withoutTest.editor)).not.toContain("^T Test");
-    expect(renderText(withTest.editor)).toContain("^T Test");
+    expect(footerWithoutTestCallback).toContain(
+      "⇥/↑/↓ Move · ←/→ Change · Space Toggle · Enter Action · ^S Save · Esc Cancel",
+    );
+    expect(footerWithoutTestCallback).not.toContain("^T Test");
+    expect(footerWithoutTestCallback).not.toContain("Tab/↑/↓ Move");
+    expect(footerWithTestCallback).toContain(
+      "⇥/↑/↓ Move · ←/→ Change · Space Toggle · Enter Action · ^S Save · ^T Test · Esc Cancel",
+    );
+  });
+
+  it("renders the prompt inline hint", async () => {
+    const { editor } = await openHarness({ initial: preset() });
+
+    expect(renderText(editor)).toContain("Enter inserts a newline. Tab exits.");
+  });
+
+  it("renders the session tools inline hint", async () => {
+    const { editor } = await openHarness({ initial: preset() });
+
+    expect(renderText(editor)).toContain(
+      "Session: inherits the active tool set.",
+    );
   });
 });

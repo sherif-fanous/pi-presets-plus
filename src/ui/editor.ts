@@ -153,6 +153,8 @@ const THINKING_LEVELS = [
 ] as const satisfies readonly ThinkingLevel[];
 const EDITOR_LABEL_WIDTH = 15;
 const EMPTY_INPUT_PLACEHOLDER = "—";
+/** Kept named so row-level help can reuse the Prompt hint text. */
+const PROMPT_NEWLINE_HINT = "Enter inserts a newline. Tab exits.";
 
 class PresetEditorComponent implements Component, Focusable {
   private actionInFlight = false;
@@ -307,9 +309,7 @@ class PresetEditorComponent implements Component, Focusable {
       frameLine("", frameWidth),
       ...this.renderRows(bodyWidth).map((line) => frameLine(line, frameWidth)),
       frameLine("", frameWidth),
-      ...this.renderFooterHints().map((hint) =>
-        frameLine(this.theme.fg("dim", hint), frameWidth),
-      ),
+      frameLine(this.theme.fg("dim", this.renderFooterHint()), frameWidth),
       frameSegment("└", "─", "┘", frameWidth),
     ];
 
@@ -591,17 +591,20 @@ class PresetEditorComponent implements Component, Focusable {
     return [...new Set(this.models.map((item) => item.provider))];
   }
 
-  private renderFooterHints(): string[] {
-    const shortcutTokens = ["^S Save"];
-
-    if (this.options.onTest !== undefined) shortcutTokens.push("^T Test");
-
-    shortcutTokens.push("Esc Cancel");
-
-    return [
-      " Tab/↑/↓ Move · ←/→ Change · Space Toggle · Enter Action",
-      ` ${shortcutTokens.join(" · ")}`,
+  private renderFooterHint(): string {
+    const tokens = [
+      "⇥/↑/↓ Move",
+      "←/→ Change",
+      "Space Toggle",
+      "Enter Action",
+      "^S Save",
     ];
+
+    if (this.options.onTest !== undefined) tokens.push("^T Test");
+
+    tokens.push("Esc Cancel");
+
+    return ` ${tokens.join(" · ")}`;
   }
 
   private renderRows(width: number): string[] {
@@ -688,8 +691,8 @@ class PresetEditorComponent implements Component, Focusable {
   /**
    * Render the Model row's right-hand value with an availability hint
    * appended for unavailable entries. Mirrors the picker card's
-   * `Status: Unavailable — missing API key` row in intent but stays
-   * inline to keep the dropdown compact.
+   * unavailable status row in intent but stays inline to keep the
+   * dropdown compact.
    */
   private renderModelValue(): string {
     if (this.state.model.length === 0) return "none";
@@ -747,10 +750,7 @@ class PresetEditorComponent implements Component, Focusable {
       // Explain the less-obvious mode inline; in `preset` mode the
       // multi-toggle list below speaks for itself.
       lines.push(
-        this.theme.fg(
-          "dim",
-          "    Session: whatever tools are active right now pass through unchanged.",
-        ),
+        this.theme.fg("dim", "    Session: inherits the active tool set."),
       );
     } else {
       if (this.allTools.length === 0) {
@@ -788,7 +788,7 @@ class PresetEditorComponent implements Component, Focusable {
         truncateToWidth(preview, Math.max(1, width - 16), "…"),
         this.currentRow() === "instructions",
       ),
-      this.theme.fg("dim", "    Enter Newline · Tab Exit"),
+      this.theme.fg("dim", `    ${PROMPT_NEWLINE_HINT}`),
     ];
   }
 
@@ -1206,9 +1206,15 @@ export function renderThinkingRowsForState(
   ];
 
   if (valid.length < THINKING_LEVELS.length) {
-    lines.push(
-      theme.fg("dim", "    Dimmed levels are unavailable for this model."),
-    );
+    // Undefined models return the full set of valid levels, so this dimmed
+    // branch can only fire when the model is defined; the reasoning flag is
+    // therefore the complete branch condition.
+    const message =
+      model?.reasoning === false
+        ? "This model does not support thinking."
+        : "Dimmed levels are unavailable for this model.";
+
+    lines.push(theme.fg("dim", `    ${message}`));
   }
 
   return lines;
