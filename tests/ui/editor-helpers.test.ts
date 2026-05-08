@@ -11,6 +11,7 @@ import {
   buildPreset,
   formatHotkeyReloadNotice,
   initialState,
+  renderThinkingRowsForState,
   snapThinkingSelection,
 } from "../../src/ui/editor.js";
 import type { Api, Model } from "@mariozechner/pi-ai";
@@ -40,6 +41,12 @@ const fakeModels: readonly ModelItem[] = [
     provider: "openai",
   },
 ];
+
+const passthroughTheme = {
+  // Passthrough so assertions can match plain text; replace if a test
+  // needs to check colors.
+  fg: (_color: string, text: string) => text,
+};
 
 const existingPreset: LoadedPreset = {
   hotkey: "ctrl+shift+1",
@@ -142,8 +149,8 @@ describe("initialState", () => {
 
   it("preserves the original thinkingLevel even when the model would clamp", () => {
     // `gpt-5` has `reasoning: false` in the fake registry, but the editor
-    // must NOT silently rewrite the form on open. The disabled-radio
-    // affordance and the user-driven snap path are the only signals.
+    // must NOT silently rewrite the form on open. The user-driven snap
+    // path is the only mutation point.
     const state = initialState(
       {
         ...existingPreset,
@@ -159,6 +166,15 @@ describe("initialState", () => {
 });
 
 describe("snapThinkingSelection", () => {
+  it("returns the same state when the selected level remains valid", () => {
+    const state = initialState(existingPreset, fakeModels);
+    const nextModel = { reasoning: true } as unknown as Model<Api>;
+
+    const next = snapThinkingSelection(state, nextModel);
+
+    expect(next).toBe(state);
+  });
+
   it("snaps to off when a user-selected model nulls the selected level", () => {
     const state = initialState(
       { ...existingPreset, thinkingLevel: "low" },
@@ -176,10 +192,36 @@ describe("snapThinkingSelection", () => {
       nextModel,
     );
 
-    expect(next.state.thinkingLevel).toBe("off");
-    expect(next.notice).toBe(
-      "claude-sonnet-4.5 does not support extended thinking — switched to off.",
+    expect(next.thinkingLevel).toBe("off");
+  });
+});
+
+describe("renderThinkingRowsForState", () => {
+  it("renders no inline notice on a non-reasoning model with level=off", () => {
+    const state = initialState(existingPreset, fakeModels);
+    const nonReasoningModel = {
+      id: "gpt-5",
+      provider: "openai",
+      reasoning: false,
+    } as unknown as Model<Api>;
+    const snapped = snapThinkingSelection(
+      { ...state, model: "gpt-5", provider: "openai" },
+      nonReasoningModel,
     );
+
+    const lines = renderThinkingRowsForState(
+      passthroughTheme,
+      snapped,
+      nonReasoningModel,
+      false,
+    );
+    const rendered = lines.join("\n");
+
+    expect(lines).toHaveLength(2);
+    expect(rendered).not.toContain("does not support extended thinking");
+    expect(rendered).not.toContain("switched to off");
+    expect(rendered).toContain("Dimmed levels are unavailable for this model.");
+    expect(rendered).toContain("● off");
   });
 });
 

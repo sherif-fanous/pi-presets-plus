@@ -160,7 +160,6 @@ class PresetEditorComponent implements Component, Focusable {
   private error: string | undefined;
   private focusedRowIndex = 0;
   private instructionsCursor = 0;
-  private notice: string | undefined;
   private overlayHandle: OverlayHandle | undefined;
   private readonly nameInput = new Input();
   private readonly hotkeyInput = new Input();
@@ -192,10 +191,8 @@ class PresetEditorComponent implements Component, Focusable {
     this.instructionsCursor = this.state.instructions.length;
     // Note: we deliberately do NOT auto-snap thinking level on open. A
     // preset whose declared level will clamp at apply time stays selected
-    // here so save-without-edit round-trips the original value; the
-    // disabled radio entries communicate the situation visually, and
-    // user-driven model/provider changes are the only trigger for the
-    // "switched to off" auto-snap.
+    // here so save-without-edit round-trips the original value; only
+    // user-driven model/provider changes mutate the selected level.
     this.syncFocus();
   }
 
@@ -542,14 +539,11 @@ class PresetEditorComponent implements Component, Focusable {
   /**
    * Triggered after a user-driven model/provider change. If the chosen
    * level is still valid for the new model, no-op; otherwise snap to
-   * `"off"` and surface the inline notice. Never called from the
-   * constructor — opening must not silently mutate the form.
+   * `"off"`. Never called from the constructor — opening must not
+   * silently mutate the form.
    */
   private snapThinkingIfInvalid(): void {
-    const next = snapThinkingSelection(this.state, this.currentModel());
-
-    this.state = next.state;
-    if (next.notice !== undefined) this.notice = next.notice;
+    this.state = snapThinkingSelection(this.state, this.currentModel());
   }
 
   private modelsForProvider(provider: string): readonly ModelItem[] {
@@ -656,39 +650,12 @@ class PresetEditorComponent implements Component, Focusable {
   }
 
   private renderThinkingRows(): string[] {
-    const valid = validThinkingLevels(this.currentModel());
-    // Disabled options are conveyed by dim color alone (no " disabled"
-    // suffix). The disabled-state legend below the row explains the
-    // convention so screen-reader users still get a hint.
-    const options = THINKING_LEVELS.map((level) => {
-      const label = formatThinking(level);
-      const rendered = valid.includes(level)
-        ? label
-        : this.theme.fg("dim", label);
-
-      return this.state.thinkingLevel === level
-        ? `● ${rendered}`
-        : `○ ${rendered}`;
-    });
-    const lines = [
-      renderValueRow(
-        this.theme,
-        THINKING_LABEL,
-        options.join("  "),
-        this.currentRow() === "thinking",
-      ),
-    ];
-
-    if (valid.length < THINKING_LEVELS.length) {
-      lines.push(
-        this.theme.fg(
-          "dim",
-          "    Dimmed levels are unavailable for this model.",
-        ),
-      );
-    }
-
-    return lines;
+    return renderThinkingRowsForState(
+      this.theme,
+      this.state,
+      this.currentModel(),
+      this.currentRow() === "thinking",
+    );
   }
 
   private renderToolsRows(): string[] {
@@ -774,7 +741,6 @@ class PresetEditorComponent implements Component, Focusable {
       lines.push(...hotkeyNotice.map((line) => this.theme.fg("dim", line)));
     }
 
-    if (this.notice) lines.push(this.theme.fg("accent", `    ${this.notice}`));
     if (this.error) lines.push(this.theme.fg("error", `    ${this.error}`));
 
     return lines;
@@ -1152,18 +1118,54 @@ export async function openEditor(
   );
 }
 
+/**
+ * Exported solely to enable rendering-side regression coverage of the
+ * no-notice contract without instantiating the interactive editor.
+ */
+export function renderThinkingRowsForState(
+  theme: Pick<Theme, "fg">,
+  state: EditorFormState,
+  model: Model<Api> | undefined,
+  focused: boolean,
+): string[] {
+  const valid = validThinkingLevels(model);
+  // Disabled options are conveyed by dim color alone (no " disabled"
+  // suffix). The disabled-state legend below the row explains the
+  // convention so screen-reader users still get a hint.
+  const options = THINKING_LEVELS.map((level) => {
+    const label = formatThinking(level);
+    const rendered = valid.includes(level) ? label : theme.fg("dim", label);
+
+    return state.thinkingLevel === level ? `● ${rendered}` : `○ ${rendered}`;
+  });
+  const lines = [
+    renderValueRow(theme, THINKING_LABEL, options.join("  "), focused),
+  ];
+
+  if (valid.length < THINKING_LEVELS.length) {
+    lines.push(
+      theme.fg("dim", "    Dimmed levels are unavailable for this model."),
+    );
+  }
+
+  return lines;
+}
+
+/**
+ * Pure helper: consume the returned form state directly after a user-driven
+ * model/provider change. If the selected level is still valid for the new
+ * model, return the same state object as the explicit no-op signal;
+ * otherwise snap the selection to `"off"`.
+ */
 export function snapThinkingSelection(
   state: EditorFormState,
   model: Model<Api> | undefined,
-): { state: EditorFormState; notice: string | undefined } {
+): EditorFormState {
   if (validThinkingLevels(model).includes(state.thinkingLevel)) {
-    return { state, notice: undefined };
+    return state;
   }
 
-  return {
-    state: { ...state, thinkingLevel: "off" },
-    notice: `${state.model || "Selected model"} does not support extended thinking — switched to off.`,
-  };
+  return { ...state, thinkingLevel: "off" };
 }
 
 function formatButton(action: ButtonAction): string {
@@ -1206,7 +1208,7 @@ function renderChoiceRow(
 }
 
 function renderValueRow(
-  theme: Theme,
+  theme: Pick<Theme, "fg">,
   label: string,
   value: string,
   focused: boolean,
