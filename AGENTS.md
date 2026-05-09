@@ -14,27 +14,27 @@ mise run <task>
 
 ### Available tasks
 
-| Task                         | Description                                                             |
-| :--------------------------- | :---------------------------------------------------------------------- |
-| `mise run check`             | Run format-check, type-check, lint, and test (the full pre-commit gate) |
-| `mise run fallow`            | Run both `fallow-dead-code` and `fallow-dupes` as an advisory audit     |
-| `mise run fallow-dead-code`  | Report unused exports / dead code via `fallow dead-code`                |
-| `mise run fallow-dupes`      | Report duplicated code via `fallow dupes`                               |
-| `mise run format`            | Auto-format source files with Prettier                                  |
-| `mise run format-check`      | Check formatting without writing changes                                |
-| `mise run install-deps`      | Install npm dependencies                                                |
-| `mise run install-dev-deps`  | Install npm dev dependencies (`npm install --save-dev`)                 |
-| `mise run lint`              | Lint source files with Biome and ESLint                                 |
-| `mise run lint-fix`          | Auto-fix lint violations with Biome and ESLint                          |
-| `mise run login`             | Log in to npm via `pnpm login` (so a subsequent `publish` can authenticate) |
-| `mise run pack-check`        | Run the full `check` gate, then `pnpm pack --dry-run` to verify the package builds and packs cleanly |
-| `mise run publish`           | Run `pack-check`, then log in to npm and publish with `pnpm publish --access public` |
-| `mise run sort-package-json` | Sort `package.json` keys                                                |
-| `mise run test`              | Execute tests once (CI mode, `vitest --run`)                            |
-| `mise run test-watch`        | Execute tests in watch mode                                             |
-| `mise run type-check`        | Run TypeScript type checking                                            |
-| `mise run uninstall-deps`    | Uninstall npm dependencies                                              |
-| `mise run update-deps`       | Update npm dependencies                                                 |
+| Task                         | Description                                                                                                                        |
+| :--------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
+| `mise run check`             | Run format-check, type-check, lint, and test (the full pre-commit gate)                                                            |
+| `mise run fallow`            | Run both `fallow-dead-code` and `fallow-dupes` as an advisory audit                                                                |
+| `mise run fallow-dead-code`  | Report unused exports / dead code via `fallow dead-code`                                                                           |
+| `mise run fallow-dupes`      | Report duplicated code via `fallow dupes`                                                                                          |
+| `mise run format`            | Auto-format source files with Prettier                                                                                             |
+| `mise run format-check`      | Check formatting without writing changes                                                                                           |
+| `mise run install-deps`      | Install npm dependencies                                                                                                           |
+| `mise run install-dev-deps`  | Install npm dev dependencies (`npm install --save-dev`)                                                                            |
+| `mise run lint`              | Lint source files with Biome and ESLint                                                                                            |
+| `mise run lint-fix`          | Auto-fix lint violations with Biome and ESLint                                                                                     |
+| `mise run login`             | Log in to npm via `pnpm login` (interactive; only needed if you don't use a token in `.env`)                                       |
+| `mise run pack-check`        | Run the full `check` gate, then `pnpm pack --dry-run` to verify the package builds and packs cleanly                               |
+| `mise run publish`           | Run `pack-check`, then publish to npm with `pnpm publish --access public` (auth via `NPM_ACCESS_TOKEN` from `.env` and `./.npmrc`) |
+| `mise run sort-package-json` | Sort `package.json` keys                                                                                                           |
+| `mise run test`              | Execute tests once (CI mode, `vitest --run`)                                                                                       |
+| `mise run test-watch`        | Execute tests in watch mode                                                                                                        |
+| `mise run type-check`        | Run TypeScript type checking                                                                                                       |
+| `mise run uninstall-deps`    | Uninstall npm dependencies                                                                                                         |
+| `mise run update-deps`       | Update npm dependencies                                                                                                            |
 
 ## Code conventions
 

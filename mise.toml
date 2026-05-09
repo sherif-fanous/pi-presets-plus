@@ -1,4 +1,5 @@
 [env]
+_.file = ".env"
 _.path = ["{{config_root}}/node_modules/.bin"]
 
 [tasks.check]
@@ -40,7 +41,7 @@ run = "pnpm pack --dry-run"
 
 [tasks.publish]
 depends = ["pack-check"]
-run = ["pnpm login", "pnpm publish --access public"]
+run = "pnpm publish --access public"
 
 [tasks.sort-package-json]
 run = "sort-package-json"
