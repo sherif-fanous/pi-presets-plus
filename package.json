@@ -1,5 +1,5 @@
 {
-  "name": "pi-presets-plus",
+  "name": "@sherif-fanous/pi-presets-plus",
   "version": "0.1.0",
   "description": "Pi extension: model + thinking + tools + system-prompt presets, with a UI on top.",
   "keywords": [
