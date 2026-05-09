@@ -91,4 +91,46 @@ describe("annotateAndAnalyzeHotkeys", () => {
     expect(analysis.invalid[0]?.reason).toBe('duplicate modifier "ctrl"');
     expect(analysis.parsed.size).toBe(0);
   });
+
+  it("annotates Pi built-in shadowing and clears stale markers", () => {
+    const builtin = preset("plan", "ctrl+l");
+    const ordinary = preset("review", "ctrl+shift+9");
+    const empty = preset("ship", undefined);
+    const malformed = preset("debug", "ctrl+ctrl+p");
+
+    annotateAndAnalyzeHotkeys([builtin, ordinary, empty, malformed]);
+
+    expect(builtin.hotkeyShadowsBuiltin).toBe(true);
+    expect(ordinary.hotkeyShadowsBuiltin).toBeUndefined();
+    expect(empty.hotkeyShadowsBuiltin).toBeUndefined();
+    expect(malformed.hotkeyShadowsBuiltin).toBeUndefined();
+
+    builtin.hotkey = "ctrl+shift+9";
+
+    annotateAndAnalyzeHotkeys([builtin]);
+
+    expect(builtin.hotkeyShadowsBuiltin).toBeUndefined();
+  });
+
+  it("clears Pi built-in annotation when the hotkey is removed", () => {
+    const builtin = preset("plan", "ctrl+l");
+
+    annotateAndAnalyzeHotkeys([builtin]);
+
+    expect(builtin.hotkeyShadowsBuiltin).toBe(true);
+
+    builtin.hotkey = undefined;
+
+    annotateAndAnalyzeHotkeys([builtin]);
+
+    expect(builtin.hotkeyShadowsBuiltin).toBeUndefined();
+  });
+
+  it("annotates shadowed presets that use Pi built-in hotkeys", () => {
+    const shadowed = { ...preset("plan", "ctrl+l"), shadowed: true };
+
+    annotateAndAnalyzeHotkeys([shadowed]);
+
+    expect(shadowed.hotkeyShadowsBuiltin).toBe(true);
+  });
 });

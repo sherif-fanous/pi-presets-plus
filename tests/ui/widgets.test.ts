@@ -51,8 +51,8 @@ describe("preset widget formatting", () => {
       unavailable: "no-model",
     });
 
-    expect(noKey).toBe("This preset's provider has no API key configured.");
-    expect(noModel).toBe("This preset's model is no longer available.");
+    expect(noKey).toBe("⚠ This preset's provider has no API key configured.");
+    expect(noModel).toBe("⚠ This preset's model is no longer available.");
     expect(noKey).not.toMatch(/^Unavailable [—-]/u);
     expect(noModel).not.toMatch(/^Unavailable [—-]/u);
   });
@@ -143,9 +143,50 @@ describe("preset widget formatting", () => {
       "  Prompt:         PLAN MODE: inspect first and summarize",
       "  Status:         ⚠ Thinking will be clamped.",
       "  Status:         ⚠ Hotkey conflict.",
-      "  Status:         This preset's provider has no API key configured.",
+      "  Status:         ⚠ This preset's provider has no API key configured.",
       "  Drift:          ⚠ Dirty — model, tools differ",
       "  Shadowing:      Overridden by project preset",
+    ]);
+  });
+
+  it("renders the Pi built-in shadow Status row", () => {
+    const lines = presetCard(
+      { ...basePreset, hotkeyShadowsBuiltin: true },
+      identityTheme,
+      {
+        active: false,
+        selected: false,
+      },
+    ).render(120);
+
+    expect(lines).toContain(
+      "  Status:         ⚠ Hotkey shadows a Pi built-in.",
+    );
+  });
+
+  it("renders distinct Status rows for every warning condition", () => {
+    const lines = presetCard(
+      {
+        ...basePreset,
+        clampWarning: true,
+        hotkeyConflict: true,
+        hotkeyShadowsBuiltin: true,
+        unavailable: "no-key",
+      },
+      identityTheme,
+      {
+        active: false,
+        selected: false,
+      },
+    ).render(120);
+
+    const statusRows = lines.filter((line) => line.startsWith("  Status:"));
+
+    expect(statusRows).toEqual([
+      "  Status:         ⚠ Thinking will be clamped.",
+      "  Status:         ⚠ Hotkey conflict.",
+      "  Status:         ⚠ Hotkey shadows a Pi built-in.",
+      "  Status:         ⚠ This preset's provider has no API key configured.",
     ]);
   });
 });

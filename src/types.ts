@@ -37,6 +37,12 @@ export interface LoadedPreset extends Preset {
   clampWarning?: true;
   /** True when another preset claimed this preset's hotkey first. */
   hotkeyConflict?: true | undefined;
+  /**
+   * True when the parsed hotkey matches a Pi built-in keybinding. Computed by
+   * `annotateAndAnalyzeHotkeys` alongside `hotkeyConflict` at load time so
+   * consumers can surface the derived shadowing state.
+   */
+  hotkeyShadowsBuiltin?: true | undefined;
 }
 
 /**

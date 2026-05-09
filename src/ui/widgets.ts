@@ -121,6 +121,15 @@ class PresetCardComponent implements Component {
       );
     }
 
+    if (this.loadedPreset.hotkeyShadowsBuiltin === true) {
+      lines.push(
+        this.renderField(
+          `${STATUS_LABEL}:`,
+          this.theme.fg("warning", "⚠ Hotkey shadows a Pi built-in."),
+        ),
+      );
+    }
+
     const availabilityStatus = formatAvailabilityStatus(this.loadedPreset);
 
     if (availabilityStatus.length > 0) {
@@ -171,9 +180,9 @@ class PresetCardComponent implements Component {
 export function formatAvailabilityStatus(loadedPreset: LoadedPreset): string {
   switch (loadedPreset.unavailable) {
     case "no-key":
-      return "This preset's provider has no API key configured.";
+      return "⚠ This preset's provider has no API key configured.";
     case "no-model":
-      return "This preset's model is no longer available.";
+      return "⚠ This preset's model is no longer available.";
     case undefined:
       return "";
     default:

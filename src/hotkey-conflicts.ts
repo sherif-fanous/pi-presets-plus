@@ -5,7 +5,11 @@
  * shortcut registration, notifications, or built-in keybinding checks.
  */
 import type { LoadedPreset, PresetScope } from "./types.js";
-import { parseHotkey, type ParsedHotkey } from "./ui/hotkey-input.js";
+import {
+  isPiBuiltin,
+  parseHotkey,
+  type ParsedHotkey,
+} from "./ui/hotkey-input.js";
 
 export interface HotkeyAnalysis {
   readonly conflicts: HotkeyConflict[];
@@ -41,10 +45,9 @@ export interface PresetIdentity {
  *
  * Mutates freshly-loaded presets so every UI path can read one canonical
  * annotation without maintaining a parallel conflict map. Before recomputing,
- * it clears all existing `hotkeyConflict` markers so stale annotations from a
- * previous load cannot persist. Invalid hotkeys are reported as ignored and do
- * not participate in conflict detection because they do not identify a valid
- * chord.
+ * it clears all existing hotkey markers so stale annotations from a previous
+ * load cannot persist. Invalid hotkeys are reported as ignored and do not
+ * participate in conflict detection because they do not identify a valid chord.
  */
 export function annotateAndAnalyzeHotkeys(
   presets: LoadedPreset[],
@@ -56,6 +59,7 @@ export function annotateAndAnalyzeHotkeys(
 
   for (const preset of presets) {
     preset.hotkeyConflict = undefined;
+    preset.hotkeyShadowsBuiltin = undefined;
 
     const { hotkey } = preset;
 
@@ -75,6 +79,11 @@ export function annotateAndAnalyzeHotkeys(
 
     parsedHotkeys.set(preset, parsed.parsed);
 
+    if (isPiBuiltin(parsed.parsed)) {
+      preset.hotkeyShadowsBuiltin = true;
+    }
+
+    // Annotate before the shadowed-skip so muted picker entries still explain the shadowing.
     if (preset.shadowed) continue;
 
     const winner = claimed.get(parsed.parsed.normalized);
