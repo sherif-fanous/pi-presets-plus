@@ -34,8 +34,6 @@ import {
 import { openInfoDialog } from "./info-dialog.js";
 import {
   CANCEL_LABEL,
-  HOTKEY_CONFLICT_TITLE,
-  HOTKEY_SHADOWS_TITLE,
   MODEL_LABEL,
   MOVE_PRESET_TITLE,
   SAVE_LABEL,
@@ -142,12 +140,17 @@ type EditorRowId =
   | "thinking"
   | "tools";
 
+type FieldDiagnostic = {
+  message: string;
+  severity: "error" | "warning";
+};
+
 type ToolsMode = "preset" | "session";
 
 type ValidationResult =
-  | { ok: true }
+  | { fieldDiagnostics: ReadonlyMap<EditorRowId, FieldDiagnostic>; ok: true }
   | {
-      fieldErrors: ReadonlyMap<EditorRowId, string>;
+      fieldDiagnostics: ReadonlyMap<EditorRowId, FieldDiagnostic>;
       flowError?: string;
       ok: false;
     };
@@ -261,7 +264,7 @@ class PresetEditorComponent implements Component, Focusable {
   private actionInFlight = false;
   private readonly buttonOrder: readonly ButtonAction[];
   private buttonAction: ButtonAction = "save";
-  private fieldErrors: Map<EditorRowId, string> = new Map();
+  private fieldDiagnostics: Map<EditorRowId, FieldDiagnostic> = new Map();
   private flowError: string | undefined;
   private focusedRowIndex = 0;
   private instructionsCursor = 0;
@@ -362,7 +365,7 @@ class PresetEditorComponent implements Component, Focusable {
       case "hotkey":
         this.hotkeyInput.handleInput(input);
         this.state = { ...this.state, hotkey: this.hotkeyInput.getValue() };
-        this.clearFieldErrorsFor("hotkey");
+        this.recomputeHotkeyDiagnostic();
 
         break;
       case "instructions":
@@ -376,7 +379,7 @@ class PresetEditorComponent implements Component, Focusable {
       case "name":
         this.nameInput.handleInput(input);
         this.state = { ...this.state, name: this.nameInput.getValue() };
-        this.clearFieldErrorsFor("name");
+        this.clearFieldDiagnosticsFor("name");
 
         break;
       case "provider":
@@ -573,7 +576,7 @@ class PresetEditorComponent implements Component, Focusable {
     if (!next) return;
 
     this.state = { ...this.state, model: next.id };
-    this.clearFieldErrorsFor("model");
+    this.clearFieldDiagnosticsFor("model");
     this.snapThinkingIfInvalid();
   }
 
@@ -595,7 +598,7 @@ class PresetEditorComponent implements Component, Focusable {
       model: nextModel?.id ?? "",
       provider: nextProvider,
     };
-    this.clearFieldErrorsFor("provider");
+    this.clearFieldDiagnosticsFor("provider");
     this.snapThinkingIfInvalid();
   }
 
@@ -609,7 +612,7 @@ class PresetEditorComponent implements Component, Focusable {
         ...this.state,
         scope: this.state.scope === "user" ? "project" : "user",
       };
-      this.clearFieldErrorsFor("scope");
+      this.clearFieldDiagnosticsFor("scope");
     }
   }
 
@@ -743,7 +746,7 @@ class PresetEditorComponent implements Component, Focusable {
   private renderRows(width: number): string[] {
     const rows = [
       ...this.renderNameRow(width),
-      ...this.withFieldError(
+      ...this.withFieldDiagnostic(
         renderChoiceRow(
           this.theme,
           "Scope",
@@ -753,7 +756,7 @@ class PresetEditorComponent implements Component, Focusable {
         ),
         "scope",
       ),
-      ...this.withFieldError(
+      ...this.withFieldDiagnostic(
         renderValueRow(
           this.theme,
           "Provider",
@@ -762,7 +765,7 @@ class PresetEditorComponent implements Component, Focusable {
         ),
         "provider",
       ),
-      ...this.withFieldError(
+      ...this.withFieldDiagnostic(
         renderValueRow(
           this.theme,
           MODEL_LABEL,
@@ -816,7 +819,7 @@ class PresetEditorComponent implements Component, Focusable {
     width: number,
   ): string[] {
     if (this.currentRow() === row) {
-      return this.withFieldError(
+      return this.withFieldDiagnostic(
         renderValueRow(
           this.theme,
           label,
@@ -830,22 +833,26 @@ class PresetEditorComponent implements Component, Focusable {
     const value =
       text.length > 0 ? text : this.theme.fg("dim", EMPTY_INPUT_PLACEHOLDER);
 
-    return this.withFieldError(
+    return this.withFieldDiagnostic(
       renderValueRow(this.theme, label, value, false),
       row,
     );
   }
 
-  private withFieldError(line: string, row: EditorRowId): string[] {
-    const error = this.renderFieldError(row);
+  private withFieldDiagnostic(line: string, row: EditorRowId): string[] {
+    const diagnostic = this.renderFieldDiagnostic(row);
 
-    return error ? [line, error] : [line];
+    return diagnostic ? [line, diagnostic] : [line];
   }
 
-  private renderFieldError(row: EditorRowId): string | undefined {
-    const error = this.fieldErrors.get(row);
+  private renderFieldDiagnostic(row: EditorRowId): string | undefined {
+    const diagnostic = this.fieldDiagnostics.get(row);
 
-    return error ? this.theme.fg("error", `    ${error}`) : undefined;
+    if (!diagnostic) return undefined;
+
+    const color = diagnostic.severity === "warning" ? "warning" : "error";
+
+    return this.theme.fg(color, `    ${diagnostic.message}`);
   }
 
   /**
@@ -882,7 +889,7 @@ class PresetEditorComponent implements Component, Focusable {
       this.currentModel(),
       this.currentRow() === "thinking",
     );
-    const error = this.renderFieldError("thinking");
+    const error = this.renderFieldDiagnostic("thinking");
 
     return error ? [...lines, error] : lines;
   }
@@ -935,7 +942,7 @@ class PresetEditorComponent implements Component, Focusable {
       lines.push(`    ${renderedTools.join("  ")}`);
     }
 
-    const error = this.renderFieldError("tools");
+    const error = this.renderFieldDiagnostic("tools");
 
     return error ? [...lines, error] : lines;
   }
@@ -946,7 +953,7 @@ class PresetEditorComponent implements Component, Focusable {
         ? this.theme.fg("dim", EMPTY_INPUT_PLACEHOLDER)
         : this.state.instructions.replaceAll("\n", " ↵ ");
 
-    return this.withFieldError(
+    return this.withFieldDiagnostic(
       renderValueRow(
         this.theme,
         "Prompt",
@@ -990,13 +997,11 @@ class PresetEditorComponent implements Component, Focusable {
   private async save(): Promise<void> {
     this.clearValidationErrors();
 
-    const validation = await this.validateForSave();
+    const validation = this.validateForSave();
 
-    if (!validation.ok) {
-      this.applyValidationFailure(validation);
+    this.applyValidationDiagnostics(validation);
 
-      return;
-    }
+    if (!validation.ok) return;
 
     const next = buildPreset(this.state);
     const result = await this.persist(next);
@@ -1080,11 +1085,9 @@ class PresetEditorComponent implements Component, Focusable {
 
     const validation = this.validateRequired();
 
-    if (!validation.ok) {
-      this.applyValidationFailure(validation);
+    this.applyValidationDiagnostics(validation);
 
-      return;
-    }
+    if (!validation.ok) return;
 
     const preset = buildPreset(this.state);
     const candidate: LoadedPreset = { ...preset, scope: this.state.scope };
@@ -1118,58 +1121,72 @@ class PresetEditorComponent implements Component, Focusable {
     });
   }
 
-  private async validateForSave(): Promise<ValidationResult> {
-    const required = this.validateRequired();
-    const fieldErrors = new Map<EditorRowId, string>(
-      required.ok ? [] : required.fieldErrors,
-    );
+  private recomputeHotkeyDiagnostic(): void {
+    this.fieldDiagnostics.delete("hotkey");
+    this.addHotkeyDiagnostic(this.fieldDiagnostics);
+  }
 
-    if (this.hasNameCollision()) {
-      fieldErrors.set(
-        "name",
-        `A preset named "${this.state.name.trim()}" already exists in ${this.state.scope}.`,
-      );
-    }
-
+  private addHotkeyDiagnostic(
+    fieldDiagnostics: Map<EditorRowId, FieldDiagnostic>,
+  ): void {
     const hotkey = this.state.hotkey.trim();
 
-    if (hotkey.length > 0) {
-      const parsed = parseHotkey(hotkey);
+    if (hotkey.length === 0) return;
 
-      if (!parsed.ok) {
-        fieldErrors.set("hotkey", parsed.reason);
-      } else {
-        if (isPiBuiltin(parsed.parsed)) {
-          const confirmed = await this.confirm(
-            HOTKEY_SHADOWS_TITLE,
-            `"${parsed.parsed.normalized}" matches a documented Pi built-in. Save anyway?`,
-          );
+    const parsed = parseHotkey(hotkey);
 
-          if (!confirmed) {
-            return { fieldErrors, flowError: "Save cancelled.", ok: false };
-          }
-        }
+    if (!parsed.ok) {
+      fieldDiagnostics.set("hotkey", {
+        message: parsed.reason,
+        severity: "error",
+      });
 
-        const conflict = findConflictingPreset(
-          parsed.parsed,
-          this.allPresets,
-          this.initialPreset?.name,
-        );
-
-        if (conflict) {
-          const confirmed = await this.confirm(
-            HOTKEY_CONFLICT_TITLE,
-            `"${parsed.parsed.normalized}" is already used by preset "${conflict.name}". Save anyway?`,
-          );
-
-          if (!confirmed) {
-            return { fieldErrors, flowError: "Save cancelled.", ok: false };
-          }
-        }
-      }
+      return;
     }
 
-    return fieldErrors.size === 0 ? { ok: true } : { fieldErrors, ok: false };
+    if (isPiBuiltin(parsed.parsed)) {
+      fieldDiagnostics.set("hotkey", {
+        message: hotkeyShadowsBuiltinWarning(parsed.parsed.normalized),
+        severity: "warning",
+      });
+
+      return;
+    }
+
+    const conflict = findConflictingPreset(
+      parsed.parsed,
+      this.allPresets,
+      this.initialPreset?.name,
+    );
+
+    // v1 intentionally keeps first-match behavior for combined warning
+    // conditions; see this change's design Risks / Trade-offs section.
+    if (conflict) {
+      fieldDiagnostics.set("hotkey", {
+        message: hotkeyConflictWarning(parsed.parsed.normalized, conflict.name),
+        severity: "warning",
+      });
+    }
+  }
+
+  private validateForSave(): ValidationResult {
+    const required = this.validateRequired();
+    const fieldDiagnostics = new Map(required.fieldDiagnostics);
+
+    if (this.hasNameCollision()) {
+      fieldDiagnostics.set("name", {
+        message: `A preset named "${this.state.name.trim()}" already exists in ${this.state.scope}.`,
+        severity: "error",
+      });
+    }
+
+    this.addHotkeyDiagnostic(fieldDiagnostics);
+
+    const hasError = [...fieldDiagnostics.values()].some(
+      (diagnostic) => diagnostic.severity === "error",
+    );
+
+    return { fieldDiagnostics, ok: !hasError };
   }
 
   private hasNameCollision(): boolean {
@@ -1186,40 +1203,57 @@ class PresetEditorComponent implements Component, Focusable {
   }
 
   private validateRequired(): ValidationResult {
-    const fieldErrors = new Map<EditorRowId, string>();
+    const fieldDiagnostics = new Map<EditorRowId, FieldDiagnostic>();
 
     if (this.state.name.trim().length === 0) {
-      fieldErrors.set("name", "Name is required.");
+      fieldDiagnostics.set("name", {
+        message: "Name is required.",
+        severity: "error",
+      });
     }
 
     if (this.state.provider.length === 0) {
-      fieldErrors.set("provider", "Provider is required.");
+      fieldDiagnostics.set("provider", {
+        message: "Provider is required.",
+        severity: "error",
+      });
     }
 
     if (this.state.model.length === 0) {
-      fieldErrors.set("model", "Model is required.");
+      fieldDiagnostics.set("model", {
+        message: "Model is required.",
+        severity: "error",
+      });
     }
 
-    return fieldErrors.size === 0 ? { ok: true } : { fieldErrors, ok: false };
+    const hasError = fieldDiagnostics.size > 0;
+
+    return { fieldDiagnostics, ok: !hasError };
   }
 
-  private applyValidationFailure(
-    result: Extract<ValidationResult, { ok: false }>,
-  ): void {
-    this.fieldErrors = new Map(result.fieldErrors);
-    this.flowError = result.flowError;
+  /**
+   * Apply row-level diagnostics from validation without clearing unrelated
+   * flow-state errors. Validation currently does not produce flow errors, but
+   * the union retains the field for future non-row failure paths.
+   */
+  private applyValidationDiagnostics(result: ValidationResult): void {
+    this.fieldDiagnostics = new Map(result.fieldDiagnostics);
+
+    if (!result.ok && result.flowError !== undefined) {
+      this.flowError = result.flowError;
+    }
   }
 
   private clearValidationErrors(): void {
-    this.fieldErrors.clear();
+    this.fieldDiagnostics.clear();
     this.flowError = undefined;
   }
 
-  private clearFieldErrorsFor(row: EditorRowId): void {
-    this.fieldErrors.delete(row);
+  private clearFieldDiagnosticsFor(row: EditorRowId): void {
+    this.fieldDiagnostics.delete(row);
 
-    if (row === "scope") this.fieldErrors.delete("name");
-    if (row === "provider") this.fieldErrors.delete("model");
+    if (row === "scope") this.fieldDiagnostics.delete("name");
+    if (row === "provider") this.fieldDiagnostics.delete("model");
   }
 
   private syncFocus(): void {
@@ -1448,6 +1482,22 @@ function formatButton(action: ButtonAction): string {
 
 function formatThinking(level: ThinkingLevel): string {
   return level;
+}
+
+/**
+ * Canonical Hotkey-conflict warning used by proactive recompute and the
+ * Save-time validation backstop; keep wording aligned with the spec scenario.
+ */
+function hotkeyConflictWarning(normalized: string, presetName: string): string {
+  return `⚠ ${normalized} is already used by preset "${presetName}"; this preset's binding will be skipped.`;
+}
+
+/**
+ * Canonical Pi built-in shadow warning used by proactive recompute and the
+ * Save-time validation backstop; keep wording aligned with the spec scenario.
+ */
+function hotkeyShadowsBuiltinWarning(normalized: string): string {
+  return `⚠ ${normalized} shadows a Pi built-in; saving will replace Pi's behavior for this key.`;
 }
 
 function isEditorHelpKey(input: string): boolean {

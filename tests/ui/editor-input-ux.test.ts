@@ -50,6 +50,11 @@ const passthroughTheme = {
   fg: (_name: string, text: string) => text,
 };
 
+const colorTagTheme = {
+  bold: (text: string) => text,
+  fg: (name: string, text: string) => `<${name}>${text}</${name}>`,
+};
+
 const model = { id: "claude-opus-4.5", provider: "anthropic" };
 
 function expectBottomMessagesNotToContain(
@@ -96,6 +101,7 @@ function makeCtx(
     readonly setHidden: ReturnType<typeof vi.fn>;
   },
   models: readonly (typeof model)[] = [model],
+  theme: typeof passthroughTheme = passthroughTheme,
 ) {
   return {
     modelRegistry: {
@@ -116,7 +122,7 @@ function makeCtx(
           new Promise((resolve) => {
             const editor = factory(
               { requestRender: vi.fn() },
-              passthroughTheme,
+              theme,
               {},
               resolve,
             ) as EditorHarness;
@@ -139,6 +145,7 @@ async function openHarness(
     readonly models?: readonly (typeof model)[];
     readonly onTest?: (preset: LoadedPreset) => Promise<{ ok: boolean }>;
     readonly presets?: readonly LoadedPreset[];
+    readonly theme?: typeof passthroughTheme;
   } = {},
 ): Promise<{
   readonly editor: EditorHarness;
@@ -156,6 +163,7 @@ async function openHarness(
     },
     overlayHandle,
     options.models,
+    options.theme,
   );
   const result = openEditor(ctx as never, options.initial, {
     onTest: options.onTest,
@@ -368,57 +376,132 @@ describe("preset editor input UX", () => {
     );
   });
 
-  it("keeps Save-cancelled flow errors in the bottom message strip", async () => {
-    openConfirm.mockResolvedValueOnce(false);
+  it("warns inline when the Hotkey shadows a Pi built-in", async () => {
+    const { editor } = await openHarness();
 
-    const { editor } = await openHarness({
-      initial: preset({ hotkey: "ctrl+p" }),
-    });
+    moveFocus(editor, 7);
+    for (const char of "ctrl+l") editor.handleInput(char);
 
-    editor.handleInput("\x13");
-
-    await waitForEditorUpdate(() => {
-      expect(renderText(editor)).toContain("Save cancelled.");
-    });
-
-    expect(lineContaining(editor, "Actions")).not.toContain("Save cancelled.");
-    expect(renderText(editor)).not.toContain("Hotkey is required.");
+    expectErrorAfterLabel(editor, "Hotkey", "shadows a Pi built-in");
+    expect(openConfirm).not.toHaveBeenCalled();
   });
 
-  it("preserves field errors when a confirmation decline cancels Save", async () => {
-    openConfirm.mockResolvedValueOnce(false);
-
-    const { editor } = await openHarness({
-      initial: preset({ hotkey: "ctrl+p", name: "" }),
-    });
-
-    editor.handleInput("\x13");
-
-    await waitForEditorUpdate(() => {
-      expect(renderText(editor)).toContain("Save cancelled.");
-      expectErrorAfterLabel(editor, "Name", "Name is required.");
-    });
-  });
-
-  it("runs name-collision checks before confirmation declines", async () => {
-    openConfirm.mockResolvedValueOnce(false);
-
-    const existing = preset({ name: "dupe" });
+  it("warns inline when the Hotkey conflicts with another preset", async () => {
+    const existing = preset({ hotkey: "ctrl+m", name: "review" });
     const { editor } = await openHarness({ presets: [existing] });
 
-    for (const char of "dupe") editor.handleInput(char);
     moveFocus(editor, 7);
-    for (const char of "ctrl+p") editor.handleInput(char);
+    for (const char of "ctrl+m") editor.handleInput(char);
+
+    expectErrorAfterLabel(
+      editor,
+      "Hotkey",
+      'is already used by preset "review"',
+    );
+    expect(openConfirm).not.toHaveBeenCalled();
+  });
+
+  it("renders Hotkey warnings and errors with severity colors", async () => {
+    const warning = await openHarness({ theme: colorTagTheme });
+
+    moveFocus(warning.editor, 7);
+    for (const char of "ctrl+l") warning.editor.handleInput(char);
+
+    expect(lineContaining(warning.editor, "shadows a Pi built-in")).toContain(
+      "<warning>",
+    );
+
+    const error = await openHarness({ theme: colorTagTheme });
+
+    moveFocus(error.editor, 7);
+    for (const char of "ctrl+ctrl+p") error.editor.handleInput(char);
+
+    expect(lineContaining(error.editor, 'duplicate modifier "ctrl"')).toContain(
+      "<error>",
+    );
+  });
+
+  it("saves when only hotkey warnings are present", async () => {
+    const { editor, result } = await openHarness({
+      initial: preset({ hotkey: "ctrl+l" }),
+    });
+
+    editor.handleInput("\x13");
+
+    await result;
+
+    expect(updatePreset).toHaveBeenCalledOnce();
+    expect(openConfirm).not.toHaveBeenCalled();
+  });
+
+  it("refuses Save when an error is present alongside a warning", async () => {
+    const existing = preset({ hotkey: "ctrl+m", name: "review" });
+    const { editor } = await openHarness({ presets: [existing] });
+
+    moveFocus(editor, 7);
+    for (const char of "ctrl+m") editor.handleInput(char);
     editor.handleInput("\x13");
 
     await waitForEditorUpdate(() => {
-      expect(renderText(editor)).toContain("Save cancelled.");
+      expectErrorAfterLabel(editor, "Name", "Name is required.");
       expectErrorAfterLabel(
         editor,
-        "Name",
-        'A preset named "dupe" already exists in user.',
+        "Hotkey",
+        'is already used by preset "review"',
       );
     });
+    expect(addPreset).not.toHaveBeenCalled();
+    expect(openConfirm).not.toHaveBeenCalled();
+  });
+
+  it("recomputes Hotkey warnings proactively while typing", async () => {
+    const existing = preset({ hotkey: "ctrl+m", name: "review" });
+    const { editor } = await openHarness({ presets: [existing] });
+
+    moveFocus(editor, 7);
+    for (const char of "ctrl+") editor.handleInput(char);
+
+    expect(renderText(editor)).not.toContain(
+      'is already used by preset "review"',
+    );
+
+    editor.handleInput("m");
+
+    expectErrorAfterLabel(
+      editor,
+      "Hotkey",
+      'is already used by preset "review"',
+    );
+  });
+
+  it("clears Hotkey errors and warnings as the user edits", async () => {
+    const existing = preset({ hotkey: "ctrl+m", name: "review" });
+    const { editor } = await openHarness({ presets: [existing] });
+
+    moveFocus(editor, 7);
+    for (const char of "ctrl+ctrl+p") editor.handleInput(char);
+
+    expect(renderText(editor)).toContain('duplicate modifier "ctrl"');
+
+    for (let index = 0; index < "ctrl+ctrl+p".length; index++) {
+      editor.handleInput("\x7f");
+    }
+
+    for (const char of "ctrl+m") editor.handleInput(char);
+
+    expect(renderText(editor)).not.toContain('duplicate modifier "ctrl"');
+    expectErrorAfterLabel(
+      editor,
+      "Hotkey",
+      'is already used by preset "review"',
+    );
+
+    editor.handleInput("\x7f");
+    editor.handleInput("n");
+
+    expect(renderText(editor)).not.toContain(
+      'is already used by preset "review"',
+    );
   });
 
   it("does not clear field errors when Thinking changes", async () => {
