@@ -39,6 +39,7 @@ import {
   EDIT_LABEL,
   FILTER_LABEL,
   LIST_LABEL,
+  MOVE_LABEL,
   NEW_LABEL,
   REORDER_LABEL,
   STATUS_ACTION_LABEL,
@@ -725,7 +726,7 @@ class PresetPickerComponent implements Component, Focusable {
       : `⏎ ${ACTIVATE_LABEL}`;
     const footer =
       this.state.focusMode === "filter"
-        ? `${activateHint} · Esc ${LIST_LABEL} · ←/→ ${CURSOR_LABEL} · ↑/↓ Move · PgUp/PgDn`
+        ? `${activateHint} · Esc ${LIST_LABEL} · ←/→ ${CURSOR_LABEL} · ↑/↓ ${MOVE_LABEL} · PgUp/PgDn`
         : `${activateHint} · n ${NEW_LABEL} · e ${EDIT_LABEL} · d ${DUPLICATE_LABEL} · x ${DELETE_LABEL} · c ${CLEAR_LABEL} · s ${STATUS_ACTION_LABEL} · Ctrl+↑/↓ ${REORDER_LABEL} · / ${FILTER_LABEL} · Esc ${CLOSE_LABEL}`;
 
     return this.theme.fg("dim", ` ${footer}`);

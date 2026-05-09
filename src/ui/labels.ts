@@ -36,7 +36,6 @@ export const MOVE_PRESET_TITLE = "Move preset?";
 export const ACTIVATE_LABEL = "Activate";
 export const FILTER_LABEL = "Filter";
 export const STATUS_ACTION_LABEL = "Status";
-export const QUIT_LABEL = "Quit";
 export const NEW_LABEL = "New";
 export const EDIT_LABEL = "Edit";
 export const DUPLICATE_LABEL = "Duplicate";

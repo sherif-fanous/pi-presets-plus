@@ -35,6 +35,7 @@ import { openInfoDialog } from "./info-dialog.js";
 import {
   CANCEL_LABEL,
   MODEL_LABEL,
+  MOVE_LABEL,
   MOVE_PRESET_TITLE,
   SAVE_LABEL,
   TEST_LABEL,
@@ -728,7 +729,7 @@ class PresetEditorComponent implements Component, Focusable {
 
   private renderFooterHint(): string {
     const tokens = [
-      "⇥/↑/↓ Move",
+      `⇥/↑/↓ ${MOVE_LABEL}`,
       "←/→ Change",
       "Space Toggle",
       "Enter Action",
