@@ -12,6 +12,7 @@ const addPreset = vi.fn();
 const loadAll = vi.fn();
 const removePreset = vi.fn();
 const updatePreset = vi.fn();
+const openConfirm = vi.fn<() => Promise<boolean>>();
 const openInfoDialog =
   vi.fn<
     (
@@ -19,6 +20,10 @@ const openInfoDialog =
       options: { readonly body: string; readonly title: string },
     ) => Promise<void>
   >();
+
+vi.mock("../../src/ui/confirm.js", () => ({
+  openConfirm,
+}));
 
 vi.mock("../../src/ui/info-dialog.js", () => ({
   openInfoDialog,
@@ -47,6 +52,34 @@ const passthroughTheme = {
 
 const model = { id: "claude-opus-4.5", provider: "anthropic" };
 
+function expectBottomMessagesNotToContain(
+  editor: EditorHarness,
+  text: string,
+): void {
+  const lines = editor.render(100);
+  const hotkeyIndex = lines.findIndex((line) => line.includes("Hotkey"));
+  const actionsIndex = lines.findIndex((line) => line.includes("Actions"));
+
+  expect(hotkeyIndex).toBeGreaterThanOrEqual(0);
+  expect(actionsIndex).toBeGreaterThan(hotkeyIndex);
+  expect(lines.slice(hotkeyIndex + 1, actionsIndex).join("\n")).not.toContain(
+    text,
+  );
+}
+
+function expectErrorAfterLabel(
+  editor: EditorHarness,
+  label: string,
+  error: string,
+): void {
+  const lines = editor.render(100);
+  const labelIndex = lines.findIndex((line) => line.includes(label));
+  const errorIndex = lines.findIndex((line) => line.includes(error));
+
+  expect(labelIndex).toBeGreaterThanOrEqual(0);
+  expect(errorIndex).toBeGreaterThan(labelIndex);
+}
+
 function lineContaining(editor: EditorHarness, text: string): string {
   const line = editor.render(100).find((candidate) => candidate.includes(text));
 
@@ -62,10 +95,11 @@ function makeCtx(
     readonly focus: ReturnType<typeof vi.fn>;
     readonly setHidden: ReturnType<typeof vi.fn>;
   },
+  models: readonly (typeof model)[] = [model],
 ) {
   return {
     modelRegistry: {
-      getAll: () => [model],
+      getAll: () => models,
       hasConfiguredAuth: () => true,
     },
     ui: {
@@ -102,7 +136,9 @@ function moveFocus(editor: EditorHarness, count: number): void {
 async function openHarness(
   options: {
     readonly initial?: LoadedPreset;
+    readonly models?: readonly (typeof model)[];
     readonly onTest?: (preset: LoadedPreset) => Promise<{ ok: boolean }>;
+    readonly presets?: readonly LoadedPreset[];
   } = {},
 ): Promise<{
   readonly editor: EditorHarness;
@@ -114,12 +150,16 @@ async function openHarness(
 }> {
   let editor: EditorHarness | undefined;
   const overlayHandle = { focus: vi.fn(), setHidden: vi.fn() };
-  const ctx = makeCtx((nextEditor) => {
-    editor = nextEditor;
-  }, overlayHandle);
+  const ctx = makeCtx(
+    (nextEditor) => {
+      editor = nextEditor;
+    },
+    overlayHandle,
+    options.models,
+  );
   const result = openEditor(ctx as never, options.initial, {
     onTest: options.onTest,
-    presets: options.initial ? [options.initial] : [],
+    presets: options.presets ?? (options.initial ? [options.initial] : []),
   });
 
   await Promise.resolve();
@@ -145,11 +185,16 @@ function renderText(editor: EditorHarness): string {
   return editor.render(100).join("\n");
 }
 
+async function waitForEditorUpdate(assertion: () => void): Promise<void> {
+  await vi.waitFor(assertion);
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   addPreset.mockResolvedValue({ ok: true });
   loadAll.mockResolvedValue({ presets: [preset()], warnings: [] });
   removePreset.mockResolvedValue({ ok: true });
+  openConfirm.mockResolvedValue(true);
   openInfoDialog.mockResolvedValue(undefined);
   updatePreset.mockResolvedValue({ ok: true });
 });
@@ -220,28 +265,177 @@ describe("preset editor input UX", () => {
     );
   });
 
-  it("surfaces Save validation errors from Ctrl+S", async () => {
-    const { editor } = await openHarness();
+  it("surfaces all required Save validation errors inline from Ctrl+S", async () => {
+    const { editor } = await openHarness({ models: [] });
 
     editor.handleInput("\x13");
 
-    await Promise.resolve();
-
-    expect(renderText(editor)).toContain("Name is required.");
+    await waitForEditorUpdate(() => {
+      expectErrorAfterLabel(editor, "Name", "Name is required.");
+      expectErrorAfterLabel(editor, "Provider", "Provider is required.");
+      expectErrorAfterLabel(editor, "Model", "Model is required.");
+    });
     expect(addPreset).not.toHaveBeenCalled();
   });
 
+  it("clears only the Name error when the user types into Name", async () => {
+    const { editor } = await openHarness({ models: [] });
+
+    editor.handleInput("\x13");
+    await waitForEditorUpdate(() => {
+      expect(renderText(editor)).toContain("Name is required.");
+    });
+    editor.handleInput("p");
+
+    const rendered = renderText(editor);
+
+    expect(rendered).not.toContain("Name is required.");
+    expect(rendered).toContain("Provider is required.");
+    expect(rendered).toContain("Model is required.");
+  });
+
+  it("clears Provider and Model errors when Provider changes", async () => {
+    const otherModel = { id: "gpt-5", provider: "openai" };
+    const { editor } = await openHarness({
+      initial: preset({ model: "", name: "draft", provider: "" }),
+      models: [model, otherModel],
+    });
+
+    editor.handleInput("\x13");
+    await waitForEditorUpdate(() => {
+      expect(renderText(editor)).toContain("Provider is required.");
+      expect(renderText(editor)).toContain("Model is required.");
+    });
+    moveFocus(editor, 2);
+    editor.handleInput("\u001b[C");
+
+    const rendered = renderText(editor);
+
+    expect(rendered).not.toContain("Provider is required.");
+    expect(rendered).not.toContain("Model is required.");
+  });
+
   it("keeps the visible button selection unchanged when Ctrl+S fails validation", async () => {
-    const { editor } = await openHarness();
+    const { editor } = await openHarness({ models: [] });
 
     moveFocus(editor, 8);
     editor.handleInput("\u001b[C");
     editor.handleInput("\x13");
 
-    await Promise.resolve();
+    await waitForEditorUpdate(() => {
+      expect(lineContaining(editor, "Actions")).toContain("● Cancel");
+      expectErrorAfterLabel(editor, "Name", "Name is required.");
+    });
+  });
 
-    expect(lineContaining(editor, "Actions")).toContain("● Cancel");
-    expect(renderText(editor)).toContain("Name is required.");
+  it("renders name collisions inline without a bottom-strip error", async () => {
+    const existing = preset({ name: "dupe" });
+    const { editor } = await openHarness({ presets: [existing] });
+
+    for (const char of "dupe") editor.handleInput(char);
+    editor.handleInput("\x13");
+
+    await waitForEditorUpdate(() => {
+      expectErrorAfterLabel(
+        editor,
+        "Name",
+        'A preset named "dupe" already exists in user.',
+      );
+    });
+
+    expectBottomMessagesNotToContain(
+      editor,
+      'A preset named "dupe" already exists in user.',
+    );
+  });
+
+  it("clears the Name collision error when Scope changes", async () => {
+    const existing = preset({ name: "dupe" });
+    const { editor } = await openHarness({ presets: [existing] });
+
+    for (const char of "dupe") editor.handleInput(char);
+    editor.handleInput("\x13");
+    await waitForEditorUpdate(() => {
+      expect(renderText(editor)).toContain(
+        'A preset named "dupe" already exists in user.',
+      );
+    });
+    moveFocus(editor, 1);
+    editor.handleInput(" ");
+
+    expect(renderText(editor)).not.toContain(
+      'A preset named "dupe" already exists in user.',
+    );
+  });
+
+  it("keeps Save-cancelled flow errors in the bottom message strip", async () => {
+    openConfirm.mockResolvedValueOnce(false);
+
+    const { editor } = await openHarness({
+      initial: preset({ hotkey: "ctrl+p" }),
+    });
+
+    editor.handleInput("\x13");
+
+    await waitForEditorUpdate(() => {
+      expect(renderText(editor)).toContain("Save cancelled.");
+    });
+
+    expect(lineContaining(editor, "Actions")).not.toContain("Save cancelled.");
+    expect(renderText(editor)).not.toContain("Hotkey is required.");
+  });
+
+  it("preserves field errors when a confirmation decline cancels Save", async () => {
+    openConfirm.mockResolvedValueOnce(false);
+
+    const { editor } = await openHarness({
+      initial: preset({ hotkey: "ctrl+p", name: "" }),
+    });
+
+    editor.handleInput("\x13");
+
+    await waitForEditorUpdate(() => {
+      expect(renderText(editor)).toContain("Save cancelled.");
+      expectErrorAfterLabel(editor, "Name", "Name is required.");
+    });
+  });
+
+  it("runs name-collision checks before confirmation declines", async () => {
+    openConfirm.mockResolvedValueOnce(false);
+
+    const existing = preset({ name: "dupe" });
+    const { editor } = await openHarness({ presets: [existing] });
+
+    for (const char of "dupe") editor.handleInput(char);
+    moveFocus(editor, 7);
+    for (const char of "ctrl+p") editor.handleInput(char);
+    editor.handleInput("\x13");
+
+    await waitForEditorUpdate(() => {
+      expect(renderText(editor)).toContain("Save cancelled.");
+      expectErrorAfterLabel(
+        editor,
+        "Name",
+        'A preset named "dupe" already exists in user.',
+      );
+    });
+  });
+
+  it("does not clear field errors when Thinking changes", async () => {
+    const { editor } = await openHarness({ models: [] });
+
+    editor.handleInput("\x13");
+    await waitForEditorUpdate(() => {
+      expect(renderText(editor)).toContain("Name is required.");
+    });
+    moveFocus(editor, 4);
+    editor.handleInput("\u001b[C");
+
+    const rendered = renderText(editor);
+
+    expect(rendered).toContain("Name is required.");
+    expect(rendered).toContain("Provider is required.");
+    expect(rendered).toContain("Model is required.");
   });
 
   it("runs Ctrl+T only when a test callback is wired", async () => {

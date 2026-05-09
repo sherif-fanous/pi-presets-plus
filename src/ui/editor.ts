@@ -144,6 +144,14 @@ type EditorRowId =
 
 type ToolsMode = "preset" | "session";
 
+type ValidationResult =
+  | { ok: true }
+  | {
+      fieldErrors: ReadonlyMap<EditorRowId, string>;
+      flowError?: string;
+      ok: false;
+    };
+
 const EDITOR_ROW_HELP: Record<EditorRowId, EditorRowHelpEntry> = {
   buttons: {
     body: [
@@ -253,7 +261,8 @@ class PresetEditorComponent implements Component, Focusable {
   private actionInFlight = false;
   private readonly buttonOrder: readonly ButtonAction[];
   private buttonAction: ButtonAction = "save";
-  private error: string | undefined;
+  private fieldErrors: Map<EditorRowId, string> = new Map();
+  private flowError: string | undefined;
   private focusedRowIndex = 0;
   private instructionsCursor = 0;
   private overlayHandle: OverlayHandle | undefined;
@@ -353,6 +362,7 @@ class PresetEditorComponent implements Component, Focusable {
       case "hotkey":
         this.hotkeyInput.handleInput(input);
         this.state = { ...this.state, hotkey: this.hotkeyInput.getValue() };
+        this.clearFieldErrorsFor("hotkey");
 
         break;
       case "instructions":
@@ -366,6 +376,7 @@ class PresetEditorComponent implements Component, Focusable {
       case "name":
         this.nameInput.handleInput(input);
         this.state = { ...this.state, name: this.nameInput.getValue() };
+        this.clearFieldErrorsFor("name");
 
         break;
       case "provider":
@@ -562,6 +573,7 @@ class PresetEditorComponent implements Component, Focusable {
     if (!next) return;
 
     this.state = { ...this.state, model: next.id };
+    this.clearFieldErrorsFor("model");
     this.snapThinkingIfInvalid();
   }
 
@@ -583,6 +595,7 @@ class PresetEditorComponent implements Component, Focusable {
       model: nextModel?.id ?? "",
       provider: nextProvider,
     };
+    this.clearFieldErrorsFor("provider");
     this.snapThinkingIfInvalid();
   }
 
@@ -596,6 +609,7 @@ class PresetEditorComponent implements Component, Focusable {
         ...this.state,
         scope: this.state.scope === "user" ? "project" : "user",
       };
+      this.clearFieldErrorsFor("scope");
     }
   }
 
@@ -728,30 +742,39 @@ class PresetEditorComponent implements Component, Focusable {
 
   private renderRows(width: number): string[] {
     const rows = [
-      this.renderNameRow(width),
-      renderChoiceRow(
-        this.theme,
-        "Scope",
-        ["user", "project"],
-        this.state.scope,
-        this.currentRow() === "scope",
+      ...this.renderNameRow(width),
+      ...this.withFieldError(
+        renderChoiceRow(
+          this.theme,
+          "Scope",
+          ["user", "project"],
+          this.state.scope,
+          this.currentRow() === "scope",
+        ),
+        "scope",
       ),
-      renderValueRow(
-        this.theme,
-        "Provider",
-        this.state.provider || "none",
-        this.currentRow() === "provider",
+      ...this.withFieldError(
+        renderValueRow(
+          this.theme,
+          "Provider",
+          this.state.provider || "none",
+          this.currentRow() === "provider",
+        ),
+        "provider",
       ),
-      renderValueRow(
-        this.theme,
-        MODEL_LABEL,
-        this.renderModelValue(),
-        this.currentRow() === "model",
+      ...this.withFieldError(
+        renderValueRow(
+          this.theme,
+          MODEL_LABEL,
+          this.renderModelValue(),
+          this.currentRow() === "model",
+        ),
+        "model",
       ),
       ...this.renderThinkingRows(),
       ...this.renderToolsRows(),
       ...this.renderInstructionsRows(width),
-      this.renderHotkeyRow(width),
+      ...this.renderHotkeyRow(width),
       ...this.renderMessages(),
       renderChoiceRow(
         this.theme,
@@ -765,7 +788,7 @@ class PresetEditorComponent implements Component, Focusable {
     return rows.map((line) => padToWidth(line, width));
   }
 
-  private renderHotkeyRow(width: number): string {
+  private renderHotkeyRow(width: number): string[] {
     return this.renderTextInputRow(
       "Hotkey",
       "hotkey",
@@ -775,7 +798,7 @@ class PresetEditorComponent implements Component, Focusable {
     );
   }
 
-  private renderNameRow(width: number): string {
+  private renderNameRow(width: number): string[] {
     return this.renderTextInputRow(
       "Name",
       "name",
@@ -791,20 +814,38 @@ class PresetEditorComponent implements Component, Focusable {
     input: Input,
     text: string,
     width: number,
-  ): string {
+  ): string[] {
     if (this.currentRow() === row) {
-      return renderValueRow(
-        this.theme,
-        label,
-        input.render(Math.max(1, width - 16))[0] ?? "",
-        true,
+      return this.withFieldError(
+        renderValueRow(
+          this.theme,
+          label,
+          input.render(Math.max(1, width - 16))[0] ?? "",
+          true,
+        ),
+        row,
       );
     }
 
     const value =
       text.length > 0 ? text : this.theme.fg("dim", EMPTY_INPUT_PLACEHOLDER);
 
-    return renderValueRow(this.theme, label, value, false);
+    return this.withFieldError(
+      renderValueRow(this.theme, label, value, false),
+      row,
+    );
+  }
+
+  private withFieldError(line: string, row: EditorRowId): string[] {
+    const error = this.renderFieldError(row);
+
+    return error ? [line, error] : [line];
+  }
+
+  private renderFieldError(row: EditorRowId): string | undefined {
+    const error = this.fieldErrors.get(row);
+
+    return error ? this.theme.fg("error", `    ${error}`) : undefined;
   }
 
   /**
@@ -835,12 +876,15 @@ class PresetEditorComponent implements Component, Focusable {
   }
 
   private renderThinkingRows(): string[] {
-    return renderThinkingRowsForState(
+    const lines = renderThinkingRowsForState(
       this.theme,
       this.state,
       this.currentModel(),
       this.currentRow() === "thinking",
     );
+    const error = this.renderFieldError("thinking");
+
+    return error ? [...lines, error] : lines;
   }
 
   private renderToolsRows(): string[] {
@@ -891,7 +935,9 @@ class PresetEditorComponent implements Component, Focusable {
       lines.push(`    ${renderedTools.join("  ")}`);
     }
 
-    return lines;
+    const error = this.renderFieldError("tools");
+
+    return error ? [...lines, error] : lines;
   }
 
   private renderInstructionsRows(width: number): string[] {
@@ -900,14 +946,15 @@ class PresetEditorComponent implements Component, Focusable {
         ? this.theme.fg("dim", EMPTY_INPUT_PLACEHOLDER)
         : this.state.instructions.replaceAll("\n", " ↵ ");
 
-    return [
+    return this.withFieldError(
       renderValueRow(
         this.theme,
         "Prompt",
         truncateToWidth(preview, Math.max(1, width - 16), "…"),
         this.currentRow() === "instructions",
       ),
-    ];
+      "instructions",
+    );
   }
 
   private renderMessages(): string[] {
@@ -922,14 +969,15 @@ class PresetEditorComponent implements Component, Focusable {
       lines.push(...hotkeyNotice.map((line) => this.theme.fg("dim", line)));
     }
 
-    if (this.error) lines.push(this.theme.fg("error", `    ${this.error}`));
+    if (this.flowError) {
+      lines.push(this.theme.fg("error", `    ${this.flowError}`));
+    }
 
     return lines;
   }
 
   private async runAsync(fn: () => Promise<void>): Promise<void> {
     this.actionInFlight = true;
-    this.error = undefined;
 
     try {
       await fn();
@@ -940,10 +988,12 @@ class PresetEditorComponent implements Component, Focusable {
   }
 
   private async save(): Promise<void> {
+    this.clearValidationErrors();
+
     const validation = await this.validateForSave();
 
     if (!validation.ok) {
-      this.error = validation.reason;
+      this.applyValidationFailure(validation);
 
       return;
     }
@@ -952,7 +1002,7 @@ class PresetEditorComponent implements Component, Focusable {
     const result = await this.persist(next);
 
     if (!result.ok) {
-      this.error = result.reason;
+      this.flowError = result.reason;
 
       return;
     }
@@ -1022,16 +1072,16 @@ class PresetEditorComponent implements Component, Focusable {
   }
 
   private async testPreset(): Promise<void> {
-    if (!this.options.onTest) {
-      this.error = "Temporary apply is unavailable here.";
+    this.clearValidationErrors();
 
-      return;
+    if (this.options.onTest === undefined) {
+      throw new Error("testPreset reached without a wired callback.");
     }
 
     const validation = this.validateRequired();
 
     if (!validation.ok) {
-      this.error = validation.reason;
+      this.applyValidationFailure(validation);
 
       return;
     }
@@ -1068,53 +1118,58 @@ class PresetEditorComponent implements Component, Focusable {
     });
   }
 
-  private async validateForSave(): Promise<
-    { ok: true } | { ok: false; reason: string }
-  > {
+  private async validateForSave(): Promise<ValidationResult> {
     const required = this.validateRequired();
+    const fieldErrors = new Map<EditorRowId, string>(
+      required.ok ? [] : required.fieldErrors,
+    );
 
-    if (!required.ok) return required;
+    if (this.hasNameCollision()) {
+      fieldErrors.set(
+        "name",
+        `A preset named "${this.state.name.trim()}" already exists in ${this.state.scope}.`,
+      );
+    }
 
     const hotkey = this.state.hotkey.trim();
 
     if (hotkey.length > 0) {
       const parsed = parseHotkey(hotkey);
 
-      if (!parsed.ok) return { ok: false, reason: parsed.reason };
+      if (!parsed.ok) {
+        fieldErrors.set("hotkey", parsed.reason);
+      } else {
+        if (isPiBuiltin(parsed.parsed)) {
+          const confirmed = await this.confirm(
+            HOTKEY_SHADOWS_TITLE,
+            `"${parsed.parsed.normalized}" matches a documented Pi built-in. Save anyway?`,
+          );
 
-      if (isPiBuiltin(parsed.parsed)) {
-        const confirmed = await this.confirm(
-          HOTKEY_SHADOWS_TITLE,
-          `"${parsed.parsed.normalized}" matches a documented Pi built-in. Save anyway?`,
+          if (!confirmed) {
+            return { fieldErrors, flowError: "Save cancelled.", ok: false };
+          }
+        }
+
+        const conflict = findConflictingPreset(
+          parsed.parsed,
+          this.allPresets,
+          this.initialPreset?.name,
         );
 
-        if (!confirmed) return { ok: false, reason: "Save cancelled." };
-      }
+        if (conflict) {
+          const confirmed = await this.confirm(
+            HOTKEY_CONFLICT_TITLE,
+            `"${parsed.parsed.normalized}" is already used by preset "${conflict.name}". Save anyway?`,
+          );
 
-      const conflict = findConflictingPreset(
-        parsed.parsed,
-        this.allPresets,
-        this.initialPreset?.name,
-      );
-
-      if (conflict) {
-        const confirmed = await this.confirm(
-          HOTKEY_CONFLICT_TITLE,
-          `"${parsed.parsed.normalized}" is already used by preset "${conflict.name}". Save anyway?`,
-        );
-
-        if (!confirmed) return { ok: false, reason: "Save cancelled." };
+          if (!confirmed) {
+            return { fieldErrors, flowError: "Save cancelled.", ok: false };
+          }
+        }
       }
     }
 
-    if (this.hasNameCollision()) {
-      return {
-        ok: false,
-        reason: `A preset named "${this.state.name.trim()}" already exists in ${this.state.scope}.`,
-      };
-    }
-
-    return { ok: true };
+    return fieldErrors.size === 0 ? { ok: true } : { fieldErrors, ok: false };
   }
 
   private hasNameCollision(): boolean {
@@ -1130,16 +1185,41 @@ class PresetEditorComponent implements Component, Focusable {
     });
   }
 
-  private validateRequired(): { ok: true } | { ok: false; reason: string } {
+  private validateRequired(): ValidationResult {
+    const fieldErrors = new Map<EditorRowId, string>();
+
     if (this.state.name.trim().length === 0) {
-      return { ok: false, reason: "Name is required." };
+      fieldErrors.set("name", "Name is required.");
     }
 
-    if (this.state.provider.length === 0 || this.state.model.length === 0) {
-      return { ok: false, reason: "Provider and model are required." };
+    if (this.state.provider.length === 0) {
+      fieldErrors.set("provider", "Provider is required.");
     }
 
-    return { ok: true };
+    if (this.state.model.length === 0) {
+      fieldErrors.set("model", "Model is required.");
+    }
+
+    return fieldErrors.size === 0 ? { ok: true } : { fieldErrors, ok: false };
+  }
+
+  private applyValidationFailure(
+    result: Extract<ValidationResult, { ok: false }>,
+  ): void {
+    this.fieldErrors = new Map(result.fieldErrors);
+    this.flowError = result.flowError;
+  }
+
+  private clearValidationErrors(): void {
+    this.fieldErrors.clear();
+    this.flowError = undefined;
+  }
+
+  private clearFieldErrorsFor(row: EditorRowId): void {
+    this.fieldErrors.delete(row);
+
+    if (row === "scope") this.fieldErrors.delete("name");
+    if (row === "provider") this.fieldErrors.delete("model");
   }
 
   private syncFocus(): void {
