@@ -31,6 +31,17 @@ run = "biome lint src/. tests/. && eslint src/. tests/."
 [tasks.lint-fix]
 run = "biome lint src/. tests/. --fix && eslint src/. tests/. --fix"
 
+[tasks.login]
+run = "pnpm login"
+
+[tasks.pack-check]
+depends = ["check"]
+run = "pnpm pack --dry-run"
+
+[tasks.publish]
+depends = ["pack-check"]
+run = ["pnpm login", "pnpm publish --access public"]
+
 [tasks.sort-package-json]
 run = "sort-package-json"
 

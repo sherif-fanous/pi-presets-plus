@@ -26,6 +26,9 @@ mise run <task>
 | `mise run install-dev-deps`  | Install npm dev dependencies (`npm install --save-dev`)                 |
 | `mise run lint`              | Lint source files with Biome and ESLint                                 |
 | `mise run lint-fix`          | Auto-fix lint violations with Biome and ESLint                          |
+| `mise run login`             | Log in to npm via `pnpm login` (so a subsequent `publish` can authenticate) |
+| `mise run pack-check`        | Run the full `check` gate, then `pnpm pack --dry-run` to verify the package builds and packs cleanly |
+| `mise run publish`           | Run `pack-check`, then log in to npm and publish with `pnpm publish --access public` |
 | `mise run sort-package-json` | Sort `package.json` keys                                                |
 | `mise run test`              | Execute tests once (CI mode, `vitest --run`)                            |
 | `mise run test-watch`        | Execute tests in watch mode                                             |
