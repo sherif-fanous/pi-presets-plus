@@ -92,7 +92,7 @@ When two loaded presets declare the same hotkey, the package SHALL register the 
 
 ### Requirement: Hotkey conflict with pi built-in
 
-When a preset's hotkey matches a documented pi built-in (per `docs/keybindings.md`), the package SHALL still register the binding (which takes precedence over the built-in within pi's keybinding model) and SHALL emit an info-level notification at session start naming the preset and the built-in it shadows.
+When a preset's hotkey matches a documented pi built-in (per `docs/keybindings.md`), the package SHALL still register the binding (which takes precedence over the built-in within pi's keybinding model) and SHALL emit a warning-level notification at session start naming the preset and the built-in it shadows.
 
 The package SHALL also annotate the in-memory `LoadedPreset` with `hotkeyShadowsBuiltin: true` so downstream consumers (notably the picker card) can surface the shadowing condition without re-running edit-time validation. The annotation SHALL be cleared and recomputed on every load (mirroring `hotkeyConflict`'s behavior) so an annotation from a prior load can never persist past a hotkey change.
 
@@ -100,8 +100,13 @@ The package SHALL also annotate the in-memory `LoadedPreset` with `hotkeyShadows
 
 - **WHEN** a preset declares `hotkey: "ctrl+l"` (which matches a pi built-in for the model picker)
 - **THEN** the binding SHALL be registered
-- **AND** an info notification SHALL be emitted at session start naming the preset and the built-in
+- **AND** a warning notification SHALL be emitted at session start naming the preset and the built-in
 - **AND** the preset SHALL be marked `hotkeyShadowsBuiltin: true` on its in-memory `LoadedPreset`
+
+#### Scenario: Shadow notification matches conflict severity
+
+- **WHEN** the package emits the session-start notification for a Pi built-in shadow
+- **THEN** the notification SHALL use the same severity tier (`warning`) as the preset-vs-preset conflict notification, so both collision-style conditions render with consistent visual treatment
 
 #### Scenario: Annotation cleared on reload
 
