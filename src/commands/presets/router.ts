@@ -6,6 +6,8 @@
  * modules.
  */
 import { apply } from "../../activation/apply.js";
+import type { ActivePresetSession } from "../../activation/session.js";
+import type { HotkeyRegistry } from "../../hotkey-registry.js";
 import { openPicker } from "../../ui/picker.js";
 import { runClear } from "./clear.js";
 import { runReload } from "./reload.js";
@@ -21,7 +23,9 @@ interface Subcommand {
   run(
     ctx: ExtensionCommandContext,
     args: readonly string[],
-    pi?: ExtensionAPI,
+    pi: ExtensionAPI | undefined,
+    session: ActivePresetSession,
+    hotkeys: HotkeyRegistry,
   ): Promise<void>;
 }
 
@@ -58,12 +62,14 @@ export function getArgumentCompletions(
 export async function handlePresetsCommand(
   args: string,
   ctx: ExtensionCommandContext,
-  pi?: ExtensionAPI,
+  pi: ExtensionAPI | undefined,
+  session: ActivePresetSession,
+  hotkeys: HotkeyRegistry,
 ): Promise<void> {
   const trimmedArgs = args.trim();
 
   if (trimmedArgs.length === 0) {
-    await runPicker(ctx, pi);
+    await runPicker(ctx, pi, session, hotkeys);
 
     return;
   }
@@ -85,7 +91,7 @@ export async function handlePresetsCommand(
   );
 
   if (target) {
-    await target.run(ctx, tokens.slice(1), pi);
+    await target.run(ctx, tokens.slice(1), pi, session, hotkeys);
 
     return;
   }
@@ -99,15 +105,20 @@ export async function handlePresetsCommand(
 async function runClearWrapper(
   ctx: ExtensionCommandContext,
   _args: readonly string[],
-  pi?: ExtensionAPI,
+  pi: ExtensionAPI | undefined,
+  session: ActivePresetSession,
+  hotkeys: HotkeyRegistry,
 ): Promise<void> {
+  void hotkeys;
   if (!pi) return;
-  await runClear(ctx, pi);
+  await runClear(ctx, pi, session);
 }
 
 async function runPicker(
   ctx: ExtensionCommandContext,
-  pi?: ExtensionAPI,
+  pi: ExtensionAPI | undefined,
+  session: ActivePresetSession,
+  hotkeys: HotkeyRegistry,
 ): Promise<void> {
   if (!pi) {
     ctx.ui.notify(
@@ -119,9 +130,11 @@ async function runPicker(
   }
 
   await openPicker(ctx, {
+    hotkeys,
     inheritedTools: pi.getActiveTools(),
-    onActivate: (preset) => apply(preset, ctx, pi),
+    onActivate: (preset) => apply(preset, ctx, pi, session),
     pi,
+    session,
   });
 }
 
@@ -132,8 +145,11 @@ async function runReloadWrapper(ctx: ExtensionCommandContext): Promise<void> {
 async function runStatusWrapper(
   ctx: ExtensionCommandContext,
   _args: readonly string[],
-  pi?: ExtensionAPI,
+  pi: ExtensionAPI | undefined,
+  session: ActivePresetSession,
+  hotkeys: HotkeyRegistry,
 ): Promise<void> {
+  void hotkeys;
   if (!pi) return;
-  await runStatus(ctx, pi);
+  await runStatus(ctx, pi, session);
 }

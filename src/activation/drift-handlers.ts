@@ -7,10 +7,8 @@
  * `declared` snapshot cached on `ActivePresetState` at apply / restore time
  * so per-turn handlers stay in-memory only.
  */
-import { getActive } from "./active-state.js";
-import { isSelfTriggeredModelSet } from "./apply.js";
-import { markClean, markDirty } from "./dirty.js";
 import { detectDriftReasons } from "./drift.js";
+import type { ActivePresetSession } from "./session.js";
 import type {
   ExtensionAPI,
   ExtensionContext,
@@ -43,29 +41,33 @@ export async function handleModelSelectDrift(
   event: ModelSelectLikeEvent,
   ctx: DriftHandlerContext,
   pi: DriftHandlerPi,
+  session: ActivePresetSession,
 ): Promise<void> {
-  if (isSelfTriggeredModelSet()) return;
+  if (session.isSelfTriggered()) return;
   if (event.source === "restore") return;
 
-  await syncDirtyFromCurrentState(ctx, pi);
+  await syncDirtyFromCurrentState(ctx, pi, session);
 }
 
 /** Recompute all drift reasons and update the dirty flag if needed. */
 export async function syncDirtyFromCurrentState(
   ctx: DriftHandlerContext,
   pi: DriftHandlerPi,
+  session: ActivePresetSession,
 ): Promise<void> {
-  const active = getActive();
+  const active = session.current();
 
   if (!active) return;
 
   const reasons = detectDriftReasons(active.declared, pi, ctx);
 
   if (reasons.length === 0) {
-    if (active.dirty) await markClean(ctx);
+    if (active.dirty) session.markClean(ctx);
 
     return;
   }
 
-  if (!active.dirty) await markDirty(ctx);
+  if (!active.dirty) session.markDirty(ctx);
+
+  await Promise.resolve();
 }

@@ -5,6 +5,7 @@
  * semantics live in `activation/clear.ts`.
  */
 import { clear } from "../../activation/clear.js";
+import type { ActivePresetSession } from "../../activation/session.js";
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
@@ -13,6 +14,7 @@ import type {
 export async function runClear(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
+  session: ActivePresetSession,
 ): Promise<void> {
-  await clear(ctx, pi);
+  await clear(ctx, pi, session);
 }

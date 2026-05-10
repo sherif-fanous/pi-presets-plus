@@ -6,13 +6,9 @@
  * exercise the interactive TUI. Future drift-detection tests should add
  * model_select cases separately.
  */
-import {
-  clearActive,
-  getActive,
-  setActive,
-} from "../../src/activation/active-state.js";
 import { apply } from "../../src/activation/apply.js";
 import { clear } from "../../src/activation/clear.js";
+import { ActivePresetSession } from "../../src/activation/session.js";
 import type { LoadedPreset, ThinkingLevel } from "../../src/types.js";
 import { makeStubModelRegistry } from "../helpers/model-registry.js";
 import type { Api, Model, ThinkingLevelMap } from "@mariozechner/pi-ai";
@@ -20,7 +16,7 @@ import type {
   ExtensionAPI,
   ExtensionCommandContext,
 } from "@mariozechner/pi-coding-agent";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 interface FakeHarness {
   ctx: ExtensionCommandContext;
@@ -28,6 +24,7 @@ interface FakeHarness {
   notifications: string[];
   notificationCalls: [string, string | undefined][];
   pi: ExtensionAPI;
+  session: ActivePresetSession;
   setModelCalls: string[];
   setToolsCalls: string[][];
   status: Record<string, string | undefined>;
@@ -41,19 +38,15 @@ const basePreset: LoadedPreset = {
   thinkingLevel: "high",
 };
 
-beforeEach(() => {
-  clearActive();
-});
-
 describe("apply", () => {
   it("first activation captures a baseline and applies model/thinking", async () => {
     const harness = makeHarness();
 
-    await apply(basePreset, harness.ctx, harness.pi);
+    await apply(basePreset, harness.ctx, harness.pi, harness.session);
 
     expect(harness.setModelCalls).toEqual(["anthropic/claude"]);
     expect(harness.setToolsCalls).toEqual([]);
-    expect(getActive()).toEqual({
+    expect(harness.session.current()).toEqual({
       declared: {
         model: "claude",
         provider: "anthropic",
@@ -87,6 +80,7 @@ describe("apply", () => {
       { ...basePreset, tools: ["read", "missing"] },
       harness.ctx,
       harness.pi,
+      harness.session,
     );
 
     expect(harness.setToolsCalls).toEqual([["read"]]);
@@ -97,7 +91,7 @@ describe("apply", () => {
       ],
     ]);
 
-    expect(getActive()).toMatchObject({
+    expect(harness.session.current()).toMatchObject({
       restore: {
         lastApplied: { tools: ["read"] },
         owned: { tools: true },
@@ -108,14 +102,21 @@ describe("apply", () => {
   it("preserves baseline and sticky tools across preset switches", async () => {
     const harness = makeHarness();
 
-    await apply({ ...basePreset, tools: ["read"] }, harness.ctx, harness.pi);
+    await apply(
+      { ...basePreset, tools: ["read"] },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
+
     await apply(
       { ...basePreset, model: "opus", name: "write" },
       harness.ctx,
       harness.pi,
+      harness.session,
     );
 
-    expect(getActive()).toMatchObject({
+    expect(harness.session.current()).toMatchObject({
       name: "write",
       restore: {
         applyCount: 2,
@@ -136,20 +137,23 @@ describe("apply", () => {
   it("captures a fresh baseline after priorUnknown", async () => {
     const harness = makeHarness();
 
-    setActive({
-      declared: {
-        model: "claude",
-        provider: "anthropic",
-        thinkingLevel: "high",
+    harness.session._replaceForTest(
+      {
+        declared: {
+          model: "claude",
+          provider: "anthropic",
+          thinkingLevel: "high",
+        },
+        dirty: false,
+        name: "plan",
+        restore: { kind: "unknown" },
+        scope: "project",
       },
-      dirty: false,
-      name: "plan",
-      restore: { kind: "unknown" },
-      scope: "project",
-    });
-    await apply(basePreset, harness.ctx, harness.pi);
+      harness.ctx,
+    );
+    await apply(basePreset, harness.ctx, harness.pi, harness.session);
 
-    expect(getActive()).toMatchObject({
+    expect(harness.session.current()).toMatchObject({
       restore: {
         applyCount: 1,
         baseline: {
@@ -167,6 +171,7 @@ describe("apply", () => {
       { ...basePreset, unavailable: "no-key" },
       harness.ctx,
       harness.pi,
+      harness.session,
     );
 
     expect(result).toEqual({
@@ -177,7 +182,7 @@ describe("apply", () => {
     });
     expect(harness.notifications).toEqual([]);
     expect(harness.setModelCalls).toEqual([]);
-    expect(getActive()).toBeUndefined();
+    expect(harness.session.current()).toBeUndefined();
   });
 
   it("returns no-model refusals without notifying", async () => {
@@ -187,6 +192,7 @@ describe("apply", () => {
       { ...basePreset, unavailable: "no-model" },
       harness.ctx,
       harness.pi,
+      harness.session,
     );
 
     expect(result).toMatchObject({ kind: "no-model", ok: false });
@@ -200,6 +206,7 @@ describe("apply", () => {
       { ...basePreset, model: "missing" },
       harness.ctx,
       harness.pi,
+      harness.session,
     );
 
     expect(result).toEqual({
@@ -213,7 +220,12 @@ describe("apply", () => {
   it("returns key-revoked refusals without notifying", async () => {
     const harness = makeHarness(true, { failModel: "claude" });
 
-    const result = await apply(basePreset, harness.ctx, harness.pi);
+    const result = await apply(
+      basePreset,
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
 
     expect(result).toEqual({
       kind: "key-revoked",
@@ -221,16 +233,16 @@ describe("apply", () => {
       reason: "No API key configured for anthropic/claude.",
     });
     expect(harness.notifications).toEqual([]);
-    expect(getActive()).toBeUndefined();
+    expect(harness.session.current()).toBeUndefined();
   });
 
   it("short-circuits re-apply when state already matches", async () => {
     const harness = makeHarness();
 
-    await apply(basePreset, harness.ctx, harness.pi);
+    await apply(basePreset, harness.ctx, harness.pi, harness.session);
     harness.messages.length = 0;
     harness.setModelCalls.length = 0;
-    await apply(basePreset, harness.ctx, harness.pi);
+    await apply(basePreset, harness.ctx, harness.pi, harness.session);
 
     expect(harness.setModelCalls).toEqual([]);
     expect(harness.messages).toEqual([]);
@@ -239,33 +251,33 @@ describe("apply", () => {
   it("clears stale dirty state on the idempotent re-apply fast path", async () => {
     const harness = makeHarness();
 
-    await apply(basePreset, harness.ctx, harness.pi);
+    await apply(basePreset, harness.ctx, harness.pi, harness.session);
 
-    const active = getActive();
+    const active = harness.session.current();
 
     if (!active) throw new Error("expected active preset");
 
-    setActive({ ...active, dirty: true });
+    harness.session._replaceForTest({ ...active, dirty: true }, harness.ctx);
 
     harness.messages.length = 0;
     harness.setModelCalls.length = 0;
-    await apply(basePreset, harness.ctx, harness.pi);
+    await apply(basePreset, harness.ctx, harness.pi, harness.session);
 
     expect(harness.setModelCalls).toEqual([]);
     expect(harness.messages).toEqual([]);
-    expect(getActive()).toMatchObject({ dirty: false });
+    expect(harness.session.current()).toMatchObject({ dirty: false });
   });
 
   it("re-applies the same preset when state drifted while preserving baseline", async () => {
     const harness = makeHarness();
 
-    await apply(basePreset, harness.ctx, harness.pi);
+    await apply(basePreset, harness.ctx, harness.pi, harness.session);
     harness.ctx.model = model("openai", "gpt", true);
     harness.setModelCalls.length = 0;
-    await apply(basePreset, harness.ctx, harness.pi);
+    await apply(basePreset, harness.ctx, harness.pi, harness.session);
 
     expect(harness.setModelCalls).toEqual(["anthropic/claude"]);
-    expect(getActive()).toMatchObject({
+    expect(harness.session.current()).toMatchObject({
       restore: {
         applyCount: 2,
         baseline: { model: { id: "old", provider: "anthropic" } },
@@ -276,7 +288,7 @@ describe("apply", () => {
   it("notifies when thinking is clamped", async () => {
     const harness = makeHarness(false);
 
-    await apply(basePreset, harness.ctx, harness.pi);
+    await apply(basePreset, harness.ctx, harness.pi, harness.session);
 
     expect(harness.pi.getThinkingLevel()).toBe("off");
     expect(harness.notifications.join("\n")).toContain('Applied "off" instead');
@@ -289,6 +301,7 @@ describe("apply", () => {
       { ...basePreset, thinkingLevel: "low" },
       harness.ctx,
       harness.pi,
+      harness.session,
     );
 
     expect(harness.pi.getThinkingLevel()).toBe("off");
@@ -304,6 +317,7 @@ describe("apply", () => {
       { ...basePreset, thinkingLevel: "low" },
       harness.ctx,
       harness.pi,
+      harness.session,
     );
 
     expect(harness.pi.getThinkingLevel()).toBe("low");
@@ -319,6 +333,7 @@ describe("apply", () => {
       { ...basePreset, thinkingLevel: "xhigh" },
       harness.ctx,
       harness.pi,
+      harness.session,
     );
 
     expect(harness.pi.getThinkingLevel()).toBe("off");
@@ -332,13 +347,18 @@ describe("clear", () => {
   it("restores baseline fields after a single activation", async () => {
     const harness = makeHarness();
 
-    await apply({ ...basePreset, tools: ["read"] }, harness.ctx, harness.pi);
-    await clear(harness.ctx, harness.pi);
+    await apply(
+      { ...basePreset, tools: ["read"] },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
+    await clear(harness.ctx, harness.pi, harness.session);
 
     expect(harness.setModelCalls.at(-1)).toBe("anthropic/old");
     expect(harness.pi.getThinkingLevel()).toBe("medium");
     expect(harness.setToolsCalls.at(-1)).toEqual(["bash"]);
-    expect(getActive()).toBeUndefined();
+    expect(harness.session.current()).toBeUndefined();
     expect(harness.notifications.at(-1)).toContain("Preset cleared: plan");
     expect(harness.notifications.at(-1)).toContain(
       "Restored your previous settings.",
@@ -356,13 +376,20 @@ describe("clear", () => {
   it("restores to pre-chain baseline for sequential applies", async () => {
     const harness = makeHarness();
 
-    await apply({ ...basePreset, tools: ["read"] }, harness.ctx, harness.pi);
+    await apply(
+      { ...basePreset, tools: ["read"] },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
+
     await apply(
       { ...basePreset, model: "opus", name: "write", tools: ["read"] },
       harness.ctx,
       harness.pi,
+      harness.session,
     );
-    await clear(harness.ctx, harness.pi);
+    await clear(harness.ctx, harness.pi, harness.session);
 
     expect(harness.setModelCalls.at(-1)).toBe("anthropic/old");
     expect(harness.pi.getThinkingLevel()).toBe("medium");
@@ -372,9 +399,9 @@ describe("clear", () => {
   it("leaves tools unchanged when the overlay never owned tools", async () => {
     const harness = makeHarness();
 
-    await apply(basePreset, harness.ctx, harness.pi);
+    await apply(basePreset, harness.ctx, harness.pi, harness.session);
     harness.pi.setActiveTools(["read"]);
-    await clear(harness.ctx, harness.pi);
+    await clear(harness.ctx, harness.pi, harness.session);
 
     expect(harness.setToolsCalls).toEqual([["read"]]);
     expect(harness.notifications.at(-1)).toContain(
@@ -385,9 +412,14 @@ describe("clear", () => {
   it("respects a user model override while restoring other fields", async () => {
     const harness = makeHarness();
 
-    await apply({ ...basePreset, tools: ["read"] }, harness.ctx, harness.pi);
+    await apply(
+      { ...basePreset, tools: ["read"] },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
     harness.ctx.model = model("openai", "gpt", true);
-    await clear(harness.ctx, harness.pi);
+    await clear(harness.ctx, harness.pi, harness.session);
 
     expect(harness.setModelCalls).toEqual(["anthropic/claude"]);
     expect(harness.pi.getThinkingLevel()).toBe("medium");
@@ -400,9 +432,14 @@ describe("clear", () => {
   it("respects a user tools override", async () => {
     const harness = makeHarness();
 
-    await apply({ ...basePreset, tools: ["read"] }, harness.ctx, harness.pi);
+    await apply(
+      { ...basePreset, tools: ["read"] },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
     harness.pi.setActiveTools(["bash", "read"]);
-    await clear(harness.ctx, harness.pi);
+    await clear(harness.ctx, harness.pi, harness.session);
 
     expect(harness.setToolsCalls).toEqual([["read"], ["bash", "read"]]);
     expect(harness.notifications.at(-1)).toContain(
@@ -413,10 +450,15 @@ describe("clear", () => {
   it("reports model restore failure but still clears active state", async () => {
     const harness = makeHarness(true, { failModel: "old" });
 
-    await apply({ ...basePreset, tools: ["read"] }, harness.ctx, harness.pi);
-    await clear(harness.ctx, harness.pi);
+    await apply(
+      { ...basePreset, tools: ["read"] },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
+    await clear(harness.ctx, harness.pi, harness.session);
 
-    expect(getActive()).toBeUndefined();
+    expect(harness.session.current()).toBeUndefined();
     expect(harness.notifications.at(-1)).toContain(
       "Model:          Could not switch back to anthropic/old.",
     );
@@ -426,8 +468,13 @@ describe("clear", () => {
   it("filters unavailable baseline tools on restore", async () => {
     const harness = makeHarness(true, { allTools: ["read"] });
 
-    await apply({ ...basePreset, tools: ["read"] }, harness.ctx, harness.pi);
-    await clear(harness.ctx, harness.pi);
+    await apply(
+      { ...basePreset, tools: ["read"] },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
+    await clear(harness.ctx, harness.pi, harness.session);
 
     expect(harness.setToolsCalls.at(-1)).toEqual([]);
     expect(harness.notifications.at(-1)).toContain(
@@ -438,13 +485,20 @@ describe("clear", () => {
   it("restores tools changed only by the first preset in a chain", async () => {
     const harness = makeHarness();
 
-    await apply({ ...basePreset, tools: ["read"] }, harness.ctx, harness.pi);
+    await apply(
+      { ...basePreset, tools: ["read"] },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
+
     await apply(
       { ...basePreset, model: "opus", name: "write" },
       harness.ctx,
       harness.pi,
+      harness.session,
     );
-    await clear(harness.ctx, harness.pi);
+    await clear(harness.ctx, harness.pi, harness.session);
 
     expect(harness.setToolsCalls.at(-1)).toEqual(["bash"]);
   });
@@ -452,22 +506,25 @@ describe("clear", () => {
   it("soft-clears priorUnknown attachments without mutating pi fields", async () => {
     const harness = makeHarness();
 
-    setActive({
-      declared: {
-        model: "claude",
-        provider: "anthropic",
-        thinkingLevel: "high",
+    harness.session._replaceForTest(
+      {
+        declared: {
+          model: "claude",
+          provider: "anthropic",
+          thinkingLevel: "high",
+        },
+        dirty: false,
+        name: "plan",
+        restore: { kind: "unknown" },
+        scope: "project",
       },
-      dirty: false,
-      name: "plan",
-      restore: { kind: "unknown" },
-      scope: "project",
-    });
-    await clear(harness.ctx, harness.pi);
+      harness.ctx,
+    );
+    await clear(harness.ctx, harness.pi, harness.session);
 
     expect(harness.setModelCalls).toEqual([]);
     expect(harness.setToolsCalls).toEqual([]);
-    expect(getActive()).toBeUndefined();
+    expect(harness.session.current()).toBeUndefined();
     expect(harness.notifications.at(-1)).toContain(
       "Model:          anthropic/old (No baseline saved for this field)",
     );
@@ -476,7 +533,7 @@ describe("clear", () => {
   it("notifies when no preset is active", async () => {
     const harness = makeHarness();
 
-    await clear(harness.ctx, harness.pi);
+    await clear(harness.ctx, harness.pi, harness.session);
 
     expect(harness.notifications).toEqual(["No preset is active."]);
   });
@@ -528,6 +585,7 @@ function makeHarness(
       theme: { fg: (_color: string, text: string) => text },
     },
   } as ExtensionCommandContext;
+  const session = new ActivePresetSession();
   const pi = {
     appendEntry() {},
     getActiveTools: () => tools,
@@ -561,6 +619,7 @@ function makeHarness(
     notificationCalls,
     notifications,
     pi,
+    session,
     setModelCalls,
     setToolsCalls,
     status,

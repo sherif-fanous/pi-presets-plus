@@ -1,11 +1,7 @@
 /**
  * Reload-prompt integration tests for editor Save paths.
  */
-import {
-  clearRuntimeHotkeyBaseline,
-  recordReloadPromptDeclined,
-  setRuntimeHotkeyBaseline,
-} from "../../src/hotkey-reload-baseline.js";
+import { analyzeHotkeys, HotkeyRegistry } from "../../src/hotkey-registry.js";
 import type { LoadedPreset } from "../../src/types.js";
 import type { EditorFormState } from "../../src/ui/editor.js";
 import type { Component } from "@mariozechner/pi-tui";
@@ -97,11 +93,20 @@ async function runSave(options: {
 }) {
   const initial = options.initial;
 
-  clearRuntimeHotkeyBaseline();
-  setRuntimeHotkeyBaseline(options.baseline ?? (initial ? [initial] : []));
+  const hotkeys = new HotkeyRegistry();
+  const baseline = [...(options.baseline ?? (initial ? [initial] : []))];
+
+  hotkeys.bindForSession(
+    baseline,
+    analyzeHotkeys(baseline),
+    { ui: { notify: () => undefined } } as never,
+    { registerShortcut: () => undefined } as never,
+    () => Promise.resolve(baseline),
+    {} as never,
+  );
 
   for (const acknowledged of options.acknowledged ?? []) {
-    recordReloadPromptDeclined(acknowledged, acknowledged.hotkey);
+    hotkeys.recordReloadPromptDeclined(acknowledged, acknowledged.hotkey);
   }
 
   const saved = preset({
@@ -132,6 +137,7 @@ async function runSave(options: {
   }
 
   const result = await openEditor(ctx as never, initial, {
+    hotkeys,
     presets: initial ? [initial] : [],
   });
 

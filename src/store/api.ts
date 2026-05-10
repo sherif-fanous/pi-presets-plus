@@ -8,10 +8,7 @@
  * from disk — and mutations that would violate file invariants return an
  * `Err` result rather than throwing.
  */
-import {
-  annotateAndAnalyzeHotkeys,
-  type HotkeyAnalysis,
-} from "../hotkey-conflicts.js";
+import { analyzeHotkeys, type HotkeyAnalysis } from "../hotkey-registry.js";
 import type {
   LoadedPreset,
   Preset,
@@ -68,7 +65,10 @@ export async function addPreset(
  * Read both scope files and return the merged, ordered, scope-tagged
  * preset list with availability computed.
  */
-export async function loadAll(ctx: StorageContext): Promise<LoadAllResult> {
+export async function loadAll(
+  ctx: StorageContext,
+  analyze: (presets: LoadedPreset[]) => HotkeyAnalysis = analyzeHotkeys,
+): Promise<LoadAllResult> {
   const [user, project] = await Promise.all([
     loadFile(getGlobalPresetsPath()),
     loadFile(getProjectPresetsPath(ctx.cwd)),
@@ -83,7 +83,7 @@ export async function loadAll(ctx: StorageContext): Promise<LoadAllResult> {
       : {}),
   }));
 
-  const hotkeyAnalysis = annotateAndAnalyzeHotkeys(presets);
+  const hotkeyAnalysis = analyze(presets);
 
   return {
     hotkeyAnalysis,

@@ -8,38 +8,29 @@
  */
 
 import {
-  clearActive,
-  getActive,
-  setActive,
-} from "./activation/active-state.js";
-import {
   handleModelSelectDrift,
   syncDirtyFromCurrentState,
 } from "./activation/drift-handlers.js";
-import { snapshotPresetForDrift } from "./activation/drift.js";
+import { ActivePresetSession } from "./activation/session.js";
 import {
   getArgumentCompletions,
   handlePresetsCommand,
   surfaceWarnings,
 } from "./commands/presets/index.js";
 import { applyPresetFlag, registerPresetFlag } from "./flag.js";
-import { setRuntimeHotkeyBaseline } from "./hotkey-reload-baseline.js";
-import { registerHotkeys, type CurrentPresetsLoader } from "./hotkeys.js";
+import {
+  HotkeyRegistry,
+  type CurrentPresetsLoader,
+} from "./hotkey-registry.js";
 import { ACTIVATED_MESSAGE_TYPE, renderActivatedMessage } from "./messages.js";
+import { findPreset } from "./preset-identity.js";
 import { loadAll } from "./store/api.js";
-import type { LoadedPreset, PresetScope } from "./types.js";
-import { updateStatus } from "./ui/status.js";
-import type {
-  ExtensionAPI,
-  ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
-
-interface ActiveEntryData {
-  name: string | null;
-  scope?: PresetScope;
-}
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 export default function presetsPlus(pi: ExtensionAPI) {
+  const session = new ActivePresetSession();
+  const hotkeys = new HotkeyRegistry();
+
   pi.registerMessageRenderer(ACTIVATED_MESSAGE_TYPE, renderActivatedMessage);
   registerPresetFlag(pi);
 
@@ -47,7 +38,8 @@ export default function presetsPlus(pi: ExtensionAPI) {
     description:
       "Browse and switch presets that bundle a model, thinking level, tools, and system prompt. Run `/presets` to open the picker, or use `reload`, `clear`, or `status`.",
     getArgumentCompletions: (prefix) => getArgumentCompletions(prefix),
-    handler: (args, ctx) => handlePresetsCommand(args, ctx, pi),
+    handler: (args, ctx) =>
+      handlePresetsCommand(args, ctx, pi, session, hotkeys),
   });
 
   pi.on("session_start", async (_event, ctx) => {
@@ -55,19 +47,26 @@ export default function presetsPlus(pi: ExtensionAPI) {
       const { hotkeyAnalysis, presets, warnings } = await loadAll(ctx);
 
       surfaceWarnings(ctx, warnings);
-      restoreActiveFromBranch(ctx, presets);
-      await applyPresetFlag(pi, ctx, presets);
+
+      const { warnings: restoreWarnings } = session.restoreFromBranch(
+        ctx.sessionManager.getBranch(),
+        presets,
+        ctx,
+      );
+
+      surfaceWarnings(ctx, restoreWarnings);
+      await applyPresetFlag(pi, ctx, presets, session);
 
       const loadCurrentPresets: CurrentPresetsLoader = async (handlerCtx) =>
         (await loadAll(handlerCtx)).presets;
 
-      setRuntimeHotkeyBaseline(presets);
-      registerHotkeys(pi, ctx, presets, hotkeyAnalysis, loadCurrentPresets);
-
-      updateStatus(ctx, getActive(), (name, scope) =>
-        presets.find(
-          (preset) => preset.name === name && preset.scope === scope,
-        ),
+      hotkeys.bindForSession(
+        presets,
+        hotkeyAnalysis,
+        ctx,
+        pi,
+        loadCurrentPresets,
+        session,
       );
     } catch (err) {
       ctx.ui.notify(
@@ -78,7 +77,7 @@ export default function presetsPlus(pi: ExtensionAPI) {
   });
 
   pi.on("before_agent_start", async (event, ctx) => {
-    const active = getActive();
+    const active = session.current();
 
     if (!active) return undefined;
 
@@ -86,11 +85,7 @@ export default function presetsPlus(pi: ExtensionAPI) {
     // session_start and on /presets reload; emitting them on every
     // agent turn would be noisy when a preset file has issues.
     const { presets } = await loadAll(ctx);
-
-    const preset = presets.find(
-      (candidate) =>
-        candidate.name === active.name && candidate.scope === active.scope,
-    );
+    const preset = findPreset(presets, active);
 
     if (!preset?.instructions) return undefined;
 
@@ -98,74 +93,14 @@ export default function presetsPlus(pi: ExtensionAPI) {
   });
 
   pi.on("model_select", async (event, ctx) => {
-    await handleModelSelectDrift(event, ctx, pi);
+    await handleModelSelectDrift(event, ctx, pi, session);
   });
 
   pi.on("thinking_level_select", async (_event, ctx) => {
-    await syncDirtyFromCurrentState(ctx, pi);
+    await syncDirtyFromCurrentState(ctx, pi, session);
   });
 
   pi.on("turn_start", async (_event, ctx) => {
-    await syncDirtyFromCurrentState(ctx, pi);
-  });
-}
-
-function restoreActiveFromBranch(
-  ctx: Pick<ExtensionContext, "sessionManager" | "ui">,
-  presets: readonly LoadedPreset[],
-): void {
-  const activeEntry = [...ctx.sessionManager.getBranch()]
-    .reverse()
-    .find(
-      (entry): entry is Extract<typeof entry, { type: "custom" }> =>
-        entry.type === "custom" && entry.customType === "presets-plus:active",
-    );
-
-  if (!activeEntry) {
-    clearActive();
-
-    return;
-  }
-
-  const data = activeEntry.data as ActiveEntryData | undefined;
-
-  if (!data || data.name === null) {
-    clearActive();
-
-    return;
-  }
-
-  const preset = presets.find(
-    (candidate) =>
-      candidate.name === data.name &&
-      candidate.scope === (data.scope ?? "user"),
-  );
-
-  if (!preset) {
-    ctx.ui.notify(
-      `Restored session referenced preset "${data.name}" which is not loaded. Not attaching.`,
-      "warning",
-    );
-    clearActive();
-
-    return;
-  }
-
-  if (preset.unavailable) {
-    ctx.ui.notify(
-      `Restored session referenced preset "${data.name}" which is unavailable (${preset.unavailable}). Not attaching.`,
-      "warning",
-    );
-    clearActive();
-
-    return;
-  }
-
-  setActive({
-    declared: snapshotPresetForDrift(preset),
-    dirty: false,
-    name: preset.name,
-    restore: { kind: "unknown" },
-    scope: preset.scope,
+    await syncDirtyFromCurrentState(ctx, pi, session);
   });
 }

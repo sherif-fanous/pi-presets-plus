@@ -5,7 +5,8 @@
  * user-facing report; it does NOT update the footer indicator or mutate
  * the active attachment.
  */
-import { getActive } from "../../activation/active-state.js";
+import type { ActivePresetSession } from "../../activation/session.js";
+import { findPreset } from "../../preset-identity.js";
 import { loadAll } from "../../store/api.js";
 import type { LoadedPreset } from "../../types.js";
 import {
@@ -64,7 +65,7 @@ const STATUS_LABEL_WIDTH = Math.max(
 );
 
 export function formatStatus(
-  active: ReturnType<typeof getActive>,
+  active: ReturnType<ActivePresetSession["current"]>,
   _preset: LoadedPreset,
   ctx: Pick<ExtensionCommandContext, "model">,
   pi: Pick<ExtensionAPI, "getActiveTools" | "getThinkingLevel">,
@@ -143,18 +144,16 @@ export function formatStatus(
 export async function formatStatusBody(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
+  session: ActivePresetSession,
 ): Promise<StatusBodyResult> {
-  const active = getActive();
+  const active = session.current();
 
   if (!active) {
     return { body: "No preset is active.", severity: "info", warnings: [] };
   }
 
   const { presets, warnings } = await loadAll(ctx);
-  const preset = presets.find(
-    (candidate) =>
-      candidate.name === active.name && candidate.scope === active.scope,
-  );
+  const preset = findPreset(presets, active);
 
   if (!preset) {
     return {
@@ -174,8 +173,9 @@ export async function formatStatusBody(
 export async function runStatus(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
+  session: ActivePresetSession,
 ): Promise<void> {
-  const result = await formatStatusBody(ctx, pi);
+  const result = await formatStatusBody(ctx, pi, session);
 
   surfaceWarnings(ctx, result.warnings);
   ctx.ui.notify(result.body, result.severity);

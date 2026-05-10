@@ -5,6 +5,7 @@
  * does NOT own session restore, preset storage, or the apply implementation.
  */
 import { apply } from "./activation/apply.js";
+import type { ActivePresetSession } from "./activation/session.js";
 import type { LoadedPreset } from "./types.js";
 import type {
   ExtensionAPI,
@@ -17,6 +18,7 @@ export async function applyPresetFlag(
   pi: ExtensionAPI,
   ctx: ExtensionContext,
   presets: readonly LoadedPreset[],
+  session: ActivePresetSession,
 ): Promise<void> {
   const value = pi.getFlag(PRESET_FLAG);
 
@@ -37,7 +39,7 @@ export async function applyPresetFlag(
     return;
   }
 
-  const result = await apply(preset, ctx, pi);
+  const result = await apply(preset, ctx, pi, session);
 
   if (!result.ok) ctx.ui.notify(result.reason, "error");
 }
@@ -51,6 +53,10 @@ export function registerPresetFlag(
   });
 }
 
+// Intentionally bespoke: the project-then-user fallback with shadowed
+// filter is unique to flag activation and is not modelled by the shared
+// findPreset helper. Don't "consolidate" without preserving the
+// scope-precedence and shadowed semantics.
 function findPresetForFlag(
   presets: readonly LoadedPreset[],
   name: string,

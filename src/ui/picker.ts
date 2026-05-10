@@ -6,16 +6,14 @@
  * the activation side effects (the `onActivate` callback is injected by
  * the caller).
  */
-import { getActive } from "../activation/active-state.js";
 import type { ApplyResult } from "../activation/apply.js";
-import { clearReturning, renderClearSummary } from "../activation/clear.js";
+import { clearReturning } from "../activation/clear.js";
 import { detectDriftReasons } from "../activation/drift.js";
+import type { ActivePresetSession } from "../activation/session.js";
 import { surfaceWarnings } from "../commands/presets/notify.js";
 import { formatStatusBody } from "../commands/presets/status.js";
-import {
-  deleteNeedsHotkeyReload,
-  recordReloadPromptDeclined,
-} from "../hotkey-reload-baseline.js";
+import type { HotkeyRegistry } from "../hotkey-registry.js";
+import { samePresetIdentity } from "../preset-identity.js";
 import {
   addPreset,
   loadAll,
@@ -23,6 +21,7 @@ import {
   reorderWithinScope,
 } from "../store/api.js";
 import type { LoadedPreset, Preset } from "../types.js";
+import { renderClearSummary } from "./clear-summary.js";
 import { openConfirm } from "./confirm.js";
 import { openEditor } from "./editor.js";
 import type { ScopeFilter } from "./filter.js";
@@ -93,7 +92,9 @@ export interface PickerOptions {
    * overlay-appropriate dialog.
    */
   onActivate(preset: LoadedPreset): Promise<ApplyResult>;
+  hotkeys: HotkeyRegistry;
   pi?: ExtensionAPI;
+  session: ActivePresetSession;
 }
 
 export interface PickerResult {
@@ -147,6 +148,8 @@ class PresetPickerComponent implements Component, Focusable {
     private readonly terminal: Pick<Terminal, "rows">,
     private readonly fixedPageSize: number | undefined,
     private inheritedTools: readonly string[],
+    private readonly hotkeys: HotkeyRegistry,
+    private readonly session: ActivePresetSession,
     private readonly onActivate: (preset: LoadedPreset) => Promise<ApplyResult>,
     private readonly done: (result: PickerResult | undefined) => void,
     private readonly requestRender: () => void,
@@ -294,7 +297,7 @@ class PresetPickerComponent implements Component, Focusable {
 
     if (!confirmed) return;
 
-    const result = await clearReturning(this.ctx, this.pi);
+    const result = await clearReturning(this.ctx, this.pi, this.session);
 
     if (result) {
       await this.runWithHiddenOverlay(() =>
@@ -316,7 +319,7 @@ class PresetPickerComponent implements Component, Focusable {
       return;
     }
 
-    const result = await formatStatusBody(this.ctx, this.pi);
+    const result = await formatStatusBody(this.ctx, this.pi, this.session);
 
     await this.runWithHiddenOverlay(() =>
       openInfoDialog(this.ctx, {
@@ -352,7 +355,7 @@ class PresetPickerComponent implements Component, Focusable {
           return;
         }
 
-        if (deleteNeedsHotkeyReload(preset)) {
+        if (this.hotkeys.deleteNeedsReload(preset)) {
           const reloadRequested = await this.runWithHiddenOverlay(() =>
             confirmReload(this.ctx),
           );
@@ -364,7 +367,7 @@ class PresetPickerComponent implements Component, Focusable {
             return;
           }
 
-          recordReloadPromptDeclined(preset, undefined);
+          this.hotkeys.recordReloadPromptDeclined(preset, undefined);
         }
 
         await this.refreshPresets(loadedPresetKey(preset));
@@ -448,7 +451,7 @@ class PresetPickerComponent implements Component, Focusable {
    * — no disk I/O.
    */
   private computeDriftReasons(
-    active: NonNullable<ReturnType<typeof getActive>>,
+    active: NonNullable<ReturnType<ActivePresetSession["current"]>>,
     pi: ExtensionAPI,
   ): readonly string[] {
     const signature = `${active.scope}:${active.name}:${active.dirty ? "1" : "0"}`;
@@ -500,7 +503,9 @@ class PresetPickerComponent implements Component, Focusable {
             unavailable: undefined,
           }),
         pi: this.pi,
+        hotkeys: this.hotkeys,
         presets: this.allPresets,
+        session: this.session,
       }),
     );
 
@@ -751,7 +756,7 @@ class PresetPickerComponent implements Component, Focusable {
       ];
     }
 
-    const active = getActive();
+    const active = this.session.current();
     const lines: string[] = [];
     const lineBudget = this.listLineBudget();
     let renderedCards = 0;
@@ -769,8 +774,7 @@ class PresetPickerComponent implements Component, Focusable {
 
       if (!preset) continue;
 
-      const isActive =
-        active?.name === preset.name && active.scope === preset.scope;
+      const isActive = samePresetIdentity(active, preset);
       const driftReasons =
         isActive && active?.dirty && this.pi
           ? this.computeDriftReasons(active, this.pi)
@@ -880,6 +884,8 @@ export async function openPicker(
         tui.terminal,
         options.pageSize,
         inheritedTools,
+        options.hotkeys,
+        options.session,
         (preset) => options.onActivate(preset),
         done,
         () => tui.requestRender(),

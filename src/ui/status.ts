@@ -1,55 +1,32 @@
 /**
  * Status-bar rendering for active presets.
  *
- * Owns the compact `presets-plus` footer status entry; it does NOT
- * compute drift or mutate active state.
+ * Owns the compact `presets-plus` footer status formatter; it does NOT
+ * compute drift, mutate active state, or write to the Pi UI directly.
  */
-import type { ActivePresetState, LoadedPreset } from "../types.js";
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ActivePresetState } from "../types.js";
+import type { Theme } from "@mariozechner/pi-coding-agent";
 
-const STATUS_KEY = "presets-plus";
+export const STATUS_KEY = "presets-plus";
 
-/** Minimal context surface needed to update footer status. */
-type StatusContext = Pick<ExtensionContext, "ui">;
-
-/** Render or clear the active-preset status badge. */
-export function updateStatus(
-  ctx: StatusContext,
+/** Render the active-preset status badge. */
+export function renderStatusBadge(
   active: ActivePresetState | undefined,
-  lookup: (
-    name: string,
-    scope: ActivePresetState["scope"],
-  ) => LoadedPreset | undefined,
-): void {
-  if (!active) {
-    ctx.ui.setStatus(STATUS_KEY, dim(ctx, "Preset: none"));
+  theme: Theme | undefined,
+): string {
+  if (!active) return dim(theme, "Preset: none");
 
-    return;
-  }
+  const label = dim(theme, `Preset: ${active.name}`);
 
-  const preset = lookup(active.name, active.scope);
+  if (!active.dirty) return label;
 
-  if (!preset) {
-    ctx.ui.setStatus(STATUS_KEY, dim(ctx, "Preset: none"));
-
-    return;
-  }
-
-  const label = dim(ctx, `Preset: ${preset.name}`);
-
-  if (!active.dirty) {
-    ctx.ui.setStatus(STATUS_KEY, label);
-
-    return;
-  }
-
-  ctx.ui.setStatus(STATUS_KEY, `${label}${warning(ctx, "!")}`);
+  return `${label}${warning(theme, "!")}`;
 }
 
-function dim(ctx: StatusContext, text: string): string {
-  return ctx.ui.theme?.fg("dim", text) ?? text;
+function dim(theme: Theme | undefined, text: string): string {
+  return theme?.fg("dim", text) ?? text;
 }
 
-function warning(ctx: StatusContext, text: string): string {
-  return ctx.ui.theme?.fg("warning", text) ?? text;
+function warning(theme: Theme | undefined, text: string): string {
+  return theme?.fg("warning", text) ?? text;
 }

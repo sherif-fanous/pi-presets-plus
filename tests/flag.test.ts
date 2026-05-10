@@ -1,6 +1,7 @@
 /**
  * Tests for startup `--preset` flag handling.
  */
+import { ActivePresetSession } from "../src/activation/session.js";
 import type { LoadedPreset } from "../src/types.js";
 import type {
   ExtensionAPI,
@@ -61,19 +62,26 @@ describe("applyPresetFlag", () => {
     const userPreset = preset("plan", "user", { shadowed: true });
     const projectPreset = preset("plan", "project");
 
-    await applyPresetFlag(pi, ctx, [userPreset, projectPreset]);
+    const session = new ActivePresetSession();
 
-    expect(applyMock).toHaveBeenCalledWith(projectPreset, ctx, pi);
+    await applyPresetFlag(pi, ctx, [userPreset, projectPreset], session);
+
+    expect(applyMock).toHaveBeenCalledWith(projectPreset, ctx, pi, session);
   });
 
   it("deduplicates available names in unknown-name warnings", async () => {
     const { ctx, notify } = fakeCtx();
 
-    await applyPresetFlag(fakePi("bad"), ctx, [
-      preset("plan", "user", { shadowed: true }),
-      preset("plan", "project"),
-      preset("review", "user"),
-    ]);
+    await applyPresetFlag(
+      fakePi("bad"),
+      ctx,
+      [
+        preset("plan", "user", { shadowed: true }),
+        preset("plan", "project"),
+        preset("review", "user"),
+      ],
+      new ActivePresetSession(),
+    );
 
     expect(notify).toHaveBeenCalledWith(
       '--preset: Unknown preset "bad". Available: plan, review.',
@@ -84,9 +92,12 @@ describe("applyPresetFlag", () => {
   it("marks unavailable entries in unknown-name warnings", async () => {
     const { ctx, notify } = fakeCtx();
 
-    await applyPresetFlag(fakePi("bad"), ctx, [
-      preset("plan", "project", { unavailable: "no-key" }),
-    ]);
+    await applyPresetFlag(
+      fakePi("bad"),
+      ctx,
+      [preset("plan", "project", { unavailable: "no-key" })],
+      new ActivePresetSession(),
+    );
 
     expect(notify).toHaveBeenCalledWith(
       '--preset: Unknown preset "bad". Available: plan (Unavailable: no-key).',
@@ -106,9 +117,11 @@ describe("applyPresetFlag", () => {
         'Preset "plan" is unavailable: missing API key. Activation skipped.',
     });
 
-    await applyPresetFlag(pi, ctx, [selected]);
+    const session = new ActivePresetSession();
 
-    expect(applyMock).toHaveBeenCalledWith(selected, ctx, pi);
+    await applyPresetFlag(pi, ctx, [selected], session);
+
+    expect(applyMock).toHaveBeenCalledWith(selected, ctx, pi, session);
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith(
       'Preset "plan" is unavailable: missing API key. Activation skipped.',
