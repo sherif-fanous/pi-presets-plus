@@ -11,10 +11,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { ActivePresetSession } from "../../../src/activation/session.js";
 import {
   getArgumentCompletions,
   handlePresetsCommand,
 } from "../../../src/commands/presets/router.js";
+import { HotkeyRegistry } from "../../../src/hotkey-registry.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let agentDir: string;
@@ -115,7 +117,13 @@ describe("handlePresetsCommand", () => {
   it("warns when the bare picker is invoked without interactive pi API", async () => {
     const { ctx, notify } = makeStubCtx();
 
-    await handlePresetsCommand("", ctx);
+    await handlePresetsCommand(
+      "",
+      ctx,
+      undefined,
+      new ActivePresetSession(),
+      new HotkeyRegistry(),
+    );
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify.mock.calls[0]?.[0]).toContain("interactive mode");
     expect(notify.mock.calls[0]?.[1]).toBe("warning");
@@ -124,7 +132,13 @@ describe("handlePresetsCommand", () => {
   it("warns on an unknown subcommand", async () => {
     const { ctx, notify } = makeStubCtx();
 
-    await handlePresetsCommand("bogus", ctx);
+    await handlePresetsCommand(
+      "bogus",
+      ctx,
+      undefined,
+      new ActivePresetSession(),
+      new HotkeyRegistry(),
+    );
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify.mock.calls[0]?.[0]).toContain('"bogus"');
     expect(notify.mock.calls[0]?.[1]).toBe("warning");
@@ -133,7 +147,13 @@ describe("handlePresetsCommand", () => {
   it("does not open the picker for `list`", async () => {
     const { ctx, notify } = makeStubCtx();
 
-    await handlePresetsCommand("list", ctx);
+    await handlePresetsCommand(
+      "list",
+      ctx,
+      undefined,
+      new ActivePresetSession(),
+      new HotkeyRegistry(),
+    );
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify.mock.calls[0]?.[0]).toContain("not a supported");
     expect(notify.mock.calls[0]?.[0]).toContain("/presets");
@@ -143,7 +163,13 @@ describe("handlePresetsCommand", () => {
   it("does not print text for `list --text`", async () => {
     const { ctx, notify } = makeStubCtx();
 
-    await handlePresetsCommand("list --text", ctx);
+    await handlePresetsCommand(
+      "list --text",
+      ctx,
+      undefined,
+      new ActivePresetSession(),
+      new HotkeyRegistry(),
+    );
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify.mock.calls[0]?.[0]).toContain("not a supported");
     expect(notify.mock.calls[0]?.[0]).not.toContain("no presets configured");
@@ -155,7 +181,13 @@ describe("handlePresetsCommand", () => {
     async (args) => {
       const { ctx, notify } = makeStubCtx();
 
-      await handlePresetsCommand(args, ctx);
+      await handlePresetsCommand(
+        args,
+        ctx,
+        undefined,
+        new ActivePresetSession(),
+        new HotkeyRegistry(),
+      );
       expect(notify).toHaveBeenCalledTimes(1);
       expect(notify.mock.calls[0]?.[0]).toContain("unknown subcommand");
       expect(notify.mock.calls[0]?.[1]).toBe("warning");
@@ -168,7 +200,13 @@ describe("handlePresetsCommand", () => {
       Parameters<typeof handlePresetsCommand>[2]
     >;
 
-    await handlePresetsCommand("plan", ctx, pi);
+    await handlePresetsCommand(
+      "plan",
+      ctx,
+      pi,
+      new ActivePresetSession(),
+      new HotkeyRegistry(),
+    );
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify.mock.calls[0]?.[0]).toContain('"plan"');
     expect(notify.mock.calls[0]?.[0]).toContain("unknown subcommand");
@@ -178,7 +216,13 @@ describe("handlePresetsCommand", () => {
   it("dispatches `reload` to runReload (empty-state path)", async () => {
     const { ctx, notify } = makeStubCtx();
 
-    await handlePresetsCommand("reload", ctx);
+    await handlePresetsCommand(
+      "reload",
+      ctx,
+      undefined,
+      new ActivePresetSession(),
+      new HotkeyRegistry(),
+    );
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify.mock.calls[0]?.[0]).toContain("Reloaded 0 presets");
     expect(notify.mock.calls[0]?.[1]).toBe("info");

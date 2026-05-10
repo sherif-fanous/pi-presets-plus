@@ -5,6 +5,8 @@
  * mocked command runners; command formatter details are covered elsewhere.
  */
 import type { ApplyResult } from "../../src/activation/apply.js";
+import { ActivePresetSession } from "../../src/activation/session.js";
+import { HotkeyRegistry } from "../../src/hotkey-registry.js";
 import type { LoadedPreset } from "../../src/types.js";
 import type { Component } from "@mariozechner/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,11 +20,10 @@ const renderClearSummary = vi.fn();
 
 vi.mock("../../src/activation/clear.js", () => ({
   clearReturning,
-  renderClearSummary,
 }));
 
-vi.mock("../../src/activation/active-state.js", () => ({
-  getActive: vi.fn(() => undefined),
+vi.mock("../../src/ui/clear-summary.js", () => ({
+  renderClearSummary,
 }));
 
 vi.mock("../../src/commands/presets/status.js", () => ({
@@ -117,8 +118,10 @@ async function runPicker(
   loadAll.mockResolvedValue({ presets: [selected], warnings: [] });
 
   const opened = openPicker(ctx, {
+    hotkeys: new HotkeyRegistry(),
     onActivate,
     pi: withPi ? (ctx as never) : undefined,
+    session: new ActivePresetSession(),
   });
 
   await vi.runAllTimersAsync();

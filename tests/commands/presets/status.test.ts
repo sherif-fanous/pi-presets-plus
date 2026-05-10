@@ -7,10 +7,7 @@
  * lookup edge over this formatter; its branches (no-active, missing
  * preset) are exercised in the apply-clear integration tests.
  */
-import {
-  clearActive,
-  setActive,
-} from "../../../src/activation/active-state.js";
+import { ActivePresetSession } from "../../../src/activation/session.js";
 import {
   formatStatus,
   runStatus,
@@ -42,8 +39,24 @@ function pi(thinkingLevel: string, tools: string[]) {
   };
 }
 
+/**
+ * Minimal SessionContext stub for tests that exercise `formatStatus` (a
+ * pure formatter) and need to seed an active preset via
+ * `_replaceForTest`. The setStatus call inside session is a no-op for
+ * formatStatus's purposes; we just need the call to not throw.
+ */
+function sessionCtxStub() {
+  return {
+    ui: {
+      setStatus: () => {
+        /* no-op for formatStatus tests */
+      },
+      theme: { fg: (_color: string, text: string) => text },
+    },
+  } as never;
+}
+
 afterEach(() => {
-  clearActive();
   loadAll.mockReset();
 });
 
@@ -62,7 +75,11 @@ describe("runStatus", () => {
       },
     };
 
-    await runStatus(ctx as never, pi("medium", []) as never);
+    await runStatus(
+      ctx as never,
+      pi("medium", []) as never,
+      new ActivePresetSession(),
+    );
 
     expect(notifications).toEqual([["No preset is active.", "info"]]);
   });
@@ -86,6 +103,9 @@ describe("runStatus", () => {
         notify: (message: string, severity: string) => {
           notifications.push([message, severity]);
         },
+        setStatus: () => {
+          /* no-op for this test */
+        },
         theme: {
           bold: (text: string) => text,
           fg: (_color: string, text: string) => text,
@@ -93,10 +113,12 @@ describe("runStatus", () => {
       },
     };
 
-    setActive(active);
+    const session = new ActivePresetSession();
+
+    session._replaceForTest(active, ctx as never);
     loadAll.mockResolvedValue({ presets: [preset], warnings: [] });
 
-    await runStatus(ctx as never, pi("high", ["read"]) as never);
+    await runStatus(ctx as never, pi("high", ["read"]) as never, session);
 
     expect(notifications).toHaveLength(1);
     expect(notifications[0]?.[0]).toContain("Preset Status");
@@ -133,7 +155,9 @@ describe("formatStatus", () => {
       },
     };
 
-    setActive(active);
+    const session = new ActivePresetSession();
+
+    session._replaceForTest(active, sessionCtxStub());
 
     const out = formatStatus(
       active,
@@ -194,7 +218,9 @@ describe("formatStatus", () => {
       },
     };
 
-    setActive(active);
+    const session = new ActivePresetSession();
+
+    session._replaceForTest(active, sessionCtxStub());
 
     const out = formatStatus(
       active,
@@ -231,7 +257,9 @@ describe("formatStatus", () => {
       scope: "project",
     };
 
-    setActive(active);
+    const session = new ActivePresetSession();
+
+    session._replaceForTest(active, sessionCtxStub());
 
     const out = formatStatus(
       active,

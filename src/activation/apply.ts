@@ -7,26 +7,16 @@
  * picker UI.
  */
 import { ACTIVATED_MESSAGE_TYPE } from "../messages.js";
+import { samePresetIdentity } from "../preset-identity.js";
 import type { LoadedPreset } from "../types.js";
-import { updateStatus } from "../ui/status.js";
-import { getActive, setActive } from "./active-state.js";
 import { captureBaseline } from "./baseline.js";
-import { markClean } from "./dirty.js";
-import { snapshotPresetForDrift } from "./drift.js";
+import type { ActivePresetSession } from "./session.js";
 import { stateMatches } from "./state-matches.js";
 import { effectiveThinkingLevel } from "./thinking.js";
 import type {
   ExtensionAPI,
   ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
-
-/**
- * Counter (not boolean) so nested `withSelfTriggeredModelSet` calls cannot
- * silently drop the guard when the inner call's `finally` runs while the
- * outer call is still in flight. Today there is only one caller, but the
- * counter shape costs nothing and removes a footgun for future callers.
- */
-let selfTriggeredModelSetDepth = 0;
 
 /**
  * In-memory result from applying a preset.
@@ -55,6 +45,7 @@ export async function apply(
   preset: LoadedPreset,
   ctx: ExtensionContext,
   pi: ExtensionAPI,
+  session: ActivePresetSession,
 ): Promise<ApplyResult> {
   if (preset.unavailable) {
     const kind = preset.unavailable;
@@ -62,15 +53,15 @@ export async function apply(
     return { ok: false, kind, reason: failureReason(kind, preset) };
   }
 
-  const current = getActive();
+  const current = session.current();
 
   if (
-    current?.name === preset.name &&
-    current.scope === preset.scope &&
+    current &&
+    samePresetIdentity(current, preset) &&
     current.restore.kind === "baseline" &&
     stateMatches(preset, pi, ctx)
   ) {
-    if (current.dirty) await markClean(ctx);
+    if (current.dirty) session.markClean(ctx);
 
     return { ok: true };
   }
@@ -92,7 +83,7 @@ export async function apply(
   const previousAppliedTools = previousBaseline?.lastApplied.tools;
   const previousOwnedTools = previousBaseline?.owned.tools ?? false;
 
-  if (!(await setModelGuarded(pi, model))) {
+  if (!(await setModelGuarded(pi, model, session))) {
     return {
       ok: false,
       kind: "key-revoked",
@@ -133,28 +124,27 @@ export async function apply(
     ownedTools = true;
   }
 
-  setActive({
-    declared: snapshotPresetForDrift({ ...preset, tools: appliedTools }),
-    dirty: false,
-    name: preset.name,
-    restore: {
+  // session.start commits the new active state (and refreshes the status
+  // badge as part of that commit) BEFORE the customType message is
+  // emitted, so observers seeing the "Preset … applied" message can
+  // already query the updated state. The reverse order — message first,
+  // status second — would briefly publish an event whose corresponding
+  // state is not yet visible.
+  session.start(
+    {
       applyCount,
       baseline,
-      kind: "baseline",
       lastApplied: {
         ...(appliedTools !== undefined ? { tools: appliedTools } : {}),
         model: { id: preset.model, provider: preset.provider },
         thinkingLevel: effective,
       },
       owned: { model: true, thinkingLevel: true, tools: ownedTools },
+      preset,
     },
-    scope: preset.scope,
-  });
-
-  pi.appendEntry("presets-plus:active", {
-    name: preset.name,
-    scope: preset.scope,
-  });
+    ctx,
+    pi,
+  );
 
   pi.sendMessage({
     customType: ACTIVATED_MESSAGE_TYPE,
@@ -167,34 +157,7 @@ export async function apply(
     },
   });
 
-  updateStatus(ctx, getActive(), (name, scope) =>
-    name === preset.name && scope === preset.scope ? preset : undefined,
-  );
-
   return { ok: true };
-}
-
-export function isSelfTriggeredModelSet(): boolean {
-  return selfTriggeredModelSetDepth > 0;
-}
-
-/**
- * Run `fn` with the self-call counter raised so a `model_select` event
- * triggered by `pi.setModel` inside `fn` is recognized as our own write
- * and ignored by the drift-detection handler. The counter shape (vs. a
- * boolean) keeps nested or concurrent calls from accidentally lowering the
- * guard while an outer call is still in flight.
- */
-export async function withSelfTriggeredModelSet<T>(
-  fn: () => Promise<T>,
-): Promise<T> {
-  selfTriggeredModelSetDepth++;
-
-  try {
-    return await fn();
-  } finally {
-    selfTriggeredModelSetDepth--;
-  }
 }
 
 function failureReason(
@@ -231,6 +194,7 @@ function filterValidTools(
 async function setModelGuarded(
   pi: Pick<ExtensionAPI, "setModel">,
   model: NonNullable<ReturnType<ExtensionContext["modelRegistry"]["find"]>>,
+  session: ActivePresetSession,
 ): Promise<boolean> {
-  return withSelfTriggeredModelSet(() => pi.setModel(model));
+  return session.withSelfTriggeredModelSet(() => pi.setModel(model));
 }

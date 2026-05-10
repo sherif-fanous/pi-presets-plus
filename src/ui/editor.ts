@@ -6,12 +6,10 @@
  * storage file parsing, or activation internals beyond the injected test
  * callback.
  */
-import { getActive, setActive } from "../activation/active-state.js";
+import type { ActivePresetSession } from "../activation/session.js";
 import { validThinkingLevels } from "../activation/thinking.js";
-import {
-  recordReloadPromptDeclined,
-  saveNeedsHotkeyReload,
-} from "../hotkey-reload-baseline.js";
+import type { HotkeyRegistry } from "../hotkey-registry.js";
+import { findPreset, samePresetIdentity } from "../preset-identity.js";
 import {
   addPreset,
   loadAll,
@@ -84,7 +82,9 @@ export interface EditorOptions {
    * picker) avoid a redundant disk read. Standalone callers omit this and
    * the editor falls back to `loadAll(ctx)`.
    */
+  hotkeys?: HotkeyRegistry;
   presets?: readonly LoadedPreset[];
+  session?: ActivePresetSession;
   onReloadRequested?(): void;
   onTest?(preset: LoadedPreset): Promise<{ ok: boolean }>;
 }
@@ -1015,14 +1015,14 @@ class PresetEditorComponent implements Component, Focusable {
 
     this.updateActiveAfterMoveOrRename(next);
 
-    const loaded = (await loadAll(this.ctx)).presets.find(
-      (preset) =>
-        preset.name === next.name && preset.scope === this.state.scope,
-    );
+    const loaded = findPreset((await loadAll(this.ctx)).presets, {
+      name: next.name,
+      scope: this.state.scope,
+    });
 
     const saved = loaded ?? { ...next, scope: this.state.scope };
 
-    if (saveNeedsHotkeyReload(this.initialPreset, saved)) {
+    if (this.options.hotkeys?.saveNeedsReload(this.initialPreset, saved)) {
       const reloadRequested = await this.promptReloadHidden();
 
       this.finish({ reloadRequested, saved });
@@ -1034,7 +1034,7 @@ class PresetEditorComponent implements Component, Focusable {
           reloadAfterOverlayClose(this.ctx);
         }
       } else {
-        recordReloadPromptDeclined(saved);
+        this.options.hotkeys.recordReloadPromptDeclined(saved);
       }
 
       return;
@@ -1104,9 +1104,10 @@ class PresetEditorComponent implements Component, Focusable {
    * surface refresh against the new identity on the next render.
    */
   private updateActiveAfterMoveOrRename(next: Preset): void {
-    if (!this.initialPreset || !this.options.pi) return;
+    if (!this.initialPreset || !this.options.pi || !this.options.session)
+      return;
 
-    const active = getActive();
+    const active = this.options.session.current();
 
     if (
       active?.name !== this.initialPreset.name ||
@@ -1115,11 +1116,12 @@ class PresetEditorComponent implements Component, Focusable {
       return;
     }
 
-    setActive({ ...active, name: next.name, scope: this.state.scope });
-    this.options.pi.appendEntry("presets-plus:active", {
-      name: next.name,
-      scope: this.state.scope,
-    });
+    this.options.session.updateIdentity(
+      next.name,
+      this.state.scope,
+      this.ctx,
+      this.options.pi,
+    );
   }
 
   private recomputeHotkeyDiagnostic(): void {
@@ -1196,9 +1198,7 @@ class PresetEditorComponent implements Component, Focusable {
       if (preset.name !== this.state.name.trim()) return false;
 
       return !(
-        this.initialPreset &&
-        preset.name === this.initialPreset.name &&
-        preset.scope === this.initialPreset.scope
+        this.initialPreset && samePresetIdentity(preset, this.initialPreset)
       );
     });
   }

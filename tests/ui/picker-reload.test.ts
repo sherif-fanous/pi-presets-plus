@@ -1,10 +1,8 @@
 /**
  * Reload-prompt integration tests for picker Delete paths.
  */
-import {
-  clearRuntimeHotkeyBaseline,
-  setRuntimeHotkeyBaseline,
-} from "../../src/hotkey-reload-baseline.js";
+import { ActivePresetSession } from "../../src/activation/session.js";
+import { analyzeHotkeys, HotkeyRegistry } from "../../src/hotkey-registry.js";
 import type { LoadedPreset } from "../../src/types.js";
 import type { Component } from "@mariozechner/pi-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -76,7 +74,17 @@ function preset(hotkey?: string): LoadedPreset {
 async function runDelete(hotkey: string | undefined, reloadAnswer = false) {
   const selected = preset(hotkey);
 
-  setRuntimeHotkeyBaseline([selected]);
+  const hotkeys = new HotkeyRegistry();
+  const baseline = [selected];
+
+  hotkeys.bindForSession(
+    baseline,
+    analyzeHotkeys(baseline),
+    { ui: { notify: () => undefined } } as never,
+    { registerShortcut: () => undefined } as never,
+    () => Promise.resolve(baseline),
+    {} as never,
+  );
 
   const ctx = makeCtx();
 
@@ -85,8 +93,10 @@ async function runDelete(hotkey: string | undefined, reloadAnswer = false) {
   openConfirm.mockResolvedValueOnce(true).mockResolvedValueOnce(reloadAnswer);
 
   const opened = openPicker(ctx as never, {
+    hotkeys,
     onActivate: () => Promise.resolve({ ok: true }),
     pi: ctx as never,
+    session: new ActivePresetSession(),
   });
 
   await vi.runAllTimersAsync();
@@ -101,7 +111,6 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-  clearRuntimeHotkeyBaseline();
   vi.resetAllMocks();
   vi.useFakeTimers();
 });

@@ -2,24 +2,20 @@
  * Active-preset clear flow.
  *
  * Owns restoring pi state from the baseline overlay (with user-override
- * protection) and rendering a user-visible summary; it does NOT own apply,
- * picker UI, or status formatting beyond its own summary.
+ * protection) and deciding clear outcomes; it does NOT own apply, picker UI,
+ * or pure clear-summary rendering.
  */
 import type { ActivePresetState, ThinkingLevel } from "../types.js";
 import {
-  CLEAR_DIALOG_TITLE,
-  MODEL_LABEL,
-  THINKING_LABEL,
-  TOOLS_LABEL,
-} from "../ui/labels.js";
-import { updateStatus } from "../ui/status.js";
-import { clearActive, getActive } from "./active-state.js";
-import { withSelfTriggeredModelSet } from "./apply.js";
+  formatModel,
+  formatTools,
+  renderClearSummary,
+} from "../ui/clear-summary.js";
 import { sameSet } from "./same-set.js";
+import type { ActivePresetSession } from "./session.js";
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
-  Theme,
 } from "@mariozechner/pi-coding-agent";
 
 export interface ClearDecision {
@@ -43,6 +39,11 @@ export interface ClearPart {
    *   reach; the renderer wraps it as "could not switch back to …".
    */
   readonly value: string;
+}
+
+export interface ClearResult {
+  readonly name: string;
+  readonly parts: readonly ClearPart[];
 }
 
 export interface ClearSnapshot {
@@ -71,73 +72,12 @@ export type ClearAction =
 
 export type ClearField = "model" | "thinking" | "tools";
 
-interface Styler {
-  bold(text: string): string;
-  fg(color: Parameters<Theme["fg"]>[0], text: string): string;
-}
-
-const FIELD_LABELS: Record<ClearField, string> = {
-  model: MODEL_LABEL,
-  thinking: THINKING_LABEL,
-  tools: TOOLS_LABEL,
-};
-
-const IDENTITY_STYLER: Styler = {
-  bold: (text) => text,
-  fg: (_color, text) => text,
-};
-
-export interface ClearResult {
-  readonly name: string;
-  readonly parts: readonly ClearPart[];
-}
-
-/**
- * Choose the plain-English lead sentence that sits under the title.
- *
- * The sentence describes the overall disposition so the per-row values
- * underneath can stay short. Decision priority (most specific first):
- *
- *   1. Every field is `unknown` (priorUnknown branch) — no baseline saved.
- *   2. Any field failed to restore — surface the problem in the lead.
- *   3. Every field already matched baseline — nothing was actually written.
- *   4. Every field is restore-like (restored / restored-partial /
- *      already-baseline) — the happy path; mention unavailable tools if any.
- *   5. Every field was kept (user-override / not-owned / baseline-null) —
- *      preset turned off but no baseline values were applicable.
- *   6. Otherwise it's a mixed result.
- */
-export function chooseClearLead(parts: readonly ClearPart[]): string {
-  if (parts.every((part) => part.action === "unknown")) {
-    return "No saved baseline. Current settings were left as-is.";
-  }
-
-  if (parts.some((part) => part.action === "restore-failed")) {
-    return "Tried to restore your previous settings but ran into a problem.";
-  }
-
-  if (parts.every((part) => part.action === "already-baseline")) {
-    return "Your settings already matched the saved baseline.";
-  }
-
-  if (parts.every((part) => isRestoreLike(part.action))) {
-    return parts.some((part) => part.action === "restored-partial")
-      ? "Restored your previous settings. Some tools are no longer available."
-      : "Restored your previous settings.";
-  }
-
-  if (parts.every((part) => isKeptLike(part.action))) {
-    return "Kept all your manual changes. Nothing to restore.";
-  }
-
-  return "Restored some settings. Kept your manual changes for others.";
-}
-
 export async function clear(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
+  session: ActivePresetSession,
 ): Promise<void> {
-  const result = await clearReturning(ctx, pi);
+  const result = await clearReturning(ctx, pi, session);
 
   ctx.ui.notify(
     result
@@ -150,8 +90,9 @@ export async function clear(
 export async function clearReturning(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
+  session: ActivePresetSession,
 ): Promise<ClearResult | undefined> {
-  const active = getActive();
+  const active = session.current();
 
   if (!active) return undefined;
 
@@ -165,11 +106,9 @@ export async function clearReturning(
     currentThinking: pi.getThinkingLevel(),
     currentTools: pi.getActiveTools(),
   });
-  const finalParts = await executeClear(decision, ctx, pi);
+  const finalParts = await executeClear(decision, ctx, pi, session);
 
-  clearActive();
-  pi.appendEntry("presets-plus:active", { name: null });
-  updateStatus(ctx, getActive(), () => undefined);
+  session.clear(ctx, pi);
 
   return { name: active.name, parts: finalParts };
 }
@@ -293,32 +232,11 @@ export function decideClear(snapshot: ClearSnapshot): ClearDecision {
   return { parts, writes };
 }
 
-export function renderClearSummary(
-  name: string,
-  parts: readonly ClearPart[],
-  styler: Pick<Theme, "bold" | "fg"> = IDENTITY_STYLER,
-): string {
-  const safeStyler = normalizeStyler(styler);
-  const labels = parts.map((part) => `${FIELD_LABELS[part.field]}:`);
-  const labelWidth = Math.max(...labels.map((label) => label.length));
-  const title = safeStyler.bold(
-    safeStyler.fg("accent", `${CLEAR_DIALOG_TITLE}: ${name}`),
-  );
-  const lead = chooseClearLead(parts);
-  const rows = parts.map((part) => {
-    const label = `${FIELD_LABELS[part.field]}:`;
-    const padding = " ".repeat(labelWidth - label.length);
-
-    return `  ${safeStyler.fg("muted", label)}${padding} ${formatRowValue(part)}`;
-  });
-
-  return [title, lead, ...rows].join("\n");
-}
-
 async function executeClear(
   decision: ClearDecision,
   ctx: Pick<ExtensionCommandContext, "modelRegistry">,
   pi: Pick<ExtensionAPI, "setActiveTools" | "setModel" | "setThinkingLevel">,
+  session: ActivePresetSession,
 ): Promise<ClearPart[]> {
   const parts = decision.parts.map((part) => ({ ...part }));
 
@@ -326,7 +244,7 @@ async function executeClear(
     const target = decision.writes.model;
     const model = ctx.modelRegistry.find(target.provider, target.id);
     const ok = model
-      ? await withSelfTriggeredModelSet(() => pi.setModel(model))
+      ? await session.withSelfTriggeredModelSet(() => pi.setModel(model))
       : false;
 
     if (!ok) {
@@ -351,79 +269,6 @@ async function executeClear(
   }
 
   return parts;
-}
-
-function formatModel(model: { provider: string; id: string } | null): string {
-  return model ? `${model.provider}/${model.id}` : "none";
-}
-
-/**
- * Render the post-colon body for a single field row.
- *
- * The vocabulary intentionally parallels `formatStatus` so a user reading
- * `/presets status` and then `/presets clear <name>` sees the same phrases
- * for manual overrides / "not managed by …" /
- * "no baseline saved for this field". Restored / already-baseline rows
- * stay bare — the lead sentence above the rows already explains the
- * disposition.
- */
-function formatRowValue(part: ClearPart): string {
-  switch (part.action) {
-    case "already-baseline":
-    case "restored":
-      return part.value;
-
-    case "baseline-null":
-    case "unknown":
-      return `${part.value} (No baseline saved for this field)`;
-
-    case "not-owned":
-      return `${part.value} (Not managed by cleared preset)`;
-
-    case "restore-failed":
-      return `Could not switch back to ${part.value}.`;
-
-    case "restored-partial":
-      return part.dropped && part.dropped.length > 0
-        ? `${part.value} (Unavailable: ${part.dropped.join(", ")})`
-        : part.value;
-
-    case "user-override":
-      return `${part.value} (Left as-is — you changed it after activation)`;
-  }
-}
-
-function formatTools(tools: readonly string[]): string {
-  return tools.length > 0 ? tools.join(", ") : "none";
-}
-
-function isKeptLike(action: ClearAction): boolean {
-  return (
-    action === "user-override" ||
-    action === "not-owned" ||
-    action === "baseline-null"
-  );
-}
-
-function isRestoreLike(action: ClearAction): boolean {
-  return (
-    action === "restored" ||
-    action === "restored-partial" ||
-    action === "already-baseline"
-  );
-}
-
-function normalizeStyler(styler: Pick<Theme, "bold" | "fg">): Styler {
-  return {
-    bold: (text) =>
-      typeof styler.bold === "function"
-        ? styler.bold(text)
-        : IDENTITY_STYLER.bold(text),
-    fg: (color, text) =>
-      typeof styler.fg === "function"
-        ? styler.fg(color, text)
-        : IDENTITY_STYLER.fg(color, text),
-  };
 }
 
 function sameModel(

@@ -1,8 +1,10 @@
 .DS_Store
+.agents/
 .env
 .fallow/
 .pi/
 node_modules/
 openspec/changes/*
 pi-presets-plus.code-workspace
+skills-lock.json
 !openspec/changes/archive/
