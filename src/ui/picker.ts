@@ -287,6 +287,19 @@ class PresetPickerComponent implements Component, Focusable {
       return;
     }
 
+    if (!this.session.current()) {
+      await this.runWithHiddenOverlay(() =>
+        openInfoDialog(this.ctx, {
+          body: "No preset is active.",
+          title: "Clear Unavailable",
+          // No active preset is a normal empty state, unlike missing Pi API.
+          tone: "info",
+        }),
+      );
+
+      return;
+    }
+
     const confirmed = await this.runWithHiddenOverlay(() =>
       openConfirm(
         this.ctx,

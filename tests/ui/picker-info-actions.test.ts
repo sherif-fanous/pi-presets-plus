@@ -7,7 +7,7 @@
 import type { ApplyResult } from "../../src/activation/apply.js";
 import { ActivePresetSession } from "../../src/activation/session.js";
 import { HotkeyRegistry } from "../../src/hotkey-registry.js";
-import type { LoadedPreset } from "../../src/types.js";
+import type { ActivePresetState, LoadedPreset } from "../../src/types.js";
 import type { Component } from "@mariozechner/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -55,15 +55,33 @@ const selected: LoadedPreset = {
 };
 
 interface PickerHarness {
+  readonly done: ReturnType<typeof vi.fn>;
   readonly focus: ReturnType<typeof vi.fn>;
   readonly notify: ReturnType<typeof vi.fn>;
   readonly requestRender: ReturnType<typeof vi.fn>;
   readonly setHidden: ReturnType<typeof vi.fn>;
 }
 
+interface RunPickerOptions {
+  readonly active?: boolean;
+  readonly onActivate?: () => Promise<ApplyResult>;
+  readonly withPi?: boolean;
+}
+
+function activeState(preset: LoadedPreset = selected): ActivePresetState {
+  return {
+    declared: preset,
+    dirty: false,
+    name: preset.name,
+    restore: { kind: "unknown" },
+    scope: preset.scope,
+  };
+}
+
 function makeCtx(
   input: string,
 ): PickerHarness & Parameters<typeof openPicker>[0] {
+  const done = vi.fn();
   const focus = vi.fn();
   const notify = vi.fn();
   const requestRender = vi.fn();
@@ -90,7 +108,10 @@ function makeCtx(
                 fg: (_name: string, text: string) => text,
               },
               {},
-              resolve,
+              (result: unknown) => {
+                done(result);
+                resolve(result);
+              },
             );
 
             options.onHandle?.({ focus, setHidden });
@@ -99,7 +120,12 @@ function makeCtx(
           }),
       ),
       notify,
+      setStatus: vi.fn(),
+      theme: {
+        fg: (_color: string, text: string) => text,
+      },
     },
+    done,
     focus,
     notify,
     requestRender,
@@ -109,19 +135,27 @@ function makeCtx(
 
 async function runPicker(
   input: string,
-  withPi = true,
-  onActivate: () => Promise<ApplyResult> = () =>
-    Promise.resolve({ ok: true } as const),
+  options: RunPickerOptions = {},
 ): Promise<PickerHarness> {
+  const {
+    active = false,
+    onActivate = () => Promise.resolve({ ok: true } as const),
+    withPi = true,
+  } = options;
   const ctx = makeCtx(input);
+  const session = new ActivePresetSession();
 
   loadAll.mockResolvedValue({ presets: [selected], warnings: [] });
+
+  if (active) {
+    session._replaceForTest(activeState(), ctx);
+  }
 
   const opened = openPicker(ctx, {
     hotkeys: new HotkeyRegistry(),
     onActivate,
     pi: withPi ? (ctx as never) : undefined,
-    session: new ActivePresetSession(),
+    session,
   });
 
   await vi.runAllTimersAsync();
@@ -147,14 +181,15 @@ beforeEach(() => {
 
 describe("openPicker info actions", () => {
   it("opens activation refusals in an error info-dialog", async () => {
-    const ctx = await runPicker("\r", true, () =>
-      Promise.resolve({
-        kind: "no-key",
-        ok: false,
-        reason:
-          'Preset "plan" is unavailable: missing API key. Activation skipped.',
-      } as const),
-    );
+    const ctx = await runPicker("\r", {
+      onActivate: () =>
+        Promise.resolve({
+          kind: "no-key",
+          ok: false,
+          reason:
+            'Preset "plan" is unavailable: missing API key. Activation skipped.',
+        } as const),
+    });
 
     expect(openInfoDialog).toHaveBeenCalledWith(ctx, {
       body: 'Preset "plan" is unavailable: missing API key. Activation skipped.',
@@ -213,7 +248,7 @@ describe("openPicker info actions", () => {
   });
 
   it("explains status unavailability when pi is not provided", async () => {
-    await runPicker("s", false);
+    await runPicker("s", { withPi: false });
 
     expect(openInfoDialog).toHaveBeenCalledWith(expect.anything(), {
       body: "This action is unavailable because the Pi API was not provided.",
@@ -222,8 +257,24 @@ describe("openPicker info actions", () => {
     });
   });
 
-  it("shows confirmed clear summary in an info-dialog, not notify", async () => {
+  it("short-circuits clear with an info-dialog when no preset is active", async () => {
     const ctx = await runPicker("c");
+
+    expect(openConfirm).not.toHaveBeenCalled();
+    expect(clearReturning).not.toHaveBeenCalled();
+    expect(openInfoDialog).toHaveBeenCalledWith(ctx, {
+      body: "No preset is active.",
+      title: "Clear Unavailable",
+      tone: "info",
+    });
+    expect(ctx.setHidden).toHaveBeenCalledWith(true);
+    expect(ctx.setHidden).toHaveBeenCalledWith(false);
+    expect(ctx.focus).toHaveBeenCalledOnce();
+    expect(ctx.done).not.toHaveBeenCalled();
+  });
+
+  it("shows confirmed clear summary in an info-dialog, not notify", async () => {
+    const ctx = await runPicker("c", { active: true });
 
     expect(openConfirm).toHaveBeenCalledOnce();
     expect(clearReturning).toHaveBeenCalledOnce();
@@ -236,7 +287,7 @@ describe("openPicker info actions", () => {
   });
 
   it("explains clear unavailability when pi is not provided", async () => {
-    await runPicker("c", false);
+    await runPicker("c", { withPi: false });
 
     expect(openInfoDialog).toHaveBeenCalledWith(expect.anything(), {
       body: "This action is unavailable because the Pi API was not provided.",
@@ -248,7 +299,7 @@ describe("openPicker info actions", () => {
   it("does not open info-dialog when clear confirm is declined", async () => {
     openConfirm.mockResolvedValue(false);
 
-    await runPicker("c");
+    await runPicker("c", { active: true });
 
     expect(clearReturning).not.toHaveBeenCalled();
     expect(openInfoDialog).not.toHaveBeenCalled();
