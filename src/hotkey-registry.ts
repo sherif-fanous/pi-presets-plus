@@ -88,7 +88,7 @@ export class HotkeyRegistry {
       if (isPiBuiltin(parsed)) {
         ctx.ui.notify(
           `${formatPresetSubject(preset)} hotkey "${preset.hotkey}" shadows a Pi built-in. The preset binding will take precedence.`,
-          "info",
+          "warning",
         );
       }
 

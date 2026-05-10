@@ -218,7 +218,7 @@ describe("HotkeyRegistry.bindForSession", () => {
     );
 
     expect(notify).toHaveBeenCalledWith(
-      expect.stringContaining('conflicts with preset "plan" (user)'),
+      'Preset "review" hotkey "ctrl+shift+1" conflicts with preset "plan" (user). The first registered wins.',
       "warning",
     );
 
@@ -247,8 +247,28 @@ describe("HotkeyRegistry.bindForSession", () => {
 
     expect(notify).toHaveBeenCalledWith(
       'Preset "plan" hotkey "ctrl+l" shadows a Pi built-in. The preset binding will take precedence.',
-      "info",
+      "warning",
     );
+  });
+
+  it("uses warning severity for both collision-style notifications", () => {
+    const registry = new HotkeyRegistry();
+
+    const { notify } = bind(registry, [
+      preset("plan", "ctrl+l"),
+      preset("review", "ctrl+l"),
+    ]);
+
+    expect(notify.mock.calls).toEqual([
+      [
+        'Preset "review" hotkey "ctrl+l" conflicts with preset "plan" (user). The first registered wins.',
+        "warning",
+      ],
+      [
+        'Preset "plan" hotkey "ctrl+l" shadows a Pi built-in. The preset binding will take precedence.',
+        "warning",
+      ],
+    ]);
   });
 
   it("skips shadowed presets", () => {
