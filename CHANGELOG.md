@@ -2,6 +2,13 @@
 
 This changelog follows [Common Changelog](https://common-changelog.org/).
 
+## [0.1.2] - 2026-05-09
+
+### Fixed
+
+- Pressing `c` (clear) inside the preset picker with no preset active no longer opens an empty confirm-then-nothing dialog. The picker now shows an info-dialog stating "No preset is active." and returns to the picker.
+- The session-start notification for a preset that shadows a Pi built-in now uses warning severity to match the visual treatment of preset-vs-preset hotkey conflicts. Both collision-style notifications render consistently.
+
 ## [0.1.1] - 2026-05-09
 
 ### Changed
@@ -12,5 +19,6 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 _Initial release._
 
+[0.1.2]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.2
 [0.1.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.1
 [0.1.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.0
