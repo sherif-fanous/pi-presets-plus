@@ -74,42 +74,79 @@ afterEach(async () => {
 });
 
 describe("getArgumentCompletions", () => {
-  it("returns supported subcommands when the prefix is empty", () => {
-    const result = getArgumentCompletions("");
+  it("returns supported subcommands when the prefix is empty", async () => {
+    const result = await getArgumentCompletions("");
 
     expect(result.map((completion) => completion.value).sort()).toEqual([
       "clear",
       "reload",
+      "show-prompt",
       "status",
     ]);
   });
 
-  it("filters by exact prefix match", () => {
+  it("filters by exact prefix match", async () => {
     expect(
-      getArgumentCompletions("re").map((completion) => completion.value),
+      (await getArgumentCompletions("re")).map(
+        (completion) => completion.value,
+      ),
     ).toEqual(["reload"]);
 
-    expect(getArgumentCompletions("li")).toEqual([]);
-    expect(getArgumentCompletions("save")).toEqual([]);
-    expect(getArgumentCompletions("edit")).toEqual([]);
-    expect(getArgumentCompletions("rm")).toEqual([]);
-    expect(getArgumentCompletions("next")).toEqual([]);
-    expect(getArgumentCompletions("prev")).toEqual([]);
+    expect(await getArgumentCompletions("li")).toEqual([]);
+    expect(await getArgumentCompletions("save")).toEqual([]);
+    expect(await getArgumentCompletions("edit")).toEqual([]);
+    expect(await getArgumentCompletions("rm")).toEqual([]);
+    expect(await getArgumentCompletions("next")).toEqual([]);
+    expect(await getArgumentCompletions("prev")).toEqual([]);
   });
 
-  it("does not complete removed list flags", () => {
-    expect(getArgumentCompletions("list --t")).toEqual([]);
+  it("does not complete removed list flags", async () => {
+    expect(await getArgumentCompletions("list --t")).toEqual([]);
   });
 
-  it("returns nothing when nothing matches", () => {
-    expect(getArgumentCompletions("xyz")).toEqual([]);
-    expect(getArgumentCompletions("list --json")).toEqual([]);
+  it("returns nothing when nothing matches", async () => {
+    expect(await getArgumentCompletions("xyz")).toEqual([]);
+    expect(await getArgumentCompletions("list --json")).toEqual([]);
   });
 
-  it("each entry carries a human-readable label", () => {
-    for (const entry of getArgumentCompletions("")) {
+  it("each entry carries a human-readable label", async () => {
+    for (const entry of await getArgumentCompletions("")) {
       expect(entry.label.length).toBeGreaterThan(entry.value.length);
     }
+  });
+
+  it("returns all show-prompt names for an empty name prefix", async () => {
+    const result = await getArgumentCompletions("show-prompt ", () =>
+      Promise.resolve(["plan", "peer-review"]),
+    );
+
+    expect(result).toEqual([
+      { label: "plan", value: "plan" },
+      { label: "peer-review", value: "peer-review" },
+    ]);
+  });
+
+  it("filters show-prompt names by prefix", async () => {
+    const result = await getArgumentCompletions("show-prompt p", () =>
+      Promise.resolve(["plan", "peer-review", "llm-review", "commit"]),
+    );
+
+    expect(result).toEqual([
+      { label: "plan", value: "plan" },
+      { label: "peer-review", value: "peer-review" },
+    ]);
+  });
+
+  it("ignores extra spaces before show-prompt name prefixes", async () => {
+    const result = await getArgumentCompletions("show-prompt   plan", () =>
+      Promise.resolve(["plan", "peer-review"]),
+    );
+
+    expect(result).toEqual([{ label: "plan", value: "plan" }]);
+  });
+
+  it("returns no show-prompt names before the loader is wired", async () => {
+    await expect(getArgumentCompletions("show-prompt ")).resolves.toEqual([]);
   });
 });
 
@@ -211,6 +248,21 @@ describe("handlePresetsCommand", () => {
     expect(notify.mock.calls[0]?.[0]).toContain('"plan"');
     expect(notify.mock.calls[0]?.[0]).toContain("unknown subcommand");
     expect(notify.mock.calls[0]?.[1]).toBe("warning");
+  });
+
+  it("dispatches `show-prompt` to runShowPrompt", async () => {
+    const { ctx, notify } = makeStubCtx();
+
+    await handlePresetsCommand(
+      "show-prompt",
+      ctx,
+      undefined,
+      new ActivePresetSession(),
+      new HotkeyRegistry(),
+    );
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify.mock.calls[0]?.[0]).toBe("No preset is active.");
+    expect(notify.mock.calls[0]?.[1]).toBe("info");
   });
 
   it("dispatches `reload` to runReload (empty-state path)", async () => {

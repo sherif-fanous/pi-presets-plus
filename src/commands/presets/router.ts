@@ -11,6 +11,7 @@ import type { HotkeyRegistry } from "../../hotkey-registry.js";
 import { openPicker } from "../../ui/picker.js";
 import { runClear } from "./clear.js";
 import { runReload } from "./reload.js";
+import { runShowPrompt } from "./show-prompt.js";
 import { runStatus } from "./status.js";
 import type {
   ExtensionAPI,
@@ -45,12 +46,28 @@ const SUBCOMMANDS: readonly Subcommand[] = [
     label: "status: show active preset details",
     run: runStatusWrapper,
   },
+  {
+    value: "show-prompt",
+    label: "show-prompt: show the active preset's prompt (or [name])",
+    run: runShowPrompt,
+  },
 ] as const;
 
-export function getArgumentCompletions(
+export async function getArgumentCompletions(
   prefix: string,
-): { value: string; label: string }[] {
+  getPresetNames: () => Promise<readonly string[]> = () => Promise.resolve([]),
+): Promise<{ value: string; label: string }[]> {
   const trimmedPrefix = prefix.trimStart();
+  const showPromptPrefix = "show-prompt ";
+
+  if (trimmedPrefix.startsWith(showPromptPrefix)) {
+    const namePrefix = trimmedPrefix.slice(showPromptPrefix.length).trimStart();
+    const names = await getPresetNames();
+
+    return names
+      .filter((name) => name.startsWith(namePrefix))
+      .map((name) => ({ label: name, value: name }));
+  }
 
   if (trimmedPrefix.includes(" ")) return [];
 
@@ -97,9 +114,20 @@ export async function handlePresetsCommand(
   }
 
   ctx.ui.notify(
-    `unknown subcommand "${subCommand ?? ""}". try /presets, /presets reload, /presets clear, or /presets status.`,
+    `unknown subcommand "${subCommand ?? ""}". try ${formatSupportedCommandHint()}.`,
     "warning",
   );
+}
+
+function formatSupportedCommandHint(): string {
+  const commands = [
+    "/presets",
+    ...SUBCOMMANDS.map((subcommand) => `/presets ${subcommand.value}`),
+  ];
+
+  if (commands.length <= 1) return commands[0] ?? "/presets";
+
+  return `${commands.slice(0, -1).join(", ")}, or ${commands[commands.length - 1]}`;
 }
 
 async function runClearWrapper(

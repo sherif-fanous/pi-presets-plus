@@ -31,6 +31,9 @@ export const CLEAR_DIALOG_TITLE = "Preset cleared";
 export const ACTIVATION_FAILED_TITLE = "Activation failed";
 export const RELOAD_PROMPT_TITLE = "Reload Pi?";
 export const MOVE_PRESET_TITLE = "Move preset?";
+export const PROMPT_EDITOR_TITLE = "Edit prompt";
+export const PROMPT_EDITOR_TITLE_PREFIX = "Edit prompt: ";
+export const PROMPT_DIALOG_TITLE = "Preset Prompt";
 
 // Action labels, including single-use footer labels kept here for auditability.
 export const ACTIVATE_LABEL = "Activate";
