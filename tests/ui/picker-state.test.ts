@@ -7,6 +7,7 @@
  */
 import type { LoadedPreset } from "../../src/types.js";
 import {
+  clampScrollToFit,
   cycleScope,
   initialPickerState,
   moveSelection,
@@ -35,6 +36,81 @@ function scopedNames(presets: readonly LoadedPreset[]): string[] {
 }
 
 describe("picker state", () => {
+  it("keeps scroll offset when selected index is inside the packed range", () => {
+    const state = {
+      ...initialPickerState(),
+      scrollOffset: 3,
+      selectedIndex: 5,
+    };
+
+    expect(clampScrollToFit(state, 4, 10)).toEqual(state);
+  });
+
+  it("moves scroll offset down when selected index is past the packed range", () => {
+    const state = {
+      ...initialPickerState(),
+      scrollOffset: 4,
+      selectedIndex: 12,
+    };
+
+    expect(clampScrollToFit(state, 8, 18)).toEqual({
+      ...state,
+      scrollOffset: 5,
+    });
+  });
+
+  it("is idempotent after correcting scroll offset", () => {
+    const state = {
+      ...initialPickerState(),
+      scrollOffset: 4,
+      selectedIndex: 12,
+    };
+    const corrected = clampScrollToFit(state, 8, 18);
+
+    expect(clampScrollToFit(corrected, 8, 18)).toEqual(corrected);
+  });
+
+  it("does not adjust scroll offset without packed or visible cards", () => {
+    const state = {
+      ...initialPickerState(),
+      scrollOffset: 4,
+      selectedIndex: 12,
+    };
+
+    expect(clampScrollToFit(state, 0, 18)).toEqual(state);
+    expect(clampScrollToFit(state, 8, 0)).toEqual(state);
+  });
+
+  it("anchors upward stale state at the selected index", () => {
+    const state = {
+      ...initialPickerState(),
+      scrollOffset: 6,
+      selectedIndex: 2,
+    };
+
+    expect(clampScrollToFit(state, 8, 10)).toEqual({
+      ...state,
+      scrollOffset: 2,
+    });
+  });
+
+  it("corrects a stale state so selected index is inside the packed range", () => {
+    const state = {
+      ...initialPickerState(),
+      scrollOffset: 4,
+      selectedIndex: 12,
+    };
+    const corrected = clampScrollToFit(state, 8, 18);
+
+    expect(corrected.selectedIndex).toBeGreaterThanOrEqual(
+      corrected.scrollOffset,
+    );
+
+    expect(corrected.selectedIndex).toBeLessThanOrEqual(
+      corrected.scrollOffset + 8 - 1,
+    );
+  });
+
   it("starts in list focus with all scope and first item selected", () => {
     expect(initialPickerState()).toEqual({
       focusMode: "list",
