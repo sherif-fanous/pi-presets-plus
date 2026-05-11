@@ -2,6 +2,12 @@
 
 This changelog follows [Common Changelog](https://common-changelog.org/).
 
+## [0.1.4] - 2026-05-11
+
+### Fixed
+
+- The preset picker no longer drops the selected card from view when scrolling past a card-height boundary. Previously, pressing the down arrow (or Page Down) at certain positions would make the selection marker disappear and the next press appear to skip a preset. The picker now keeps the selected preset visible across every navigation, regardless of which optional rows individual preset cards contain.
+
 ## [0.1.3] - 2026-05-10
 
 ### Added
@@ -29,6 +35,7 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 _Initial release._
 
+[0.1.4]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.4
 [0.1.3]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.3
 [0.1.2]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.2
 [0.1.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.1
