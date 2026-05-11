@@ -19,6 +19,42 @@ export type PickerFocusMode = "list" | "filter";
 
 const SCOPE_ORDER: readonly ScopeFilter[] = ["all", "user", "project"];
 
+/**
+ * Re-anchors scroll after the render layer measures how many cards fit.
+ *
+ * `packedCount` and `visibleCount` come from the just-rendered view. Empty
+ * counts are treated as non-actionable render measurements, so selection is
+ * left unchanged for the caller that owns empty-list normalization.
+ */
+export function clampScrollToFit(
+  state: PickerState,
+  packedCount: number,
+  visibleCount: number,
+): PickerState {
+  if (packedCount === 0 || visibleCount === 0) return state;
+
+  const lastPackedIndex = state.scrollOffset + packedCount - 1;
+
+  if (
+    state.selectedIndex >= state.scrollOffset &&
+    state.selectedIndex <= lastPackedIndex
+  ) {
+    return state;
+  }
+
+  if (state.selectedIndex < state.scrollOffset) {
+    return { ...state, scrollOffset: state.selectedIndex };
+  }
+
+  const maxOffset = Math.max(0, visibleCount - packedCount);
+  const scrollOffset = Math.max(
+    0,
+    Math.min(maxOffset, state.selectedIndex - packedCount + 1),
+  );
+
+  return { ...state, scrollOffset };
+}
+
 export function cycleScope(
   state: PickerState,
   allPresets: readonly LoadedPreset[],

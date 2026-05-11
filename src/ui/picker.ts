@@ -45,6 +45,7 @@ import {
   STATUS_DIALOG_TITLE,
 } from "./labels.js";
 import {
+  clampScrollToFit,
   cycleScope as cyclePickerScope,
   initialPickerState,
   moveSelection as movePickerSelection,
@@ -116,6 +117,17 @@ const FALLBACK_AVG_CARD_LINES = 7;
 const CHROME_LINES = 6;
 /** Fallback page size when the terminal height is unknown or absurdly small. */
 const MIN_PAGE_SIZE = 1;
+
+interface PackedListResult {
+  readonly lines: string[];
+  readonly renderedCards: number;
+}
+
+interface RenderListResult {
+  readonly correctedScrollOffset?: number;
+  readonly lines: string[];
+  readonly renderedCards: number;
+}
 
 class PresetPickerComponent implements Component, Focusable {
   private _focused = false;
@@ -228,11 +240,21 @@ class PresetPickerComponent implements Component, Focusable {
   render(width: number): string[] {
     const frameWidth = Math.max(2, width);
 
+    const list = this.renderList(frameWidth);
+
+    if (list.correctedScrollOffset !== undefined) {
+      this.state = clampScrollToFit(
+        this.state,
+        list.renderedCards,
+        this.visiblePresets().length,
+      );
+    }
+
     return [
       this.renderTopBorder(frameWidth),
       frameLine(this.renderFilterContent(frameWidth), frameWidth),
       this.renderRule(frameWidth),
-      ...this.renderList(frameWidth),
+      ...list.lines,
       this.renderRule(frameWidth),
       frameLine(this.renderFooterContent(), frameWidth),
       this.renderBottomBorder(frameWidth),
@@ -750,32 +772,87 @@ class PresetPickerComponent implements Component, Focusable {
     return this.theme.fg("dim", ` ${footer}`);
   }
 
-  private renderList(width: number): string[] {
+  private renderList(width: number): RenderListResult {
     const visiblePresets = this.visiblePresets();
 
     if (visiblePresets.length === 0) {
       this.renderedPageSize = undefined;
 
-      return [
-        frameLine("", width),
-        frameLine(
-          centerText(
-            this.theme.fg("warning", "No matching presets"),
-            width - 2,
+      return {
+        lines: [
+          frameLine("", width),
+          frameLine(
+            centerText(
+              this.theme.fg("warning", "No matching presets"),
+              width - 2,
+            ),
+            width,
           ),
-          width,
-        ),
-        frameLine("", width),
-      ];
+          frameLine("", width),
+        ],
+        renderedCards: 0,
+      };
     }
 
+    let scrollOffset = this.state.scrollOffset;
+    let packed = this.packList(width, scrollOffset);
+    let correctedScrollOffset: number | undefined;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const lastPackedIndex = scrollOffset + packed.renderedCards - 1;
+
+      if (
+        this.state.selectedIndex >= scrollOffset &&
+        this.state.selectedIndex <= lastPackedIndex
+      ) {
+        this.renderedPageSize = Math.max(MIN_PAGE_SIZE, packed.renderedCards);
+
+        if (correctedScrollOffset !== undefined) {
+          return {
+            correctedScrollOffset,
+            lines: packed.lines,
+            renderedCards: packed.renderedCards,
+          };
+        }
+
+        return { lines: packed.lines, renderedCards: packed.renderedCards };
+      }
+
+      const nextScrollOffset = clampScrollToFit(
+        { ...this.state, scrollOffset },
+        packed.renderedCards,
+        visiblePresets.length,
+      ).scrollOffset;
+
+      if (nextScrollOffset === scrollOffset) break;
+
+      correctedScrollOffset = nextScrollOffset;
+      scrollOffset = nextScrollOffset;
+      packed = this.packList(width, scrollOffset);
+    }
+
+    this.renderedPageSize = Math.max(MIN_PAGE_SIZE, packed.renderedCards);
+
+    if (correctedScrollOffset !== undefined) {
+      return {
+        correctedScrollOffset,
+        lines: packed.lines,
+        renderedCards: packed.renderedCards,
+      };
+    }
+
+    return { lines: packed.lines, renderedCards: packed.renderedCards };
+  }
+
+  private packList(width: number, scrollOffset: number): PackedListResult {
+    const visiblePresets = this.visiblePresets();
     const active = this.session.current();
     const lines: string[] = [];
     const lineBudget = this.listLineBudget();
     let renderedCards = 0;
 
     for (
-      let absoluteIndex = this.state.scrollOffset;
+      let absoluteIndex = scrollOffset;
       absoluteIndex < visiblePresets.length;
       absoluteIndex++
     ) {
@@ -815,9 +892,7 @@ class PresetPickerComponent implements Component, Focusable {
       renderedCards++;
     }
 
-    this.renderedPageSize = Math.max(MIN_PAGE_SIZE, renderedCards);
-
-    return lines;
+    return { lines, renderedCards };
   }
 
   private renderRule(width: number): string {
