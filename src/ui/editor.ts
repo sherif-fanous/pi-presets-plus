@@ -40,6 +40,7 @@ import {
   THINKING_LABEL,
   TOOLS_LABEL,
 } from "./labels.js";
+import { openPromptEditor } from "./prompt-editor.js";
 import { confirmReload, reloadAfterOverlayClose } from "./reload-prompt.js";
 import type { Api, Model } from "@mariozechner/pi-ai";
 import type {
@@ -48,7 +49,6 @@ import type {
   Theme,
 } from "@mariozechner/pi-coding-agent";
 import {
-  decodeKittyPrintable,
   Input,
   Key,
   matchesKey,
@@ -177,6 +177,7 @@ const EDITOR_ROW_HELP: Record<EditorRowId, EditorRowHelpEntry> = {
     body: [
       "Whatever you write here gets added to Pi's system prompt when this preset is active. It doesn't replace what Pi already has \u2014 it adds to it.",
       "Use it to describe your project's conventions, the tone you want, or any rules Pi should follow.",
+      "Press Enter on the Prompt row to open the multi-line editor, then Ctrl-S to confirm or Esc to cancel.",
     ],
     title: "Prompt",
   },
@@ -268,7 +269,6 @@ class PresetEditorComponent implements Component, Focusable {
   private fieldDiagnostics: Map<EditorRowId, FieldDiagnostic> = new Map();
   private flowError: string | undefined;
   private focusedRowIndex = 0;
-  private instructionsCursor = 0;
   private overlayHandle: OverlayHandle | undefined;
   private readonly nameInput = new Input();
   private readonly hotkeyInput = new Input();
@@ -297,7 +297,6 @@ class PresetEditorComponent implements Component, Focusable {
       : ALL_BUTTONS.filter((button) => button !== "test");
     setInputValueCursorAtEnd(this.nameInput, this.state.name);
     setInputValueCursorAtEnd(this.hotkeyInput, this.state.hotkey);
-    this.instructionsCursor = this.state.instructions.length;
     // Note: we deliberately do NOT auto-snap thinking level on open. A
     // preset whose declared level will clamp at apply time stays selected
     // here so save-without-edit round-trips the original value; only
@@ -526,41 +525,9 @@ class PresetEditorComponent implements Component, Focusable {
   }
 
   private handleInstructionsInput(input: string): void {
-    if (matchesKey(input, Key.left)) {
-      this.instructionsCursor = Math.max(0, this.instructionsCursor - 1);
+    if (!matchesKey(input, Key.enter)) return;
 
-      return;
-    }
-
-    if (matchesKey(input, Key.right)) {
-      this.instructionsCursor = Math.min(
-        this.state.instructions.length,
-        this.instructionsCursor + 1,
-      );
-
-      return;
-    }
-
-    if (matchesKey(input, Key.backspace)) {
-      if (this.instructionsCursor === 0) return;
-      this.state = {
-        ...this.state,
-        instructions: `${this.state.instructions.slice(0, this.instructionsCursor - 1)}${this.state.instructions.slice(this.instructionsCursor)}`,
-      };
-      this.instructionsCursor--;
-
-      return;
-    }
-
-    if (matchesKey(input, Key.enter)) {
-      this.insertInstructionsText("\n");
-
-      return;
-    }
-
-    const printable = decodeKittyPrintable(input) ?? input;
-
-    if (isPrintableText(printable)) this.insertInstructionsText(printable);
+    void this.runAsync(() => this.openPromptEditor());
   }
 
   private handleModelInput(input: string): void {
@@ -682,12 +649,17 @@ class PresetEditorComponent implements Component, Focusable {
     this.toolIndex = 0;
   }
 
-  private insertInstructionsText(text: string): void {
-    this.state = {
-      ...this.state,
-      instructions: `${this.state.instructions.slice(0, this.instructionsCursor)}${text}${this.state.instructions.slice(this.instructionsCursor)}`,
-    };
-    this.instructionsCursor += text.length;
+  private async openPromptEditor(): Promise<void> {
+    const result = await this.runWithHiddenOverlay(() =>
+      openPromptEditor(this.ctx, {
+        initialText: this.state.instructions,
+        presetName: this.state.name,
+      }),
+    );
+
+    if (result.confirmed) {
+      this.state = { ...this.state, instructions: result.text };
+    }
   }
 
   /**
@@ -732,7 +704,7 @@ class PresetEditorComponent implements Component, Focusable {
       `⇥/↑/↓ ${MOVE_LABEL}`,
       "←/→ Change",
       "Space Toggle",
-      "Enter Action",
+      this.currentRow() === "instructions" ? "Enter to edit" : "Enter Action",
       "F1 Help",
       "^S Save",
     ];
@@ -957,7 +929,9 @@ class PresetEditorComponent implements Component, Focusable {
     return this.withFieldDiagnostic(
       renderValueRow(
         this.theme,
-        "Prompt",
+        this.currentRow() === "instructions"
+          ? "Prompt (Enter to edit)"
+          : "Prompt",
         truncateToWidth(preview, Math.max(1, width - 16), "…"),
         this.currentRow() === "instructions",
       ),
@@ -1544,16 +1518,6 @@ function isEditorHelpKey(input: string): boolean {
     input === "\x1b[57364;1u" ||
     input === "\x1b[57364;1:1u"
   );
-}
-
-function isPrintableText(text: string): boolean {
-  if (text.length === 0) return false;
-
-  return [...text].every((char) => {
-    const code = char.charCodeAt(0);
-
-    return code >= 32 && code !== 0x7f && !(code >= 0x80 && code <= 0x9f);
-  });
 }
 
 function renderChoiceRow(

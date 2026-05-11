@@ -30,7 +30,7 @@ pi remove npm:@sherif-fanous/pi-presets-plus
 
 1. Run `/presets` in any Pi session to open the preset picker.
 2. Press `n` to create a new preset, or `e` to edit an existing one.
-3. Press `F1` on any row in the editor to get help for that row.
+3. Press `Enter` on the Prompt row to open the multi-line prompt editor, or press `F1` on any row to get help for that row.
 4. Save your preset and, optionally, give it a hotkey. From then on, pressing the hotkey switches to the preset. Run `/presets clear` to go back to Pi's defaults.
 
 The picker also lets you filter by name, switch the scope filter, reorder, duplicate, and delete presets. The footer always shows the keys you can press.
@@ -59,9 +59,10 @@ If a project preset and a user preset share a name, the project preset wins whil
 
 ## Commands
 
-| Command           | What it does                                                  |
-| ----------------- | ------------------------------------------------------------- |
-| `/presets`        | Opens the picker.                                             |
-| `/presets clear`  | Clears the active preset and returns to Pi's defaults.        |
-| `/presets reload` | Re-reads your preset files (use after editing them by hand).  |
-| `/presets status` | Shows the active preset's settings compared to Pi's defaults. |
+| Command                       | What it does                                                  |
+| ----------------------------- | ------------------------------------------------------------- |
+| `/presets`                    | Opens the picker.                                             |
+| `/presets clear`              | Clears the active preset and returns to Pi's defaults.        |
+| `/presets reload`             | Re-reads your preset files (use after editing them by hand).  |
+| `/presets status`             | Shows the active preset's settings compared to Pi's defaults. |
+| `/presets show-prompt [name]` | Shows the active preset's prompt, or the named preset's prompt. |

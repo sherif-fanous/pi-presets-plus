@@ -30,6 +30,9 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 export default function presetsPlus(pi: ExtensionAPI) {
   const session = new ActivePresetSession();
   const hotkeys = new HotkeyRegistry();
+  const presetNamesLoader: { fn: () => Promise<readonly string[]> } = {
+    fn: () => Promise.resolve([]),
+  };
 
   pi.registerMessageRenderer(ACTIVATED_MESSAGE_TYPE, renderActivatedMessage);
   registerPresetFlag(pi);
@@ -37,7 +40,8 @@ export default function presetsPlus(pi: ExtensionAPI) {
   pi.registerCommand("presets", {
     description:
       "Browse and switch presets that bundle a model, thinking level, tools, and system prompt. Run `/presets` to open the picker, or use `reload`, `clear`, or `status`.",
-    getArgumentCompletions: (prefix) => getArgumentCompletions(prefix),
+    getArgumentCompletions: (prefix) =>
+      getArgumentCompletions(prefix, () => presetNamesLoader.fn()),
     handler: (args, ctx) =>
       handlePresetsCommand(args, ctx, pi, session, hotkeys),
   });
@@ -56,6 +60,14 @@ export default function presetsPlus(pi: ExtensionAPI) {
 
       surfaceWarnings(ctx, restoreWarnings);
       await applyPresetFlag(pi, ctx, presets, session);
+
+      presetNamesLoader.fn = async () => {
+        try {
+          return (await loadAll(ctx)).presets.map((preset) => preset.name);
+        } catch {
+          return [];
+        }
+      };
 
       const loadCurrentPresets: CurrentPresetsLoader = async (handlerCtx) =>
         (await loadAll(handlerCtx)).presets;
