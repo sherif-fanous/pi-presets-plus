@@ -25,7 +25,7 @@ import {
 import { ACTIVATED_MESSAGE_TYPE, renderActivatedMessage } from "./messages.js";
 import { findPreset } from "./preset-identity.js";
 import { loadAll } from "./store/api.js";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export default function presetsPlus(pi: ExtensionAPI) {
   const session = new ActivePresetSession();

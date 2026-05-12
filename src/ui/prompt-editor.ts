@@ -5,7 +5,7 @@
  * editor; it does NOT own text-editing mechanics, rendering, or storage.
  */
 import { PROMPT_EDITOR_TITLE, PROMPT_EDITOR_TITLE_PREFIX } from "./labels.js";
-import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 
 export interface PromptEditorOptions {
   readonly initialText: string;

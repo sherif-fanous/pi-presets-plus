@@ -5,7 +5,7 @@
  * compute drift, mutate active state, or write to the Pi UI directly.
  */
 import type { ActivePresetState } from "../types.js";
-import type { Theme } from "@mariozechner/pi-coding-agent";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 
 export const STATUS_KEY = "presets-plus";
 

@@ -7,7 +7,7 @@
  */
 import { join } from "node:path";
 
-import { getAgentDir } from "@mariozechner/pi-coding-agent";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
 /** File name for the preset list within `PRESETS_PLUS_SUBDIR`. */
 const PRESETS_FILE_NAME = "presets.json";

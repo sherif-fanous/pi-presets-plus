@@ -7,7 +7,7 @@
  */
 import { ActivePresetSession } from "../../src/activation/session.js";
 import type { ActivePresetState, LoadedPreset } from "../../src/types.js";
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 
 const baselineActive: ActivePresetState = {

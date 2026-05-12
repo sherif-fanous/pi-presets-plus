@@ -6,7 +6,7 @@
  * registry. None of these helpers throw or perform file-system I/O.
  */
 import type { Preset, ThinkingLevel } from "../types.js";
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 /** Result of a single-preset shape check. */
 interface ValidationResult {

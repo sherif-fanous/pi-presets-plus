@@ -7,7 +7,7 @@
  */
 import type { LoadedPreset, Preset } from "../types.js";
 import { computeAvailability } from "./validate.js";
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 /** Per-scope inputs to {@link mergeScopes}. */
 interface MergeScopesInput {

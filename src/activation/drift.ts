@@ -11,7 +11,7 @@ import { effectiveThinkingLevel } from "./thinking.js";
 import type {
   ExtensionAPI,
   ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 
 /** Minimal context surface needed for drift comparison. */
 type DriftContext = Pick<ExtensionContext, "model" | "modelRegistry">;

@@ -4,8 +4,8 @@
  * The dialog owns only chrome, tone styling, wrapping, and dismissal.
  */
 import { openInfoDialog } from "../../src/ui/info-dialog.js";
-import type { Theme } from "@mariozechner/pi-coding-agent";
-import type { Component, Focusable } from "@mariozechner/pi-tui";
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import type { Component, Focusable } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const coloredCalls: string[] = [];

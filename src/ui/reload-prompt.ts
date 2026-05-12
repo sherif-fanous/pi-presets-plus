@@ -7,7 +7,7 @@
  */
 import { openConfirm } from "./confirm.js";
 import { RELOAD_PROMPT_TITLE } from "./labels.js";
-import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 
 const RELOAD_PROMPT_BODY =
   "Hotkey changes take effect after a reload. Reload now?";

@@ -8,13 +8,13 @@ import { renderDialogFrame, wrapBody } from "./frame.js";
 import type {
   ExtensionCommandContext,
   Theme,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
   Key,
   matchesKey,
   type Component,
   type Focusable,
-} from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-tui";
 
 export interface InfoDialogOptions {
   readonly body: string;

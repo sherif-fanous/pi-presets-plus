@@ -42,12 +42,12 @@ import {
 } from "./labels.js";
 import { openPromptEditor } from "./prompt-editor.js";
 import { confirmReload, reloadAfterOverlayClose } from "./reload-prompt.js";
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
   Theme,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
   Input,
   Key,
@@ -56,7 +56,7 @@ import {
   type Component,
   type Focusable,
   type OverlayHandle,
-} from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-tui";
 
 export interface EditorFormState {
   hotkey: string;

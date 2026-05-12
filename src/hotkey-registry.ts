@@ -17,8 +17,8 @@ import {
 import type {
   ExtensionAPI,
   ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
-import type { KeyId } from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-coding-agent";
+import type { KeyId } from "@earendil-works/pi-tui";
 
 export type { PresetIdentity } from "./preset-identity.js";
 export { findPreset } from "./preset-identity.js";

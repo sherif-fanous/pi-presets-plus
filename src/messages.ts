@@ -5,8 +5,8 @@
  * does NOT send messages or own activation logic.
  */
 import type { ThinkingLevel } from "./types.js";
-import type { MessageRenderer } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import type { MessageRenderer } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 
 export const ACTIVATED_MESSAGE_TYPE = "presets-plus:activated";
 

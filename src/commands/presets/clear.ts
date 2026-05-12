@@ -9,7 +9,7 @@ import type { ActivePresetSession } from "../../activation/session.js";
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 
 export async function runClear(
   ctx: ExtensionCommandContext,

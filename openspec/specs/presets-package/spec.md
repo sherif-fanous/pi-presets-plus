@@ -47,18 +47,18 @@ The `package.json` at the repository root SHALL identify the package as a pi ext
 
 ### Requirement: Pi runtime modules are declared as peer dependencies
 
-The `package.json` SHALL declare `@mariozechner/pi-coding-agent`, `@mariozechner/pi-tui`, `@mariozechner/pi-ai`, and `@sinclair/typebox` as `peerDependencies` (per `docs/packages.md`) so that installing this package does not bundle pi's own runtime modules.
+The `package.json` SHALL declare `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `@earendil-works/pi-ai`, and `@sinclair/typebox` as `peerDependencies` (per `docs/packages.md`) so that installing this package does not bundle pi's own runtime modules.
 
 #### Scenario: Peer dependencies declared
 
 - **WHEN** `package.json` is inspected
-- **THEN** `peerDependencies` SHALL contain `@mariozechner/pi-coding-agent`, `@mariozechner/pi-tui`, `@mariozechner/pi-ai`, and `@sinclair/typebox`
+- **THEN** `peerDependencies` SHALL contain `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `@earendil-works/pi-ai`, and `@sinclair/typebox`
 
 #### Scenario: Peer dependencies are not bundled
 
 - **WHEN** the package is packed via `npm pack`
 - **THEN** the resulting tarball SHALL NOT include any `node_modules` directory
-- **AND** SHALL NOT include any files belonging to `@mariozechner/pi-coding-agent`, `@mariozechner/pi-tui`, `@mariozechner/pi-ai`, or `@sinclair/typebox`
+- **AND** SHALL NOT include any files belonging to `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `@earendil-works/pi-ai`, or `@sinclair/typebox`
 
 ### Requirement: Dev-dependency toolchain is self-sufficient
 
@@ -701,7 +701,7 @@ The runtime behavior of the subcommand SHALL follow the matrix below. Lookup by 
 
 - `/presets show-prompt` with no preset active SHALL emit an `info`-severity message of exactly `No preset is active.`.
 - `/presets show-prompt` with an active preset whose `instructions` field is empty (absent, `""`, or whitespace-only) SHALL emit an `info`-severity message of exactly `Active preset "<name>" has no prompt.`, where `<name>` is the active preset's name.
-- `/presets show-prompt` with an active preset whose `instructions` field is non-empty SHALL render that prompt body in a dismissible multi-line dialog. The body SHALL be the literal `instructions` value (no trimming, no transformation). When the surrounding pi build exposes a markdown-render hook compatible with that dialog surface and `@mariozechner/pi-tui` exposes a `Markdown` component, the body SHALL be rendered as markdown; otherwise the body SHALL be rendered as plain text.
+- `/presets show-prompt` with an active preset whose `instructions` field is non-empty SHALL render that prompt body in a dismissible multi-line dialog. The body SHALL be the literal `instructions` value (no trimming, no transformation). When the surrounding pi build exposes a markdown-render hook compatible with that dialog surface and `@earendil-works/pi-tui` exposes a `Markdown` component, the body SHALL be rendered as markdown; otherwise the body SHALL be rendered as plain text.
 - `/presets show-prompt <name>` with `<name>` not matching any loaded preset SHALL emit an `error`-severity message of exactly `No preset named "<name>".`.
 - `/presets show-prompt <name>` with `<name>` matching a loaded preset whose `instructions` field is empty SHALL emit an `info`-severity message of exactly `Preset "<name>" has no prompt.`.
 - `/presets show-prompt <name>` with `<name>` matching a loaded preset whose `instructions` field is non-empty SHALL render that preset's prompt body (subject to the same markdown / plain-text rule above), regardless of whether that preset is currently active.

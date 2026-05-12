@@ -12,8 +12,8 @@ import {
   THINKING_LABEL,
   TOOLS_LABEL,
 } from "./labels.js";
-import type { Theme } from "@mariozechner/pi-coding-agent";
-import { truncateToWidth, type Component } from "@mariozechner/pi-tui";
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth, type Component } from "@earendil-works/pi-tui";
 
 export interface PresetCardOptions {
   active: boolean;

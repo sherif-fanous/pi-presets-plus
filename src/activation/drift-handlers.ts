@@ -12,7 +12,7 @@ import type { ActivePresetSession } from "./session.js";
 import type {
   ExtensionAPI,
   ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 
 /** Minimal model_select event surface needed for drift handling. */
 interface ModelSelectLikeEvent {

@@ -13,7 +13,7 @@ import {
   runStatus,
 } from "../../../src/commands/presets/status.js";
 import type { ActivePresetState, LoadedPreset } from "../../../src/types.js";
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const loadAll = vi.hoisted(() => vi.fn());

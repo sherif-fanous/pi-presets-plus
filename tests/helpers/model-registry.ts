@@ -8,8 +8,8 @@
  * boundary — this helper centralizes that cast and its rationale so
  * individual tests don't repeat the comment.
  */
-import type { Model, ThinkingLevelMap } from "@mariozechner/pi-ai";
-import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
+import type { Model, ThinkingLevelMap } from "@earendil-works/pi-ai";
+import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
 export interface RegistryStub {
   models: Record<

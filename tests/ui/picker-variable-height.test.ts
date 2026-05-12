@@ -8,7 +8,7 @@ import { ActivePresetSession } from "../../src/activation/session.js";
 import { HotkeyRegistry } from "../../src/hotkey-registry.js";
 import type { LoadedPreset } from "../../src/types.js";
 import type { openPicker as openPickerType } from "../../src/ui/picker.js";
-import { Key, type Component } from "@mariozechner/pi-tui";
+import { Key, type Component } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const clampScrollToFit = vi.hoisted(() => vi.fn());

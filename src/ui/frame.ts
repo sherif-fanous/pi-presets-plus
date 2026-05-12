@@ -5,7 +5,7 @@
  * preset dialogs; it does NOT own picker state, activation, or any
  * specific dialog content.
  */
-import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 export interface DialogFrameOptions {
   readonly bodyLines: readonly string[];

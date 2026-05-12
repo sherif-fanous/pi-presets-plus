@@ -9,7 +9,7 @@ import { detectDriftReasons, snapshotPresetForDrift } from "./drift.js";
 import type {
   ExtensionAPI,
   ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 
 /** Minimal context surface needed for comparison. */
 type StateMatchesContext = Pick<ExtensionContext, "model" | "modelRegistry">;

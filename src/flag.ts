@@ -10,7 +10,7 @@ import type { LoadedPreset } from "./types.js";
 import type {
   ExtensionAPI,
   ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 
 const PRESET_FLAG = "preset";
 

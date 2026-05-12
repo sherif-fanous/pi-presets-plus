@@ -11,11 +11,11 @@ import { clear } from "../../src/activation/clear.js";
 import { ActivePresetSession } from "../../src/activation/session.js";
 import type { LoadedPreset, ThinkingLevel } from "../../src/types.js";
 import { makeStubModelRegistry } from "../helpers/model-registry.js";
-import type { Api, Model, ThinkingLevelMap } from "@mariozechner/pi-ai";
+import type { Api, Model, ThinkingLevelMap } from "@earendil-works/pi-ai";
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 
 interface FakeHarness {

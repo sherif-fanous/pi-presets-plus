@@ -5,7 +5,7 @@
  * may legally apply; it does NOT mutate pi state or surface notifications.
  */
 import type { Preset, ThinkingLevel } from "../types.js";
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 
 const ALL_THINKING_LEVELS: readonly ThinkingLevel[] = [
   "off",

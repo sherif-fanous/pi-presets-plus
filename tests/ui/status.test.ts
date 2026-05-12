@@ -8,7 +8,7 @@
  */
 import type { ActivePresetState } from "../../src/types.js";
 import { renderStatusBadge } from "../../src/ui/status.js";
-import type { Theme } from "@mariozechner/pi-coding-agent";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 
 const theme = { fg: (_color: string, text: string) => text } as Pick<

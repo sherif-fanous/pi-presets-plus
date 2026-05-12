@@ -15,7 +15,7 @@ import {
   THINKING_LABEL,
   TOOLS_LABEL,
 } from "./labels.js";
-import type { Theme } from "@mariozechner/pi-coding-agent";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 
 interface Styler {
   bold(text: string): string;

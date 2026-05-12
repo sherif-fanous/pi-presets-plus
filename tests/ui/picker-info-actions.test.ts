@@ -8,7 +8,7 @@ import type { ApplyResult } from "../../src/activation/apply.js";
 import { ActivePresetSession } from "../../src/activation/session.js";
 import { HotkeyRegistry } from "../../src/hotkey-registry.js";
 import type { ActivePresetState, LoadedPreset } from "../../src/types.js";
-import type { Component } from "@mariozechner/pi-tui";
+import type { Component } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const clearReturning = vi.fn();
