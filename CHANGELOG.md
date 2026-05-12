@@ -2,6 +2,12 @@
 
 This changelog follows [Common Changelog](https://common-changelog.org/).
 
+## [0.2.0] - 2026-05-12
+
+### Changed
+
+- **Breaking:** The extension now targets Pi published under the `@earendil-works` npm scope (Pi `0.74.0` and later). Pi has moved away from its old `@mariozechner` scope, and `pi-presets-plus` v0.2.0 will not load on Pi versions prior to `0.74.0`. Upgrade Pi to `0.74.0` or newer before upgrading this extension.
+
 ## [0.1.4] - 2026-05-11
 
 ### Fixed
@@ -35,6 +41,7 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 _Initial release._
 
+[0.2.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.2.0
 [0.1.4]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.4
 [0.1.3]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.3
 [0.1.2]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.2
