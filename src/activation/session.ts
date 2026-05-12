@@ -50,18 +50,6 @@ export class ActivePresetSession {
     return this.active;
   }
 
-  /**
-   * Refresh the status badge from the current active state.
-   *
-   * Public so the session-start orchestrator can guarantee the badge is
-   * accurate after restoreFromBranch + flag application complete, even
-   * when those branches did not themselves take a code path that sets
-   * status (e.g. "no entry" or "unavailable" branches of restore).
-   */
-  refreshStatus(ctx: SessionContext): void {
-    this.setStatus(ctx);
-  }
-
   /** Start tracking a freshly-applied preset and persist its session marker. */
   start(
     options: ActivePresetStartOptions,
@@ -97,7 +85,14 @@ export class ActivePresetSession {
    * Refreshes the status badge so the footer shows the new name immediately;
    * a missing refresh here was a pre-existing bug surfaced during the session
    * refactor.
+   *
+   * fallow's dead-code analysis loses the consumer because the only call site
+   * accesses this method through an optional-typed field
+   * (`this.options.session.updateIdentity(...)` in `src/ui/editor.ts` where
+   * `session?: ActivePresetSession`), so the suppression below silences the
+   * false positive without hiding any real disuse.
    */
+  // fallow-ignore-next-line unused-class-member
   updateIdentity(
     name: string,
     scope: LoadedPreset["scope"],
