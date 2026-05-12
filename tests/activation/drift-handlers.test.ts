@@ -17,7 +17,7 @@ import type {
   ThinkingLevel,
 } from "../../src/types.js";
 import { makeStubModelRegistry } from "../helpers/model-registry.js";
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 
 describe("handleModelSelectDrift", () => {

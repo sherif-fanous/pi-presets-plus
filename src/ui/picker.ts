@@ -64,7 +64,7 @@ import type {
   ExtensionCommandContext,
   ExtensionUIContext,
   Theme,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
   decodeKittyPrintable,
   Input,
@@ -76,7 +76,7 @@ import {
   type Focusable,
   type OverlayHandle,
   type Terminal,
-} from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-tui";
 
 export interface PickerOptions {
   inheritedTools?: readonly string[];

@@ -9,7 +9,7 @@ import { captureBaseline } from "../../src/activation/baseline.js";
 import { stateMatches } from "../../src/activation/state-matches.js";
 import type { LoadedPreset, ThinkingLevel } from "../../src/types.js";
 import { makeStubModelRegistry } from "../helpers/model-registry.js";
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 import { describe, expect, it } from "vitest";
 
 const preset: LoadedPreset = {

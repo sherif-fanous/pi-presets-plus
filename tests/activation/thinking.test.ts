@@ -10,7 +10,7 @@ import {
   validThinkingLevels,
 } from "../../src/activation/thinking.js";
 import type { Preset } from "../../src/types.js";
-import type { Api, Model, ThinkingLevelMap } from "@mariozechner/pi-ai";
+import type { Api, Model, ThinkingLevelMap } from "@earendil-works/pi-ai";
 import { describe, expect, it } from "vitest";
 
 const basePreset: Preset = {

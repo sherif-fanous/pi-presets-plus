@@ -16,7 +16,7 @@ import { runStatus } from "./status.js";
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 
 interface Subcommand {
   readonly value: string;

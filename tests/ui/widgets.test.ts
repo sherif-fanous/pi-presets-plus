@@ -16,7 +16,7 @@ import {
   formatToolsSummary,
   presetCard,
 } from "../../src/ui/widgets.js";
-import type { Theme } from "@mariozechner/pi-coding-agent";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 
 const basePreset: LoadedPreset = {

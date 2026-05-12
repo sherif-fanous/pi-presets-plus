@@ -4,7 +4,7 @@
 import { ActivePresetSession } from "../../src/activation/session.js";
 import { analyzeHotkeys, HotkeyRegistry } from "../../src/hotkey-registry.js";
 import type { LoadedPreset } from "../../src/types.js";
-import type { Component } from "@mariozechner/pi-tui";
+import type { Component } from "@earendil-works/pi-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const loadAll = vi.fn();

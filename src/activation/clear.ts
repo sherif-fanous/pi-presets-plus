@@ -16,7 +16,7 @@ import type { ActivePresetSession } from "./session.js";
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 
 export interface ClearDecision {
   readonly parts: readonly ClearPart[];

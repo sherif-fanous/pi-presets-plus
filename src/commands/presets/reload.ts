@@ -6,7 +6,7 @@
  * storage layer or activation state.
  */
 import { loadAll } from "../../store/api.js";
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 /**
  * Run the `reload` subcommand against a live `ExtensionContext`.

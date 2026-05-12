@@ -14,7 +14,7 @@ import type {
   ThinkingLevel,
 } from "../../src/types.js";
 import { makeStubModelRegistry } from "../helpers/model-registry.js";
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 import { describe, expect, it } from "vitest";
 
 const baseDeclared: PresetDriftSnapshot = {

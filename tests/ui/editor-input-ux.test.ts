@@ -5,7 +5,7 @@
  * exercise storage parsing or picker orchestration beyond mocked seams.
  */
 import type { LoadedPreset, Preset } from "../../src/types.js";
-import { Input, type Component } from "@mariozechner/pi-tui";
+import { Input, type Component } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const addPreset = vi.fn();

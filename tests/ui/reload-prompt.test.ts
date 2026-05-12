@@ -5,8 +5,8 @@ import {
   confirmReload,
   reloadAfterOverlayClose,
 } from "../../src/ui/reload-prompt.js";
-import type { Theme } from "@mariozechner/pi-coding-agent";
-import type { Component, Focusable } from "@mariozechner/pi-tui";
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import type { Component, Focusable } from "@earendil-works/pi-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const theme = {

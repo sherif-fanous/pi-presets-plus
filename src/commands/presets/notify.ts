@@ -4,7 +4,7 @@
  * Owns rolling load-time warnings into a single user-visible notification
  * so callers do not flood the UI; it does NOT own loading or validation.
  */
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 /**
  * Fire a single warning-level notification listing every warning, or

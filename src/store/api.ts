@@ -20,7 +20,7 @@ import { mergeScopes } from "./merge.js";
 import { getGlobalPresetsPath, getProjectPresetsPath } from "./paths.js";
 import { atomicWrite } from "./save.js";
 import { computeClampWarning } from "./validate.js";
-import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 /** Result of {@link loadAll}. */
 interface LoadAllResult {
