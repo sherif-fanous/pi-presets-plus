@@ -21,7 +21,6 @@ import type {
 import type { KeyId } from "@earendil-works/pi-tui";
 
 export type { PresetIdentity } from "./preset-identity.js";
-export { findPreset } from "./preset-identity.js";
 
 export interface HotkeyAnalysis {
   readonly conflicts: HotkeyConflict[];
