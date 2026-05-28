@@ -47,7 +47,10 @@ function harness() {
       setStatus(key: string, value: string | undefined) {
         status[key] = value;
       },
-      theme: { fg: (_color: string, text: string) => text },
+      theme: {
+        bold: (text: string) => text,
+        fg: (_color: string, text: string) => text,
+      },
     },
   } as Pick<ExtensionContext, "ui">;
   const pi = {

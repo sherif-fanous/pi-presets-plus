@@ -51,7 +51,10 @@ function sessionCtxStub() {
       setStatus: () => {
         /* no-op for formatStatus tests */
       },
-      theme: { fg: (_color: string, text: string) => text },
+      theme: {
+        bold: (text: string) => text,
+        fg: (_color: string, text: string) => text,
+      },
     },
   } as never;
 }

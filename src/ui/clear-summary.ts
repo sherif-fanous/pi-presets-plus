@@ -116,7 +116,7 @@ export function renderClearSummary(
   parts: readonly ClearPart[],
   styler?: Pick<Theme, "bold" | "fg">,
 ): string {
-  const safeStyler = normalizeStyler(styler);
+  const safeStyler = styler ?? IDENTITY_STYLER;
   const labels = parts.map((part) => `${FIELD_LABELS[part.field]}:`);
   const labelWidth = Math.max(...labels.map((label) => label.length));
   const title = safeStyler.bold(
@@ -147,21 +147,4 @@ function isRestoreLike(action: ClearAction): boolean {
     action === "restored-partial" ||
     action === "already-baseline"
   );
-}
-
-function normalizeStyler(
-  styler: Pick<Theme, "bold" | "fg"> | undefined,
-): Styler {
-  if (!styler) return IDENTITY_STYLER;
-
-  return {
-    bold: (text) =>
-      typeof styler.bold === "function"
-        ? styler.bold(text)
-        : IDENTITY_STYLER.bold(text),
-    fg: (color, text) =>
-      typeof styler.fg === "function"
-        ? styler.fg(color, text)
-        : IDENTITY_STYLER.fg(color, text),
-  };
 }

@@ -582,7 +582,10 @@ function makeHarness(
       setStatus(key: string, value: string | undefined) {
         status[key] = value;
       },
-      theme: { fg: (_color: string, text: string) => text },
+      theme: {
+        bold: (text: string) => text,
+        fg: (_color: string, text: string) => text,
+      },
     },
   } as ExtensionCommandContext;
   const session = new ActivePresetSession();
