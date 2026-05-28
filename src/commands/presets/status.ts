@@ -5,6 +5,8 @@
  * user-facing report; it does NOT update the footer indicator or mutate
  * the active attachment.
  */
+import { sameModel } from "../../activation/same-model.js";
+import { sameSet } from "../../activation/same-set.js";
 import type { ActivePresetSession } from "../../activation/session.js";
 import { findPreset } from "../../preset-identity.js";
 import { loadAll } from "../../store/api.js";
@@ -99,14 +101,21 @@ export function formatStatus(
     currentModel,
     baseline.model,
     lastApplied.model,
+    sameModel,
   );
   const thinkingClass = classifyField(
     pi.getThinkingLevel(),
     baseline.thinkingLevel,
     lastApplied.thinkingLevel,
+    samePrimitive,
   );
   const toolsClass = owned.tools
-    ? classifyField(currentTools, baseline.tools, lastApplied.tools ?? [])
+    ? classifyField(
+        currentTools,
+        baseline.tools,
+        lastApplied.tools ?? [],
+        sameSet,
+      )
     : "Not managed by active preset";
 
   return [
@@ -187,23 +196,21 @@ export async function runStatus(
  *
  * Vocabulary parallels the per-row annotations in `renderClearSummary` so
  * users see the same phrasing across `/presets status` and `/presets clear`.
- * `compare` is `===` for primitives and bag-equality for tool arrays;
- * model objects compare provider+id.
+ * The caller injects the equality predicate appropriate for the channel
+ * being compared: `sameModel` for `(provider, id)` pairs, `sameSet` for
+ * unordered tool lists, and `samePrimitive` for thinking levels.
  */
-function classifyField(
-  current: { provider: string; id: string } | null | readonly string[] | string,
-  baseline:
-    | { provider: string; id: string }
-    | null
-    | readonly string[]
-    | string,
-  lastApplied: { provider: string; id: string } | readonly string[] | string,
+function classifyField<T>(
+  current: T,
+  baseline: T,
+  lastApplied: T,
+  equals: (left: T, right: T) => boolean,
 ):
   | "Already at baseline"
   | "Left as-is — you changed it after activation"
   | "Managed by active preset" {
-  if (sameComparable(current, baseline)) return "Already at baseline";
-  if (sameComparable(current, lastApplied)) return "Managed by active preset";
+  if (equals(current, baseline)) return "Already at baseline";
+  if (equals(current, lastApplied)) return "Managed by active preset";
 
   return "Left as-is — you changed it after activation";
 }
@@ -226,37 +233,6 @@ function row(
   return `  ${styler.fg("muted", label)}${padding} ${value}`;
 }
 
-function sameComparable(
-  left: { provider: string; id: string } | null | readonly string[] | string,
-  right: { provider: string; id: string } | null | readonly string[] | string,
-): boolean {
-  const leftIsArray = Array.isArray(left);
-  const rightIsArray = Array.isArray(right);
-
-  if (leftIsArray || rightIsArray) {
-    if (!leftIsArray || !rightIsArray) return false;
-
-    const leftArr = left as readonly string[];
-    const rightArr = right as readonly string[];
-
-    if (leftArr.length !== rightArr.length) return false;
-
-    const rightSet = new Set(rightArr);
-
-    return leftArr.every((value) => rightSet.has(value));
-  }
-
-  if (typeof left === "string" || typeof right === "string") {
-    return (
-      typeof left === "string" && typeof right === "string" && left === right
-    );
-  }
-
-  const leftModel = left as { provider: string; id: string } | null;
-  const rightModel = right as { provider: string; id: string } | null;
-
-  return (
-    leftModel?.provider === rightModel?.provider &&
-    leftModel?.id === rightModel?.id
-  );
+function samePrimitive<T>(left: T, right: T): boolean {
+  return left === right;
 }
