@@ -41,6 +41,7 @@ import {
   THINKING_LABEL,
   TOOLS_LABEL,
 } from "./labels.js";
+import { withHiddenOverlay } from "./overlay-host.js";
 import { openPromptEditor } from "./prompt-editor.js";
 import { confirmReload, reloadAfterOverlayClose } from "./reload-prompt.js";
 import type { Api, Model } from "@earendil-works/pi-ai";
@@ -460,19 +461,7 @@ class PresetEditorComponent implements Component, Focusable {
   }
 
   private async runWithHiddenOverlay<T>(fn: () => Promise<T>): Promise<T> {
-    this.overlayHandle?.setHidden(true);
-
-    try {
-      return await fn();
-    } finally {
-      this.restoreOverlay();
-    }
-  }
-
-  private restoreOverlay(): void {
-    this.overlayHandle?.setHidden(false);
-    this.overlayHandle?.focus();
-    this.requestRender();
+    return withHiddenOverlay(this.overlayHandle, this.requestRender, fn);
   }
 
   private currentModel(): Model<Api> | undefined {

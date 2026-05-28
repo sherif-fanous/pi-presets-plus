@@ -45,6 +45,7 @@ import {
   STATUS_ACTION_LABEL,
   STATUS_DIALOG_TITLE,
 } from "./labels.js";
+import { withHiddenOverlay } from "./overlay-host.js";
 import {
   clampScrollToFit,
   cycleScope as cyclePickerScope,
@@ -555,19 +556,7 @@ class PresetPickerComponent implements Component, Focusable {
   }
 
   private async runWithHiddenOverlay<T>(fn: () => Promise<T>): Promise<T> {
-    this.overlayHandle?.setHidden(true);
-
-    try {
-      return await fn();
-    } finally {
-      this.restoreOverlay();
-    }
-  }
-
-  private restoreOverlay(): void {
-    this.overlayHandle?.setHidden(false);
-    this.overlayHandle?.focus();
-    this.requestRender();
+    return withHiddenOverlay(this.overlayHandle, this.requestRender, fn);
   }
 
   private async refreshPresets(selectionKey?: string): Promise<void> {
