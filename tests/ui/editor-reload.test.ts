@@ -13,12 +13,18 @@ const removePreset = vi.fn();
 const updatePreset = vi.fn();
 const openConfirm = vi.fn();
 
-vi.mock("../../src/store/api.js", () => ({
-  addPreset,
-  loadAll,
-  removePreset,
-  updatePreset,
-}));
+vi.mock("../../src/store/api.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../src/store/api.js")>();
+
+  return {
+    ...actual,
+    addPreset,
+    loadAll,
+    removePreset,
+    updatePreset,
+  };
+});
 
 vi.mock("../../src/ui/confirm.js", () => ({
   openConfirm,

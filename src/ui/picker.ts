@@ -19,6 +19,7 @@ import {
   loadAll,
   removePreset,
   reorderWithinScope,
+  toPersistedPreset,
 } from "../store/api.js";
 import type { LoadedPreset, Preset } from "../types.js";
 import { renderClearSummary } from "./clear-summary.js";
@@ -1029,21 +1030,16 @@ function loadedPresetKey(preset: Pick<LoadedPreset, "name" | "scope">): string {
   return `${preset.scope}:${preset.name}`;
 }
 
+/**
+ * Build the on-disk shape for a duplicated preset.
+ *
+ * Deliberately drops `hotkey`: the copy lands in the same scope as its
+ * source, and reusing the source's hotkey would immediately register as
+ * a conflict. Every other optional field is preserved verbatim through
+ * the canonical `toPersistedPreset` funnel.
+ */
 function serializeForCopy(preset: LoadedPreset, name: string): Preset {
-  const copy: Preset = {
-    model: preset.model,
-    name,
-    provider: preset.provider,
-  };
-
-  if (preset.thinkingLevel !== undefined)
-    copy.thinkingLevel = preset.thinkingLevel;
-  if (preset.tools !== undefined) copy.tools = [...preset.tools];
-  if (preset.instructions !== undefined)
-    copy.instructions = preset.instructions;
-  if (preset.order !== undefined) copy.order = preset.order;
-
-  return copy;
+  return toPersistedPreset({ ...preset, name, hotkey: undefined });
 }
 
 function uniqueCopyName(

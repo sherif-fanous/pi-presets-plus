@@ -14,6 +14,7 @@ import {
   addPreset,
   loadAll,
   removePreset,
+  toPersistedPreset,
   updatePreset,
 } from "../store/api.js";
 import type {
@@ -1238,36 +1239,29 @@ class PresetEditorComponent implements Component, Focusable {
 }
 
 /**
- * Pure helper: assemble a `Preset` from the form state, omitting
- * fields that should not appear in the on-disk shape (e.g. empty
- * instructions, empty hotkey, `session`-mode tools, `off` thinking).
+ * Pure helper: assemble a `Preset` from the form state, omitting fields
+ * that should not appear in the on-disk shape (e.g. empty instructions,
+ * empty hotkey, `session`-mode tools, `off` thinking).
  *
- * Exposed for tests; the editor instance calls this internally.
+ * Routes the assembled fields through `toPersistedPreset` so the
+ * editor, picker copy, and `saveScope` all share one drop-undefined +
+ * defensive-tools-copy contract. Exposed for tests; the editor
+ * instance calls this internally.
  */
 export function buildPreset(state: EditorFormState): Preset {
-  const preset: Preset = {
+  const instructions = state.instructions.trim();
+  const hotkey = state.hotkey.trim();
+
+  return toPersistedPreset({
     model: state.model,
     name: state.name.trim(),
     provider: state.provider,
-  };
-
-  if (state.thinkingLevel !== "off") {
-    preset.thinkingLevel = state.thinkingLevel;
-  }
-
-  if (state.toolsMode === "preset") {
-    preset.tools = [...state.selectedTools];
-  }
-
-  const instructions = state.instructions.trim();
-
-  if (instructions.length > 0) preset.instructions = instructions;
-
-  const hotkey = state.hotkey.trim();
-
-  if (hotkey.length > 0) preset.hotkey = hotkey;
-
-  return preset;
+    thinkingLevel:
+      state.thinkingLevel !== "off" ? state.thinkingLevel : undefined,
+    tools: state.toolsMode === "preset" ? state.selectedTools : undefined,
+    instructions: instructions.length > 0 ? instructions : undefined,
+    hotkey: hotkey.length > 0 ? hotkey : undefined,
+  });
 }
 
 export function formatHotkeyReloadNotice(

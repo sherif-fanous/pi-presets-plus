@@ -164,11 +164,43 @@ export async function saveScope(
 ): Promise<void> {
   const file: PresetsFile = {
     version: 1,
-    presets: presets.map(serializePreset),
+    presets: presets.map(toPersistedPreset),
   };
   const path = pathForScope(scope, ctx);
 
   await atomicWrite(path, `${JSON.stringify(file, null, 2)}\n`);
+}
+
+/**
+ * Canonical projection from any `Preset`-shaped value to the on-disk shape.
+ *
+ * Drops `undefined` optional fields so the JSON stays clean and copies the
+ * `tools` array defensively so callers can keep mutating their source
+ * without leaking into persisted state. Round-tripping a
+ * `LoadedPreset`-derived value (which carries merge metadata) strips
+ * `scope`, `shadowed`, `unavailable`, and the hotkey-annotation flags
+ * automatically because they are not declared on `Preset`.
+ *
+ * This is the single funnel every preset destined for disk — or for a
+ * comparison against an on-disk shape — must pass through. Callers that
+ * need to drop additional fields (e.g. `serializeForCopy` in the picker
+ * strips `hotkey`) do so before invoking this helper.
+ */
+export function toPersistedPreset(preset: Preset): Preset {
+  const out: Preset = {
+    name: preset.name,
+    provider: preset.provider,
+    model: preset.model,
+  };
+
+  if (preset.thinkingLevel !== undefined)
+    out.thinkingLevel = preset.thinkingLevel;
+  if (preset.tools !== undefined) out.tools = [...preset.tools];
+  if (preset.instructions !== undefined) out.instructions = preset.instructions;
+  if (preset.hotkey !== undefined) out.hotkey = preset.hotkey;
+  if (preset.order !== undefined) out.order = preset.order;
+
+  return out;
 }
 
 /**
@@ -236,27 +268,4 @@ async function readScope(
   const result = await loadFile(path);
 
   return result.presets;
-}
-
-/**
- * Serialize a `Preset` into the on-disk shape, dropping `undefined`
- * fields so the JSON stays clean. Round-tripping `LoadedPreset`-derived
- * values (which carry merge metadata) strips `scope`, `shadowed`, and
- * `unavailable` automatically.
- */
-function serializePreset(preset: Preset): Preset {
-  const out: Preset = {
-    name: preset.name,
-    provider: preset.provider,
-    model: preset.model,
-  };
-
-  if (preset.thinkingLevel !== undefined)
-    out.thinkingLevel = preset.thinkingLevel;
-  if (preset.tools !== undefined) out.tools = [...preset.tools];
-  if (preset.instructions !== undefined) out.instructions = preset.instructions;
-  if (preset.hotkey !== undefined) out.hotkey = preset.hotkey;
-  if (preset.order !== undefined) out.order = preset.order;
-
-  return out;
 }

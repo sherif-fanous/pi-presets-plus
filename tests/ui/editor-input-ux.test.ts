@@ -29,12 +29,18 @@ vi.mock("../../src/ui/info-dialog.js", () => ({
   openInfoDialog,
 }));
 
-vi.mock("../../src/store/api.js", () => ({
-  addPreset,
-  loadAll,
-  removePreset,
-  updatePreset,
-}));
+vi.mock("../../src/store/api.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../src/store/api.js")>();
+
+  return {
+    ...actual,
+    addPreset,
+    loadAll,
+    removePreset,
+    updatePreset,
+  };
+});
 
 const { EDITOR_ROWS, openEditor } = await import("../../src/ui/editor.js");
 
