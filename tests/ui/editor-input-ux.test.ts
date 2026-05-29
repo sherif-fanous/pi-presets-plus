@@ -4,6 +4,7 @@
  * Covers interactive component behavior through `openEditor`; it does NOT
  * exercise storage parsing or picker orchestration beyond mocked seams.
  */
+import { ActivePresetSession } from "../../src/activation/session.js";
 import type { LoadedPreset, Preset } from "../../src/types.js";
 import { Input, type Component } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,12 +30,18 @@ vi.mock("../../src/ui/info-dialog.js", () => ({
   openInfoDialog,
 }));
 
-vi.mock("../../src/store/api.js", () => ({
-  addPreset,
-  loadAll,
-  removePreset,
-  updatePreset,
-}));
+vi.mock("../../src/store/api.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../src/store/api.js")>();
+
+  return {
+    ...actual,
+    addPreset,
+    loadAll,
+    removePreset,
+    updatePreset,
+  };
+});
 
 const { EDITOR_ROWS, openEditor } = await import("../../src/ui/editor.js");
 
@@ -168,6 +175,7 @@ async function openHarness(
   const result = openEditor(ctx as never, options.initial, {
     onTest: options.onTest,
     presets: options.presets ?? (options.initial ? [options.initial] : []),
+    session: new ActivePresetSession(),
   });
 
   await Promise.resolve();

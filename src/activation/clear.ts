@@ -11,6 +11,7 @@ import {
   formatTools,
   renderClearSummary,
 } from "../ui/clear-summary.js";
+import { sameModel } from "./same-model.js";
 import { sameSet } from "./same-set.js";
 import type { ActivePresetSession } from "./session.js";
 import type {
@@ -269,11 +270,4 @@ async function executeClear(
   }
 
   return parts;
-}
-
-function sameModel(
-  left: { provider: string; id: string } | null,
-  right: { provider: string; id: string } | null,
-): boolean {
-  return left?.provider === right?.provider && left?.id === right?.id;
 }

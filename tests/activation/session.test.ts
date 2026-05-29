@@ -47,7 +47,10 @@ function harness() {
       setStatus(key: string, value: string | undefined) {
         status[key] = value;
       },
-      theme: { fg: (_color: string, text: string) => text },
+      theme: {
+        bold: (text: string) => text,
+        fg: (_color: string, text: string) => text,
+      },
     },
   } as Pick<ExtensionContext, "ui">;
   const pi = {
@@ -107,7 +110,7 @@ describe("ActivePresetSession", () => {
   it("marks baseline state dirty while preserving restore", () => {
     const { ctx, session } = harness();
 
-    session._replaceForTest(baselineActive, ctx);
+    session.attach(baselineActive, ctx);
     session.markDirty(ctx);
 
     expect(session.current()).toEqual({ ...baselineActive, dirty: true });
@@ -117,7 +120,7 @@ describe("ActivePresetSession", () => {
   it("marks unknown state clean while preserving restore", () => {
     const { ctx, session } = harness();
 
-    session._replaceForTest(
+    session.attach(
       {
         declared: {
           model: "claude",

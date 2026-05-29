@@ -89,6 +89,18 @@ export function initialPickerState(): PickerState {
   };
 }
 
+/**
+ * Stable identity key for a `LoadedPreset` used to compare selections
+ * across re-renders, refreshes, and reorders. Exported so picker-side
+ * command modules can refresh against the same key the state layer
+ * remembers.
+ */
+export function loadedPresetKey(
+  preset: Pick<LoadedPreset, "name" | "scope">,
+): string {
+  return `${preset.scope}:${preset.name}`;
+}
+
 export function moveSelection(
   state: PickerState,
   allPresets: readonly LoadedPreset[],
@@ -123,7 +135,9 @@ export function preserveSelectionOrFirst(
   }
 
   const nextIndex = previousSelection
-    ? visible.findIndex((preset) => presetKey(preset) === previousSelection)
+    ? visible.findIndex(
+        (preset) => loadedPresetKey(preset) === previousSelection,
+      )
     : -1;
   const selectedIndex = nextIndex >= 0 ? nextIndex : 0;
 
@@ -145,7 +159,7 @@ export function selectedPresetKey(
 ): string | undefined {
   const preset = selectedPreset(state, allPresets, query);
 
-  return preset ? presetKey(preset) : undefined;
+  return preset ? loadedPresetKey(preset) : undefined;
 }
 
 export function setFocusMode(
@@ -180,8 +194,4 @@ function ensureSelectionVisible(
   }
 
   return { ...state, scrollOffset };
-}
-
-function presetKey(loadedPreset: LoadedPreset): string {
-  return `${loadedPreset.scope}:${loadedPreset.name}`;
 }

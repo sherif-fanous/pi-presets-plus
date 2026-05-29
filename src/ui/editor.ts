@@ -14,6 +14,7 @@ import {
   addPreset,
   loadAll,
   removePreset,
+  toPersistedPreset,
   updatePreset,
 } from "../store/api.js";
 import type {
@@ -30,6 +31,7 @@ import {
   parseHotkey,
 } from "./hotkey-input.js";
 import { openInfoDialog } from "./info-dialog.js";
+import { isHelpKey } from "./key-fallbacks.js";
 import {
   CANCEL_LABEL,
   MODEL_LABEL,
@@ -40,6 +42,7 @@ import {
   THINKING_LABEL,
   TOOLS_LABEL,
 } from "./labels.js";
+import { withHiddenOverlay } from "./overlay-host.js";
 import { openPromptEditor } from "./prompt-editor.js";
 import { confirmReload, reloadAfterOverlayClose } from "./reload-prompt.js";
 import type { Api, Model } from "@earendil-works/pi-ai";
@@ -84,7 +87,7 @@ export interface EditorOptions {
    */
   hotkeys?: HotkeyRegistry;
   presets?: readonly LoadedPreset[];
-  session?: ActivePresetSession;
+  session: ActivePresetSession;
   onReloadRequested?(): void;
   onTest?(preset: LoadedPreset): Promise<{ ok: boolean }>;
 }
@@ -273,6 +276,13 @@ class PresetEditorComponent implements Component, Focusable {
   private readonly nameInput = new Input();
   private readonly hotkeyInput = new Input();
   private resolved = false;
+  /**
+   * Direct alias for `options.session`. Pinned to a class field so dead-code
+   * analysis (fallow) can trace method calls without losing the edge through
+   * the `EditorOptions` interface boundary; mirrors how `PresetPickerComponent`
+   * stores its session.
+   */
+  private readonly session: ActivePresetSession;
   private toolIndex = 0;
   private _focused = false;
 
@@ -292,6 +302,7 @@ class PresetEditorComponent implements Component, Focusable {
       options.pi?.getActiveTools() ?? [],
     ),
   ) {
+    this.session = options.session;
     this.buttonOrder = options.onTest
       ? ALL_BUTTONS
       : ALL_BUTTONS.filter((button) => button !== "test");
@@ -325,7 +336,7 @@ class PresetEditorComponent implements Component, Focusable {
     // Audited pi-tui Input.handleInput, this editor's textarea handler, and
     // the shortcut chain below: none bind F1, Ctrl+S, or Ctrl+T, so intercept
     // before row delegation. Re-audit if pi-tui's Input changes its key map.
-    if (isEditorHelpKey(input)) {
+    if (isHelpKey(input)) {
       void this.runAsync(() => this.openHelpForFocusedRow());
 
       return;
@@ -459,19 +470,7 @@ class PresetEditorComponent implements Component, Focusable {
   }
 
   private async runWithHiddenOverlay<T>(fn: () => Promise<T>): Promise<T> {
-    this.overlayHandle?.setHidden(true);
-
-    try {
-      return await fn();
-    } finally {
-      this.restoreOverlay();
-    }
-  }
-
-  private restoreOverlay(): void {
-    this.overlayHandle?.setHidden(false);
-    this.overlayHandle?.focus();
-    this.requestRender();
+    return withHiddenOverlay(this.overlayHandle, this.requestRender, fn);
   }
 
   private currentModel(): Model<Api> | undefined {
@@ -1078,10 +1077,9 @@ class PresetEditorComponent implements Component, Focusable {
    * surface refresh against the new identity on the next render.
    */
   private updateActiveAfterMoveOrRename(next: Preset): void {
-    if (!this.initialPreset || !this.options.pi || !this.options.session)
-      return;
+    if (!this.initialPreset || !this.options.pi) return;
 
-    const active = this.options.session.current();
+    const active = this.session.current();
 
     if (
       active?.name !== this.initialPreset.name ||
@@ -1090,7 +1088,7 @@ class PresetEditorComponent implements Component, Focusable {
       return;
     }
 
-    this.options.session.updateIdentity(
+    this.session.updateIdentity(
       next.name,
       this.state.scope,
       this.ctx,
@@ -1238,36 +1236,29 @@ class PresetEditorComponent implements Component, Focusable {
 }
 
 /**
- * Pure helper: assemble a `Preset` from the form state, omitting
- * fields that should not appear in the on-disk shape (e.g. empty
- * instructions, empty hotkey, `session`-mode tools, `off` thinking).
+ * Pure helper: assemble a `Preset` from the form state, omitting fields
+ * that should not appear in the on-disk shape (e.g. empty instructions,
+ * empty hotkey, `session`-mode tools, `off` thinking).
  *
- * Exposed for tests; the editor instance calls this internally.
+ * Routes the assembled fields through `toPersistedPreset` so the
+ * editor, picker copy, and `saveScope` all share one drop-undefined +
+ * defensive-tools-copy contract. Exposed for tests; the editor
+ * instance calls this internally.
  */
 export function buildPreset(state: EditorFormState): Preset {
-  const preset: Preset = {
+  const instructions = state.instructions.trim();
+  const hotkey = state.hotkey.trim();
+
+  return toPersistedPreset({
     model: state.model,
     name: state.name.trim(),
     provider: state.provider,
-  };
-
-  if (state.thinkingLevel !== "off") {
-    preset.thinkingLevel = state.thinkingLevel;
-  }
-
-  if (state.toolsMode === "preset") {
-    preset.tools = [...state.selectedTools];
-  }
-
-  const instructions = state.instructions.trim();
-
-  if (instructions.length > 0) preset.instructions = instructions;
-
-  const hotkey = state.hotkey.trim();
-
-  if (hotkey.length > 0) preset.hotkey = hotkey;
-
-  return preset;
+    thinkingLevel:
+      state.thinkingLevel !== "off" ? state.thinkingLevel : undefined,
+    tools: state.toolsMode === "preset" ? state.selectedTools : undefined,
+    instructions: instructions.length > 0 ? instructions : undefined,
+    hotkey: hotkey.length > 0 ? hotkey : undefined,
+  });
 }
 
 export function formatHotkeyReloadNotice(
@@ -1337,8 +1328,8 @@ export function initialState(
 
 export async function openEditor(
   ctx: ExtensionCommandContext,
-  preset?: LoadedPreset,
-  options: EditorOptions = {},
+  preset: LoadedPreset | undefined,
+  options: EditorOptions,
 ): Promise<EditorResult | undefined> {
   const presets = options.presets ?? (await loadAll(ctx)).presets;
   // Source all models (not just keyed ones) so a preset whose provider
@@ -1473,51 +1464,6 @@ function hotkeyConflictWarning(normalized: string, presetName: string): string {
  */
 function hotkeyShadowsBuiltinWarning(normalized: string): string {
   return `⚠ ${normalized} shadows a Pi built-in; saving will replace Pi's behavior for this key.`;
-}
-
-function isEditorHelpKey(input: string): boolean {
-  if (matchesKey(input, Key.f1)) return true;
-
-  // pi-tui's matchesKey for F-keys checks only the legacy table
-  // (\x1bOP, \x1b[11~, \x1b[[A) and never falls through to the Kitty
-  // matcher, so when pi-tui auto-enables Kitty's enhanced keyboard
-  // protocol (terminal.js sends \x1b[>7u after the handshake) F1 in
-  // its Kitty-protocol forms is silently dropped. Two such forms exist:
-  //
-  // 1. Legacy-with-event-info (observed in Ghostty: F1 press arrived as
-  //    `\x1b[1;1:1P`, release as `\x1b[1;1:3P`):
-  //      CSI 1 ; <mod> : <event> P
-  //    Final byte is the legacy SS3 letter (P for F1). The `:event`
-  //    subfield is added when the event-types flag is pushed.
-  //
-  // 2. Codepoint form (per the Kitty keyboard-protocol spec):
-  //      CSI 57364 ; <mod> : <event> u
-  //    Final byte is `u`; codepoint 57364 = F1, 57365 = F2, etc.
-  //
-  // Empirical evidence: a temporary `appendFileSync` instrumentation in
-  // `handleInput` recorded what each terminal actually sends inside pi.
-  // iTerm2 sent `\x1b[11~` (already covered by the legacy `Key.f1`
-  // table); Ghostty sent the legacy-with-event-info `\x1b[1;1:1P`
-  // variant; kitty/WezTerm/recent Alacritty are expected to use either
-  // form. The six fallbacks below cover both encodings with and without
-  // the modifier and event subfields.
-  //
-  // We match only press events (event subfield 1, or omitted). pi-tui's
-  // isKeyRelease does not recognize `:3P` either, so F1 release leaks
-  // through to the focused component; matching only press here means
-  // the release falls through to row delegation and is harmlessly
-  // ignored.
-  //
-  // Re-audit when pi-tui's matchesKey and isKeyRelease grow F-key
-  // Kitty support; this workaround can then go away.
-  return (
-    input === "\x1b[1P" ||
-    input === "\x1b[1;1P" ||
-    input === "\x1b[1;1:1P" ||
-    input === "\x1b[57364u" ||
-    input === "\x1b[57364;1u" ||
-    input === "\x1b[57364;1:1u"
-  );
 }
 
 function renderChoiceRow(

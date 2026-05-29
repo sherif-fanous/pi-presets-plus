@@ -42,7 +42,7 @@ function pi(thinkingLevel: string, tools: string[]) {
 /**
  * Minimal SessionContext stub for tests that exercise `formatStatus` (a
  * pure formatter) and need to seed an active preset via
- * `_replaceForTest`. The setStatus call inside session is a no-op for
+ * `attach`. The setStatus call inside session is a no-op for
  * formatStatus's purposes; we just need the call to not throw.
  */
 function sessionCtxStub() {
@@ -51,7 +51,10 @@ function sessionCtxStub() {
       setStatus: () => {
         /* no-op for formatStatus tests */
       },
-      theme: { fg: (_color: string, text: string) => text },
+      theme: {
+        bold: (text: string) => text,
+        fg: (_color: string, text: string) => text,
+      },
     },
   } as never;
 }
@@ -115,7 +118,7 @@ describe("runStatus", () => {
 
     const session = new ActivePresetSession();
 
-    session._replaceForTest(active, ctx as never);
+    session.attach(active, ctx as never);
     loadAll.mockResolvedValue({ presets: [preset], warnings: [] });
 
     await runStatus(ctx as never, pi("high", ["read"]) as never, session);
@@ -157,7 +160,7 @@ describe("formatStatus", () => {
 
     const session = new ActivePresetSession();
 
-    session._replaceForTest(active, sessionCtxStub());
+    session.attach(active, sessionCtxStub());
 
     const out = formatStatus(
       active,
@@ -220,7 +223,7 @@ describe("formatStatus", () => {
 
     const session = new ActivePresetSession();
 
-    session._replaceForTest(active, sessionCtxStub());
+    session.attach(active, sessionCtxStub());
 
     const out = formatStatus(
       active,
@@ -259,7 +262,7 @@ describe("formatStatus", () => {
 
     const session = new ActivePresetSession();
 
-    session._replaceForTest(active, sessionCtxStub());
+    session.attach(active, sessionCtxStub());
 
     const out = formatStatus(
       active,

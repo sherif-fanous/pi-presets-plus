@@ -137,7 +137,7 @@ describe("apply", () => {
   it("captures a fresh baseline after priorUnknown", async () => {
     const harness = makeHarness();
 
-    harness.session._replaceForTest(
+    harness.session.attach(
       {
         declared: {
           model: "claude",
@@ -257,7 +257,7 @@ describe("apply", () => {
 
     if (!active) throw new Error("expected active preset");
 
-    harness.session._replaceForTest({ ...active, dirty: true }, harness.ctx);
+    harness.session.attach({ ...active, dirty: true }, harness.ctx);
 
     harness.messages.length = 0;
     harness.setModelCalls.length = 0;
@@ -506,7 +506,7 @@ describe("clear", () => {
   it("soft-clears priorUnknown attachments without mutating pi fields", async () => {
     const harness = makeHarness();
 
-    harness.session._replaceForTest(
+    harness.session.attach(
       {
         declared: {
           model: "claude",
@@ -582,7 +582,10 @@ function makeHarness(
       setStatus(key: string, value: string | undefined) {
         status[key] = value;
       },
-      theme: { fg: (_color: string, text: string) => text },
+      theme: {
+        bold: (text: string) => text,
+        fg: (_color: string, text: string) => text,
+      },
     },
   } as ExtensionCommandContext;
   const session = new ActivePresetSession();

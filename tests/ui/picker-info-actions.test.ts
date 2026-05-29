@@ -30,12 +30,18 @@ vi.mock("../../src/commands/presets/status.js", () => ({
   formatStatusBody,
 }));
 
-vi.mock("../../src/store/api.js", () => ({
-  addPreset: vi.fn(),
-  loadAll,
-  removePreset: vi.fn(),
-  reorderWithinScope: vi.fn(),
-}));
+vi.mock("../../src/store/api.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../src/store/api.js")>();
+
+  return {
+    ...actual,
+    addPreset: vi.fn(),
+    loadAll,
+    removePreset: vi.fn(),
+    reorderWithinScope: vi.fn(),
+  };
+});
 
 vi.mock("../../src/ui/confirm.js", () => ({
   openConfirm,
@@ -148,7 +154,7 @@ async function runPicker(
   loadAll.mockResolvedValue({ presets: [selected], warnings: [] });
 
   if (active) {
-    session._replaceForTest(activeState(), ctx);
+    session.attach(activeState(), ctx);
   }
 
   const opened = openPicker(ctx, {

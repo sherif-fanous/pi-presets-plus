@@ -85,14 +85,7 @@ export class ActivePresetSession {
    * Refreshes the status badge so the footer shows the new name immediately;
    * a missing refresh here was a pre-existing bug surfaced during the session
    * refactor.
-   *
-   * fallow's dead-code analysis loses the consumer because the only call site
-   * accesses this method through an optional-typed field
-   * (`this.options.session.updateIdentity(...)` in `src/ui/editor.ts` where
-   * `session?: ActivePresetSession`), so the suppression below silences the
-   * false positive without hiding any real disuse.
    */
-  // fallow-ignore-next-line unused-class-member
   updateIdentity(
     name: string,
     scope: LoadedPreset["scope"],
@@ -137,8 +130,7 @@ export class ActivePresetSession {
   ): { state: ActivePresetState | undefined; warnings: string[] } {
     const result = this.computeRestore(branch, presets);
 
-    this.active = result.state;
-    this.setStatus(ctx);
+    this.attach(result.state, ctx);
 
     return result;
   }
@@ -216,18 +208,16 @@ export class ActivePresetSession {
   }
 
   /**
-   * Test-only seam for setting active state directly without going through
-   * start/restore. Production code MUST use start/clear/restoreFromBranch so
-   * the persistence entry and badge stay in sync; tests use this when they
-   * need an active preset baseline cheaply.
+   * Replace the active-preset cell directly and refresh the status badge.
    *
-   * The leading underscore signals "do not call from production". A future
-   * lint rule could enforce this; for now it is a convention.
+   * This is the lower primitive that {@link restoreFromBranch} delegates
+   * to after resolving a session entry into an `ActivePresetState`; tests
+   * call it directly to seed an active baseline without round-tripping
+   * through the branch-decoding path. Unlike {@link start}, it does NOT
+   * append a `presets-plus:active` persistence entry — callers that need
+   * a fresh activation persisted should use `start` instead.
    */
-  _replaceForTest(
-    next: ActivePresetState | undefined,
-    ctx: SessionContext,
-  ): void {
+  attach(next: ActivePresetState | undefined, ctx: SessionContext): void {
     this.active = next;
     this.setStatus(ctx);
   }
