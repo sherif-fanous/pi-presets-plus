@@ -7,24 +7,13 @@
  * the caller).
  */
 import type { ApplyResult } from "../activation/apply.js";
-import { clearReturning } from "../activation/clear.js";
 import { detectDriftReasons } from "../activation/drift.js";
 import type { ActivePresetSession } from "../activation/session.js";
 import { surfaceWarnings } from "../commands/presets/notify.js";
-import { formatStatusBody } from "../commands/presets/status.js";
 import type { HotkeyRegistry } from "../hotkey-registry.js";
 import { samePresetIdentity } from "../preset-identity.js";
-import {
-  addPreset,
-  loadAll,
-  removePreset,
-  reorderWithinScope,
-  toPersistedPreset,
-} from "../store/api.js";
-import type { LoadedPreset, Preset } from "../types.js";
-import { renderClearSummary } from "./clear-summary.js";
-import { openConfirm } from "./confirm.js";
-import { openEditor } from "./editor.js";
+import { loadAll } from "../store/api.js";
+import type { LoadedPreset } from "../types.js";
 import type { ScopeFilter } from "./filter.js";
 import { centerText, frameLine, frameSegment, padToWidth } from "./frame.js";
 import { openInfoDialog } from "./info-dialog.js";
@@ -43,9 +32,9 @@ import {
   NEW_LABEL,
   REORDER_LABEL,
   STATUS_ACTION_LABEL,
-  STATUS_DIALOG_TITLE,
 } from "./labels.js";
 import { withHiddenOverlay } from "./overlay-host.js";
+import { PickerCommands, type PickerCommandHost } from "./picker-commands.js";
 import {
   clampScrollToFit,
   cycleScope as cyclePickerScope,
@@ -59,7 +48,6 @@ import {
   type PickerFocusMode,
   type PickerState,
 } from "./picker-state.js";
-import { confirmReload, reloadAfterOverlayClose } from "./reload-prompt.js";
 import { presetCard } from "./widgets.js";
 import type {
   ExtensionAPI,
@@ -131,7 +119,7 @@ interface RenderListResult {
   readonly renderedCards: number;
 }
 
-class PresetPickerComponent implements Component, Focusable {
+class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
   private _focused = false;
   private state: PickerState = initialPickerState();
   private readonly filterInput = new Input();
@@ -140,6 +128,7 @@ class PresetPickerComponent implements Component, Focusable {
   private renderedPageSize: number | undefined;
   private resolved = false;
   private applying = false;
+  private readonly commands: PickerCommands = new PickerCommands(this);
   /**
    * Memoized drift reasons for the currently-active preset.
    *
@@ -155,16 +144,16 @@ class PresetPickerComponent implements Component, Focusable {
 
   constructor(
     private allPresets: LoadedPreset[],
-    private readonly ctx: ExtensionCommandContext,
-    private readonly pi: ExtensionAPI | undefined,
-    private readonly ui: Pick<ExtensionUIContext, "notify">,
-    private readonly theme: Theme,
+    readonly ctx: ExtensionCommandContext,
+    readonly pi: ExtensionAPI | undefined,
+    readonly ui: Pick<ExtensionUIContext, "notify">,
+    readonly theme: Theme,
     private readonly terminal: Pick<Terminal, "rows">,
     private readonly fixedPageSize: number | undefined,
     private inheritedTools: readonly string[],
-    private readonly hotkeys: HotkeyRegistry,
-    private readonly session: ActivePresetSession,
-    private readonly onActivate: (preset: LoadedPreset) => Promise<ApplyResult>,
+    readonly hotkeys: HotkeyRegistry,
+    readonly session: ActivePresetSession,
+    readonly onActivate: (preset: LoadedPreset) => Promise<ApplyResult>,
     private readonly done: (result: PickerResult | undefined) => void,
     private readonly requestRender: () => void,
   ) {}
@@ -213,23 +202,23 @@ class PresetPickerComponent implements Component, Focusable {
     } else if (matchesKey(input, Key.escape)) {
       this.finish(undefined);
     } else if (matchesKey(input, Key.ctrl(Key.up))) {
-      void this.reorderSelection(-1);
+      void this.commands.reorder(-1);
     } else if (matchesKey(input, Key.ctrl(Key.down))) {
-      void this.reorderSelection(1);
+      void this.commands.reorder(1);
     } else if (normalized === "/") {
       this.setFocusMode("filter");
     } else if (normalized === "n") {
-      void this.openNewFromPicker();
+      void this.commands.openEditorForNew();
     } else if (normalized === "e") {
-      void this.openEditorForSelection();
+      void this.commands.openEditorForSelection();
     } else if (normalized === "d") {
-      void this.duplicateSelection();
+      void this.commands.duplicate();
     } else if (normalized === "x") {
-      void this.deleteSelection();
+      void this.commands.delete();
     } else if (normalized === "c") {
-      void this.clearActivePreset();
+      void this.commands.clearActive();
     } else if (normalized === "s") {
-      void this.showActiveStatus();
+      void this.commands.showStatus();
     }
   }
 
@@ -304,174 +293,8 @@ class PresetPickerComponent implements Component, Focusable {
     this.invalidateVisible();
   }
 
-  private async clearActivePreset(): Promise<void> {
-    if (!this.pi) {
-      await this.showUnavailableDialog("Clear Unavailable");
-
-      return;
-    }
-
-    if (!this.session.current()) {
-      await this.runWithHiddenOverlay(() =>
-        openInfoDialog(this.ctx, {
-          body: "No preset is active.",
-          title: "Clear Unavailable",
-          // No active preset is a normal empty state, unlike missing Pi API.
-          tone: "info",
-        }),
-      );
-
-      return;
-    }
-
-    const confirmed = await this.runWithHiddenOverlay(() =>
-      openConfirm(
-        this.ctx,
-        "Clear active preset?",
-        "Clear the active preset and restore managed settings?",
-      ),
-    );
-
-    if (!confirmed) return;
-
-    const result = await clearReturning(this.ctx, this.pi, this.session);
-
-    if (result) {
-      await this.runWithHiddenOverlay(() =>
-        openInfoDialog(this.ctx, {
-          body: renderClearSummary(result.name, result.parts, this.theme),
-          title: "Preset Cleared",
-          tone: "info",
-        }),
-      );
-    }
-
-    await this.refreshPresets();
-  }
-
-  private async showActiveStatus(): Promise<void> {
-    if (!this.pi) {
-      await this.showUnavailableDialog("Status Unavailable");
-
-      return;
-    }
-
-    const result = await formatStatusBody(this.ctx, this.pi, this.session);
-
-    await this.runWithHiddenOverlay(() =>
-      openInfoDialog(this.ctx, {
-        body: withWarnings(result.body, result.warnings),
-        title: STATUS_DIALOG_TITLE,
-        tone: result.severity,
-      }),
-    );
-  }
-
-  private async showUnavailableDialog(title: string): Promise<void> {
-    await this.runWithHiddenOverlay(() =>
-      openInfoDialog(this.ctx, {
-        body: "This action is unavailable because the Pi API was not provided.",
-        title,
-        tone: "warning",
-      }),
-    );
-  }
-
-  private async deleteSelection(): Promise<void> {
-    await this.confirmAndActOnSelection(
-      (preset) => ({
-        title: `Delete '${preset.name}'?`,
-        message: `Remove preset "${preset.name}" from ${preset.scope} scope?`,
-      }),
-      async (preset) => {
-        const result = await removePreset(preset.name, preset.scope, this.ctx);
-
-        if (!result.ok) {
-          this.ui.notify(result.reason, "error");
-
-          return;
-        }
-
-        if (this.hotkeys.deleteNeedsReload(preset)) {
-          const reloadRequested = await this.runWithHiddenOverlay(() =>
-            confirmReload(this.ctx),
-          );
-
-          if (reloadRequested) {
-            this.finish(undefined);
-            reloadAfterOverlayClose(this.ctx);
-
-            return;
-          }
-
-          this.hotkeys.recordReloadPromptDeclined(preset, undefined);
-        }
-
-        await this.refreshPresets(loadedPresetKey(preset));
-      },
-    );
-  }
-
-  private async duplicateSelection(): Promise<void> {
-    await this.confirmAndActOnSelection(
-      (preset) => ({
-        title: `Duplicate '${preset.name}'?`,
-        message: `Create a copy of "${preset.name}" in ${preset.scope} scope?`,
-      }),
-      async (preset) => {
-        const scopedNames = this.allPresets
-          .filter((candidate) => candidate.scope === preset.scope)
-          .map((candidate) => candidate.name);
-        const copyName = uniqueCopyName(preset.name, scopedNames);
-        const copy = serializeForCopy(preset, copyName);
-        // Route through the canonical CRUD primitive so any future
-        // invariant checks added to addPreset apply here too. The preset
-        // is appended at the end of the scope; the reorderWithinScope
-        // call below moves it immediately after its source.
-        const added = await addPreset(copy, preset.scope, this.ctx);
-
-        if (!added.ok) {
-          this.ui.notify(added.reason, "error");
-
-          return;
-        }
-
-        const sourceIndex = scopedNames.indexOf(preset.name);
-        const reordered = [...scopedNames];
-
-        reordered.splice(Math.max(0, sourceIndex + 1), 0, copyName);
-        await reorderWithinScope(preset.scope, reordered, this.ctx);
-        await this.refreshPresets(`${preset.scope}:${copyName}`);
-      },
-    );
-  }
-
-  /**
-   * Shared confirm-then-act wrapper for CRUD action keys that operate on
-   * the currently-selected preset (delete, duplicate). Resolves the
-   * selection, opens the confirm dialog with the caller-supplied copy,
-   * and invokes `action(preset)` on yes. A no-op on empty selection or
-   * cancelled confirm so each call site stays flat.
-   */
-  private async confirmAndActOnSelection(
-    messages: (preset: LoadedPreset) => { title: string; message: string },
-    action: (preset: LoadedPreset) => Promise<void>,
-  ): Promise<void> {
-    const preset = this.currentSelection();
-
-    if (!preset) return;
-
-    const { title, message } = messages(preset);
-    const confirmed = await this.runWithHiddenOverlay(() =>
-      openConfirm(this.ctx, title, message),
-    );
-
-    if (!confirmed) return;
-
-    await action(preset);
-  }
-
-  private currentSelection(): LoadedPreset | undefined {
+  /** {@link PickerCommandHost} member. */
+  currentSelection(): LoadedPreset | undefined {
     return selectedPickerPreset(
       this.state,
       this.allPresets,
@@ -504,62 +327,18 @@ class PresetPickerComponent implements Component, Focusable {
     return reasons;
   }
 
-  private async openNewFromPicker(): Promise<void> {
-    await this.openEditorAndDispatch(undefined);
+  /** {@link PickerCommandHost} member. */
+  getAllPresets(): readonly LoadedPreset[] {
+    return this.allPresets;
   }
 
-  private async openEditorForSelection(): Promise<void> {
-    const preset = this.currentSelection();
-
-    if (!preset) return;
-
-    await this.openEditorAndDispatch(preset);
-  }
-
-  /**
-   * Shared wrapper for the two editor-entry actions (new, edit-selected).
-   * Hides the picker overlay, opens the editor seeded with either an
-   * existing preset or `undefined` (new-preset defaults), and routes the
-   * result: a `saved` payload refreshes the list with the new selection
-   * focused; a `tested` payload closes the picker and reports the
-   * candidate preset as `activated` so the outer notification surface
-   * names the right preset.
-   */
-  private async openEditorAndDispatch(
-    preset: LoadedPreset | undefined,
-  ): Promise<void> {
-    const result = await this.runWithHiddenOverlay(() =>
-      openEditor(this.ctx, preset, {
-        onReloadRequested: () => {
-          this.finish(undefined);
-          reloadAfterOverlayClose(this.ctx);
-        },
-        onTest: (candidate) =>
-          this.onActivate({
-            ...candidate,
-            unavailable: undefined,
-          }),
-        pi: this.pi,
-        hotkeys: this.hotkeys,
-        presets: this.allPresets,
-        session: this.session,
-      }),
-    );
-
-    if (result?.saved) {
-      if (result.reloadRequested) return;
-
-      await this.refreshPresets(loadedPresetKey(result.saved));
-    }
-
-    if (result?.tested) this.finish({ activated: result.tested });
-  }
-
-  private async runWithHiddenOverlay<T>(fn: () => Promise<T>): Promise<T> {
+  /** {@link PickerCommandHost} member. */
+  async runWithHiddenOverlay<T>(fn: () => Promise<T>): Promise<T> {
     return withHiddenOverlay(this.overlayHandle, this.requestRender, fn);
   }
 
-  private async refreshPresets(selectionKey?: string): Promise<void> {
+  /** {@link PickerCommandHost} member. */
+  async refreshPresets(selectionKey?: string): Promise<void> {
     const { presets, warnings } = await loadAll(this.ctx);
 
     surfaceWarnings(this.ctx, warnings);
@@ -582,39 +361,12 @@ class PresetPickerComponent implements Component, Focusable {
     this.requestRender();
   }
 
-  private async reorderSelection(direction: -1 | 1): Promise<void> {
-    const preset = this.currentSelection();
-
-    if (!preset) return;
-
-    const scopedPresets = this.allPresets.filter(
-      (candidate) => candidate.scope === preset.scope,
-    );
-    const index = scopedPresets.findIndex(
-      (candidate) => candidate.name === preset.name,
-    );
-    const nextIndex = index + direction;
-
-    if (index < 0 || nextIndex < 0 || nextIndex >= scopedPresets.length) return;
-
-    const ordered = [...scopedPresets];
-    const current = ordered[index];
-    const next = ordered[nextIndex];
-
-    if (!current || !next) return;
-
-    ordered[index] = next;
-    ordered[nextIndex] = current;
-    await reorderWithinScope(
-      preset.scope,
-      ordered.map((candidate) => candidate.name),
-      this.ctx,
-    );
-    await this.refreshPresets(loadedPresetKey(preset));
-  }
-
-  /** Idempotent resolver — guards against double-resolve from rapid Enter. */
-  private finish(result: PickerResult | undefined): void {
+  /**
+   * {@link PickerCommandHost} member.
+   *
+   * Idempotent resolver — guards against double-resolve from rapid Enter.
+   */
+  finish(result: PickerResult | undefined): void {
     if (this.resolved) return;
     this.resolved = true;
     this.done(result);
@@ -1013,49 +765,4 @@ function formatScopeFilter(scopeFilter: ScopeFilter): string {
     case "project":
       return "Project only";
   }
-}
-
-function loadedPresetKey(preset: Pick<LoadedPreset, "name" | "scope">): string {
-  return `${preset.scope}:${preset.name}`;
-}
-
-/**
- * Build the on-disk shape for a duplicated preset.
- *
- * Deliberately drops `hotkey`: the copy lands in the same scope as its
- * source, and reusing the source's hotkey would immediately register as
- * a conflict. Every other optional field is preserved verbatim through
- * the canonical `toPersistedPreset` funnel.
- */
-function serializeForCopy(preset: LoadedPreset, name: string): Preset {
-  return toPersistedPreset({ ...preset, name, hotkey: undefined });
-}
-
-function uniqueCopyName(
-  name: string,
-  existingNames: readonly string[],
-): string {
-  const existing = new Set(existingNames);
-  const base = `${name}-copy`;
-
-  if (!existing.has(base)) return base;
-
-  for (let suffix = 2; suffix < Number.MAX_SAFE_INTEGER; suffix++) {
-    const candidate = `${base}-${suffix}`;
-
-    if (!existing.has(candidate)) return candidate;
-  }
-
-  return `${base}-${Date.now().toString(36)}`;
-}
-
-function withWarnings(body: string, warnings: readonly string[]): string {
-  if (warnings.length === 0) return body;
-
-  return [
-    `warnings:`,
-    ...warnings.map((warning) => `- ${warning}`),
-    "",
-    body,
-  ].join("\n");
 }
