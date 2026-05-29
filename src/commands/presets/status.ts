@@ -5,6 +5,10 @@
  * user-facing report; it does NOT update the footer indicator or mutate
  * the active attachment.
  */
+import {
+  classifyOverlayField,
+  type OverlayFieldClassification,
+} from "../../activation/classify-overlay-field.js";
 import { sameModel } from "../../activation/same-model.js";
 import { sameSet } from "../../activation/same-set.js";
 import type { ActivePresetSession } from "../../activation/session.js";
@@ -97,24 +101,30 @@ export function formatStatus(
   }
 
   const { baseline, lastApplied, owned } = active.restore;
-  const modelClass = classifyField(
-    currentModel,
-    baseline.model,
-    lastApplied.model,
-    sameModel,
+  const modelClass = statusLabel(
+    classifyOverlayField(
+      currentModel,
+      baseline.model,
+      lastApplied.model,
+      sameModel,
+    ),
   );
-  const thinkingClass = classifyField(
-    pi.getThinkingLevel(),
-    baseline.thinkingLevel,
-    lastApplied.thinkingLevel,
-    samePrimitive,
+  const thinkingClass = statusLabel(
+    classifyOverlayField(
+      pi.getThinkingLevel(),
+      baseline.thinkingLevel,
+      lastApplied.thinkingLevel,
+      samePrimitive,
+    ),
   );
   const toolsClass = owned.tools
-    ? classifyField(
-        currentTools,
-        baseline.tools,
-        lastApplied.tools ?? [],
-        sameSet,
+    ? statusLabel(
+        classifyOverlayField(
+          currentTools,
+          baseline.tools,
+          lastApplied.tools ?? [],
+          sameSet,
+        ),
       )
     : "Not managed by active preset";
 
@@ -191,29 +201,17 @@ export async function runStatus(
 }
 
 /**
- * Compare a current value against the baseline and last-applied snapshots
- * and return a plain-English label.
+ * Status-row vocabulary for each {@link OverlayFieldClassification}.
  *
- * Vocabulary parallels the per-row annotations in `renderClearSummary` so
- * users see the same phrasing across `/presets status` and `/presets clear`.
- * The caller injects the equality predicate appropriate for the channel
- * being compared: `sameModel` for `(provider, id)` pairs, `sameSet` for
- * unordered tool lists, and `samePrimitive` for thinking levels.
+ * Parallels the per-row annotations in `renderClearSummary` so users see
+ * matching phrasing across `/presets status` and `/presets clear`. When
+ * the wording changes here, update the clear summary at the same time.
  */
-function classifyField<T>(
-  current: T,
-  baseline: T,
-  lastApplied: T,
-  equals: (left: T, right: T) => boolean,
-):
-  | "Already at baseline"
-  | "Left as-is — you changed it after activation"
-  | "Managed by active preset" {
-  if (equals(current, baseline)) return "Already at baseline";
-  if (equals(current, lastApplied)) return "Managed by active preset";
-
-  return "Left as-is — you changed it after activation";
-}
+const STATUS_VOCABULARY: Record<OverlayFieldClassification, string> = {
+  "already-baseline": "Already at baseline",
+  "matches-last-applied": "Managed by active preset",
+  "user-override": "Left as-is — you changed it after activation",
+};
 
 function formatModel(model: { provider: string; id: string } | null): string {
   return model ? `${model.provider}/${model.id}` : "none";
@@ -235,4 +233,8 @@ function row(
 
 function samePrimitive<T>(left: T, right: T): boolean {
   return left === right;
+}
+
+function statusLabel(classification: OverlayFieldClassification): string {
+  return STATUS_VOCABULARY[classification];
 }
