@@ -20,21 +20,19 @@ import { openInfoDialog } from "./info-dialog.js";
 import {
   ACTIVATE_LABEL,
   ACTIVATION_FAILED_TITLE,
-  CLEAR_LABEL,
   CLOSE_LABEL,
   CURSOR_LABEL,
-  DELETE_LABEL,
-  DUPLICATE_LABEL,
-  EDIT_LABEL,
   FILTER_LABEL,
   LIST_LABEL,
   MOVE_LABEL,
-  NEW_LABEL,
   REORDER_LABEL,
-  STATUS_ACTION_LABEL,
 } from "./labels.js";
 import { withHiddenOverlay } from "./overlay-host.js";
-import { PickerCommands, type PickerCommandHost } from "./picker-commands.js";
+import {
+  PICKER_ACTIONS,
+  PickerCommands,
+  type PickerCommandHost,
+} from "./picker-commands.js";
 import {
   clampScrollToFit,
   cycleScope as cyclePickerScope,
@@ -217,18 +215,15 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
       void this.commands.reorder(1);
     } else if (normalized === "/") {
       this.setFocusMode("filter");
-    } else if (normalized === "n") {
-      void this.commands.openEditorForNew();
-    } else if (normalized === "e") {
-      void this.commands.openEditorForSelection();
-    } else if (normalized === "d") {
-      void this.commands.duplicate();
-    } else if (normalized === "x") {
-      void this.commands.delete();
-    } else if (normalized === "c") {
-      void this.commands.clearActive();
-    } else if (normalized === "s") {
-      void this.commands.showStatus();
+    } else {
+      // Source-of-truth dispatch over PICKER_ACTIONS so a new action key
+      // lands once in the registry and shows up in both the handler chain
+      // and the footer hint.
+      const action = PICKER_ACTIONS.find(
+        (candidate) => candidate.key === normalized,
+      );
+
+      action?.run(this.commands);
     }
   }
 
@@ -516,10 +511,13 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     const activateHint = noMatches
       ? `⏎ ${ACTIVATE_LABEL} (no matches)`
       : `⏎ ${ACTIVATE_LABEL}`;
+    const actionHints = PICKER_ACTIONS.map(
+      (action) => `${action.key} ${action.label}`,
+    ).join(" · ");
     const footer =
       this.state.focusMode === "filter"
         ? `${activateHint} · Esc ${LIST_LABEL} · ←/→ ${CURSOR_LABEL} · ↑/↓ ${MOVE_LABEL} · PgUp/PgDn`
-        : `${activateHint} · n ${NEW_LABEL} · e ${EDIT_LABEL} · d ${DUPLICATE_LABEL} · x ${DELETE_LABEL} · c ${CLEAR_LABEL} · s ${STATUS_ACTION_LABEL} · Ctrl+↑/↓ ${REORDER_LABEL} · / ${FILTER_LABEL} · Esc ${CLOSE_LABEL}`;
+        : `${activateHint} · ${actionHints} · Ctrl+↑/↓ ${REORDER_LABEL} · / ${FILTER_LABEL} · Esc ${CLOSE_LABEL}`;
 
     return this.theme.fg("dim", ` ${footer}`);
   }

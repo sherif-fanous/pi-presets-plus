@@ -26,7 +26,15 @@ import { renderClearSummary } from "./clear-summary.js";
 import { openConfirm } from "./confirm.js";
 import { openEditor } from "./editor.js";
 import { openInfoDialog } from "./info-dialog.js";
-import { STATUS_DIALOG_TITLE } from "./labels.js";
+import {
+  CLEAR_LABEL,
+  DELETE_LABEL,
+  DUPLICATE_LABEL,
+  EDIT_LABEL,
+  NEW_LABEL,
+  STATUS_ACTION_LABEL,
+  STATUS_DIALOG_TITLE,
+} from "./labels.js";
 import { loadedPresetKey } from "./picker-state.js";
 import { confirmReload, reloadAfterOverlayClose } from "./reload-prompt.js";
 import type {
@@ -35,6 +43,21 @@ import type {
   ExtensionUIContext,
   Theme,
 } from "@earendil-works/pi-coding-agent";
+
+/**
+ * One row in the picker's selection-targeted action registry.
+ *
+ * Pairs the single-character trigger key with its footer label and the
+ * `PickerCommands` method that runs the action. The picker uses this
+ * registry as the single source of truth for both keyboard dispatch and
+ * the footer hint string — a new action lands here once and shows up in
+ * both surfaces.
+ */
+export interface PickerAction {
+  readonly key: string;
+  readonly label: string;
+  run(commands: PickerCommands): void;
+}
 
 /**
  * Surface the picker exposes to its action-key commands.
@@ -63,6 +86,46 @@ export interface PickerCommandHost {
   /** Close the picker; pass an `activated` payload when a preset was applied. */
   finish(result: { activated?: LoadedPreset } | undefined): void;
 }
+
+/**
+ * Ordered list of selection-targeted action keys.
+ *
+ * Order is the footer-display order. Excludes universal hints like
+ * Enter / Esc / Ctrl+↑↓ / `/` because those are wired directly in the
+ * picker's render and dispatch — they are not selection-targeted CRUD.
+ */
+export const PICKER_ACTIONS: readonly PickerAction[] = [
+  {
+    key: "n",
+    label: NEW_LABEL,
+    run: (commands) => void commands.openEditorForNew(),
+  },
+  {
+    key: "e",
+    label: EDIT_LABEL,
+    run: (commands) => void commands.openEditorForSelection(),
+  },
+  {
+    key: "d",
+    label: DUPLICATE_LABEL,
+    run: (commands) => void commands.duplicate(),
+  },
+  {
+    key: "x",
+    label: DELETE_LABEL,
+    run: (commands) => void commands.delete(),
+  },
+  {
+    key: "c",
+    label: CLEAR_LABEL,
+    run: (commands) => void commands.clearActive(),
+  },
+  {
+    key: "s",
+    label: STATUS_ACTION_LABEL,
+    run: (commands) => void commands.showStatus(),
+  },
+];
 
 export class PickerCommands {
   constructor(private readonly host: PickerCommandHost) {}
