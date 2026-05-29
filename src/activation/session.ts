@@ -130,8 +130,7 @@ export class ActivePresetSession {
   ): { state: ActivePresetState | undefined; warnings: string[] } {
     const result = this.computeRestore(branch, presets);
 
-    this.active = result.state;
-    this.setStatus(ctx);
+    this.attach(result.state, ctx);
 
     return result;
   }
@@ -209,18 +208,16 @@ export class ActivePresetSession {
   }
 
   /**
-   * Test-only seam for setting active state directly without going through
-   * start/restore. Production code MUST use start/clear/restoreFromBranch so
-   * the persistence entry and badge stay in sync; tests use this when they
-   * need an active preset baseline cheaply.
+   * Replace the active-preset cell directly and refresh the status badge.
    *
-   * The leading underscore signals "do not call from production". A future
-   * lint rule could enforce this; for now it is a convention.
+   * This is the lower primitive that {@link restoreFromBranch} delegates
+   * to after resolving a session entry into an `ActivePresetState`; tests
+   * call it directly to seed an active baseline without round-tripping
+   * through the branch-decoding path. Unlike {@link start}, it does NOT
+   * append a `presets-plus:active` persistence entry — callers that need
+   * a fresh activation persisted should use `start` instead.
    */
-  _replaceForTest(
-    next: ActivePresetState | undefined,
-    ctx: SessionContext,
-  ): void {
+  attach(next: ActivePresetState | undefined, ctx: SessionContext): void {
     this.active = next;
     this.setStatus(ctx);
   }

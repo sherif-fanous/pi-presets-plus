@@ -154,7 +154,7 @@ async function runPicker(
   loadAll.mockResolvedValue({ presets: [selected], warnings: [] });
 
   if (active) {
-    session._replaceForTest(activeState(), ctx);
+    session.attach(activeState(), ctx);
   }
 
   const opened = openPicker(ctx, {

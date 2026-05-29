@@ -110,7 +110,7 @@ describe("ActivePresetSession", () => {
   it("marks baseline state dirty while preserving restore", () => {
     const { ctx, session } = harness();
 
-    session._replaceForTest(baselineActive, ctx);
+    session.attach(baselineActive, ctx);
     session.markDirty(ctx);
 
     expect(session.current()).toEqual({ ...baselineActive, dirty: true });
@@ -120,7 +120,7 @@ describe("ActivePresetSession", () => {
   it("marks unknown state clean while preserving restore", () => {
     const { ctx, session } = harness();
 
-    session._replaceForTest(
+    session.attach(
       {
         declared: {
           model: "claude",
