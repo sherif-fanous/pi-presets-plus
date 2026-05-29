@@ -85,14 +85,7 @@ export class ActivePresetSession {
    * Refreshes the status badge so the footer shows the new name immediately;
    * a missing refresh here was a pre-existing bug surfaced during the session
    * refactor.
-   *
-   * fallow's dead-code analysis loses the consumer because the only call site
-   * accesses this method through an optional-typed field
-   * (`this.options.session.updateIdentity(...)` in `src/ui/editor.ts` where
-   * `session?: ActivePresetSession`), so the suppression below silences the
-   * false positive without hiding any real disuse.
    */
-  // fallow-ignore-next-line unused-class-member
   updateIdentity(
     name: string,
     scope: LoadedPreset["scope"],

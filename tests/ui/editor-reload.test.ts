@@ -1,6 +1,7 @@
 /**
  * Reload-prompt integration tests for editor Save paths.
  */
+import { ActivePresetSession } from "../../src/activation/session.js";
 import { analyzeHotkeys, HotkeyRegistry } from "../../src/hotkey-registry.js";
 import type { LoadedPreset } from "../../src/types.js";
 import type { EditorFormState } from "../../src/ui/editor.js";
@@ -145,6 +146,7 @@ async function runSave(options: {
   const result = await openEditor(ctx as never, initial, {
     hotkeys,
     presets: initial ? [initial] : [],
+    session: new ActivePresetSession(),
   });
 
   return { ctx, result };
@@ -277,7 +279,10 @@ describe("openEditor reload prompt", () => {
 
     updatePreset.mockResolvedValue({ ok: false, reason: "nope" });
 
-    await openEditor(ctx as never, initial, { presets: [initial] });
+    await openEditor(ctx as never, initial, {
+      presets: [initial],
+      session: new ActivePresetSession(),
+    });
 
     expect(openConfirm).not.toHaveBeenCalled();
     expect(ctx.reload).not.toHaveBeenCalled();

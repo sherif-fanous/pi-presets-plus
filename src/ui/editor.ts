@@ -87,7 +87,7 @@ export interface EditorOptions {
    */
   hotkeys?: HotkeyRegistry;
   presets?: readonly LoadedPreset[];
-  session?: ActivePresetSession;
+  session: ActivePresetSession;
   onReloadRequested?(): void;
   onTest?(preset: LoadedPreset): Promise<{ ok: boolean }>;
 }
@@ -276,6 +276,13 @@ class PresetEditorComponent implements Component, Focusable {
   private readonly nameInput = new Input();
   private readonly hotkeyInput = new Input();
   private resolved = false;
+  /**
+   * Direct alias for `options.session`. Pinned to a class field so dead-code
+   * analysis (fallow) can trace method calls without losing the edge through
+   * the `EditorOptions` interface boundary; mirrors how `PresetPickerComponent`
+   * stores its session.
+   */
+  private readonly session: ActivePresetSession;
   private toolIndex = 0;
   private _focused = false;
 
@@ -295,6 +302,7 @@ class PresetEditorComponent implements Component, Focusable {
       options.pi?.getActiveTools() ?? [],
     ),
   ) {
+    this.session = options.session;
     this.buttonOrder = options.onTest
       ? ALL_BUTTONS
       : ALL_BUTTONS.filter((button) => button !== "test");
@@ -1069,10 +1077,9 @@ class PresetEditorComponent implements Component, Focusable {
    * surface refresh against the new identity on the next render.
    */
   private updateActiveAfterMoveOrRename(next: Preset): void {
-    if (!this.initialPreset || !this.options.pi || !this.options.session)
-      return;
+    if (!this.initialPreset || !this.options.pi) return;
 
-    const active = this.options.session.current();
+    const active = this.session.current();
 
     if (
       active?.name !== this.initialPreset.name ||
@@ -1081,7 +1088,7 @@ class PresetEditorComponent implements Component, Focusable {
       return;
     }
 
-    this.options.session.updateIdentity(
+    this.session.updateIdentity(
       next.name,
       this.state.scope,
       this.ctx,
@@ -1321,8 +1328,8 @@ export function initialState(
 
 export async function openEditor(
   ctx: ExtensionCommandContext,
-  preset?: LoadedPreset,
-  options: EditorOptions = {},
+  preset: LoadedPreset | undefined,
+  options: EditorOptions,
 ): Promise<EditorResult | undefined> {
   const presets = options.presets ?? (await loadAll(ctx)).presets;
   // Source all models (not just keyed ones) so a preset whose provider
