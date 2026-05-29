@@ -168,6 +168,16 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
   }
 
   handleInput(input: string): void {
+    this.dispatchInput(input);
+    // Blanket request-render after every key dispatch keeps sync mutators
+    // (moveSelection, cycleScope, setFocusMode, filter typing) visible
+    // without each path having to opt in. Async paths request their own
+    // render via runWithHiddenOverlay / refreshPresets; this trailing
+    // request is idempotent in those cases.
+    this.requestRender();
+  }
+
+  private dispatchInput(input: string): void {
     // Ignore further input while an activation is in flight so a held Enter
     // doesn't queue duplicate apply calls.
     if (this.applying) return;
@@ -723,24 +733,7 @@ export async function openPicker(
 
       currentPicker = picker;
 
-      return {
-        get focused() {
-          return picker.focused;
-        },
-        set focused(value: boolean) {
-          picker.focused = value;
-        },
-        handleInput(input: string): void {
-          picker.handleInput(input);
-          tui.requestRender();
-        },
-        invalidate(): void {
-          picker.invalidate();
-        },
-        render(width: number): string[] {
-          return picker.render(width);
-        },
-      };
+      return picker;
     },
     {
       onHandle: (handle) => currentPicker?.setOverlayHandle(handle),
