@@ -7,7 +7,6 @@
  * callback.
  */
 import type { ActivePresetSession } from "../activation/session.js";
-import { validThinkingLevels } from "../activation/thinking.js";
 import type { HotkeyRegistry } from "../hotkey-registry.js";
 import { findPreset, samePresetIdentity } from "../preset-identity.js";
 import {
@@ -17,13 +16,30 @@ import {
   toPersistedPreset,
   updatePreset,
 } from "../store/api.js";
-import type {
-  LoadedPreset,
-  Preset,
-  PresetScope,
-  ThinkingLevel,
-} from "../types.js";
+import type { LoadedPreset, Preset } from "../types.js";
 import { openConfirm } from "./confirm.js";
+import {
+  EDITOR_ROWS,
+  type EditorFormState,
+  type EditorRowId,
+  type FieldDiagnostic,
+  type ModelItem,
+} from "./editor-types.js";
+import { wrapIndex } from "./editor/row-render.js";
+import type { EditorRow, EditorRowHost } from "./editor/row.js";
+import { makeButtonsRow } from "./editor/rows/buttons.js";
+import { makeHotkeyRow } from "./editor/rows/hotkey.js";
+import { makeInstructionsRow } from "./editor/rows/instructions.js";
+import { makeModelRow } from "./editor/rows/model.js";
+import { makeNameRow } from "./editor/rows/name.js";
+import { makeProviderRow } from "./editor/rows/provider.js";
+import { makeScopeRow } from "./editor/rows/scope.js";
+import {
+  makeThinkingRow,
+  renderThinkingRowsForState,
+  snapThinkingSelection,
+} from "./editor/rows/thinking.js";
+import { makeToolsRow } from "./editor/rows/tools.js";
 import { centerText, frameLine, frameSegment, padToWidth } from "./frame.js";
 import {
   findConflictingPreset,
@@ -32,16 +48,7 @@ import {
 } from "./hotkey-input.js";
 import { openInfoDialog } from "./info-dialog.js";
 import { isHelpKey } from "./key-fallbacks.js";
-import {
-  CANCEL_LABEL,
-  MODEL_LABEL,
-  MOVE_LABEL,
-  MOVE_PRESET_TITLE,
-  SAVE_LABEL,
-  TEST_LABEL,
-  THINKING_LABEL,
-  TOOLS_LABEL,
-} from "./labels.js";
+import { MOVE_LABEL, MOVE_PRESET_TITLE } from "./labels.js";
 import { withHiddenOverlay } from "./overlay-host.js";
 import { openPromptEditor } from "./prompt-editor.js";
 import { confirmReload, reloadAfterOverlayClose } from "./reload-prompt.js";
@@ -61,17 +68,8 @@ import {
   type OverlayHandle,
 } from "@earendil-works/pi-tui";
 
-export interface EditorFormState {
-  hotkey: string;
-  instructions: string;
-  model: string;
-  name: string;
-  provider: string;
-  scope: PresetScope;
-  selectedTools: string[];
-  thinkingLevel: ThinkingLevel;
-  toolsMode: ToolsMode;
-}
+export { EDITOR_ROWS, renderThinkingRowsForState, snapThinkingSelection };
+export type { EditorFormState };
 
 export interface EditorOptions {
   pi?: Pick<
@@ -104,71 +102,6 @@ export interface EditorResult {
   tested?: LoadedPreset;
 }
 
-/**
- * Behavior + presentation contract for a single editor row.
- *
- * Each entry owns the row's stable id, its F1 help payload, the input
- * handler invoked when the row has focus, and the line(s) it contributes
- * to the editor's body render. The editor stores entries in a `rowsById`
- * map built once in the constructor and consumes them from three sites
- * \u2014 input dispatch, help-key lookup, and the row render sequence \u2014
- * so adding or reordering rows only requires touching `EDITOR_ROWS` (for
- * order) and the registry build (for behavior).
- */
-interface EditorRow {
-  readonly id: EditorRowId;
-  readonly help: EditorRowHelpEntry;
-  handleInput(input: string): void;
-  renderLines(width: number): string[];
-}
-
-interface EditorRowHelpEntry {
-  readonly body: readonly string[];
-  /**
-   * Extra paragraphs shown only when the editor is opened for an existing
-   * preset (`this.initialPreset !== undefined`). Lets us mention
-   * edit-only consequences (rename moves the file, scope-change moves the
-   * file) without cluttering the new-preset experience.
-   */
-  readonly editAddendum?: readonly string[];
-  readonly title: string;
-}
-
-interface ModelItem {
-  /**
-   * True when the model has a resolvable API key / auth configured.
-   * Unavailable models are still surfaced in the editor (so users editing
-   * a preset whose key was rotated away can still see and re-select their
-   * model) but are rendered with a dim `(no key)` suffix. Preset-level
-   * availability enforcement happens downstream at apply time via
-   * `computeAvailability`; this flag is purely a UI hint.
-   */
-  readonly available: boolean;
-  readonly id: string;
-  readonly model: Model<Api>;
-  readonly provider: string;
-}
-
-type ButtonAction = "cancel" | "save" | "test";
-
-type EditorRowId =
-  | "buttons"
-  | "hotkey"
-  | "instructions"
-  | "model"
-  | "name"
-  | "provider"
-  | "scope"
-  | "thinking"
-  | "tools";
-
-type FieldDiagnostic = {
-  message: string;
-  severity: "error" | "warning";
-};
-
-type ToolsMode = "preset" | "session";
-
 type ValidationResult =
   | { fieldDiagnostics: ReadonlyMap<EditorRowId, FieldDiagnostic>; ok: true }
   | {
@@ -177,47 +110,14 @@ type ValidationResult =
       ok: false;
     };
 
-const ALL_BUTTONS: readonly ButtonAction[] = ["save", "cancel", "test"];
-
-/**
- * Source-of-truth row order for the editor's focus chain.
- *
- * Exported so tests can iterate every row without depending on positional
- * indices that would silently shift if the order changes here.
- */
-export const EDITOR_ROWS = [
-  "name",
-  "scope",
-  "provider",
-  "model",
-  "thinking",
-  "tools",
-  "instructions",
-  "hotkey",
-  "buttons",
-] as const satisfies readonly EditorRowId[];
-
-const THINKING_LEVELS = [
-  "off",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-] as const satisfies readonly ThinkingLevel[];
-const EDITOR_LABEL_WIDTH = 15;
-const EMPTY_INPUT_PLACEHOLDER = "—";
-
-class PresetEditorComponent implements Component, Focusable {
+class PresetEditorComponent implements Component, Focusable, EditorRowHost {
   private actionInFlight = false;
-  private readonly buttonOrder: readonly ButtonAction[];
-  private buttonAction: ButtonAction = "save";
   private fieldDiagnostics: Map<EditorRowId, FieldDiagnostic> = new Map();
   private flowError: string | undefined;
   private focusedRowIndex = 0;
   private overlayHandle: OverlayHandle | undefined;
-  private readonly nameInput = new Input();
-  private readonly hotkeyInput = new Input();
+  readonly nameInput = new Input();
+  readonly hotkeyInput = new Input();
   private resolved = false;
   /**
    * Source-of-truth row registry. Built once in the constructor; consumed
@@ -231,17 +131,24 @@ class PresetEditorComponent implements Component, Focusable {
    * the `EditorOptions` interface boundary; mirrors how `PresetPickerComponent`
    * stores its session.
    */
-  private readonly session: ActivePresetSession;
-  private toolIndex = 0;
+  readonly session: ActivePresetSession;
+  readonly canTest: boolean;
+  readonly pi:
+    | Pick<
+        ExtensionAPI,
+        "appendEntry" | "getActiveTools" | "getAllTools" | "getThinkingLevel"
+      >
+    | undefined;
+  readonly initialActiveTools: readonly string[];
   private _focused = false;
 
   constructor(
-    private readonly ctx: ExtensionCommandContext,
-    private readonly theme: Theme,
-    private readonly models: readonly ModelItem[],
+    readonly ctx: ExtensionCommandContext,
+    readonly theme: Theme,
+    readonly models: readonly ModelItem[],
     private readonly allPresets: readonly LoadedPreset[],
-    private readonly allTools: readonly string[],
-    private readonly initialPreset: LoadedPreset | undefined,
+    readonly allTools: readonly string[],
+    readonly initialPreset: LoadedPreset | undefined,
     private readonly options: EditorOptions,
     private readonly done: (result: EditorResult | undefined) => void,
     private readonly requestRender: () => void,
@@ -252,9 +159,9 @@ class PresetEditorComponent implements Component, Focusable {
     ),
   ) {
     this.session = options.session;
-    this.buttonOrder = options.onTest
-      ? ALL_BUTTONS
-      : ALL_BUTTONS.filter((button) => button !== "test");
+    this.pi = options.pi;
+    this.initialActiveTools = options.pi?.getActiveTools() ?? [];
+    this.canTest = options.onTest !== undefined;
     setInputValueCursorAtEnd(this.nameInput, this.state.name);
     setInputValueCursorAtEnd(this.hotkeyInput, this.state.hotkey);
     this.rowsById = this.buildRowsRegistry();
@@ -383,23 +290,66 @@ class PresetEditorComponent implements Component, Focusable {
     return withHiddenOverlay(this.overlayHandle, this.requestRender, fn);
   }
 
-  private currentModel(): Model<Api> | undefined {
+  currentModel(): Model<Api> | undefined {
     return this.models.find(
       (item) =>
         item.provider === this.state.provider && item.id === this.state.model,
     )?.model;
   }
 
-  private currentRow(): EditorRowId {
+  currentRow(): EditorRowId {
     return EDITOR_ROWS[this.focusedRowIndex] ?? "name";
   }
 
-  private activateButton(action: ButtonAction): void {
+  getState(): EditorFormState {
+    return this.state;
+  }
+
+  setState(state: EditorFormState): void {
+    this.state = state;
+  }
+
+  getFieldDiagnostic(row: EditorRowId): FieldDiagnostic | undefined {
+    return this.fieldDiagnostics.get(row);
+  }
+
+  modelsForProvider(provider: string): readonly ModelItem[] {
+    return this.models.filter((item) => item.provider === provider);
+  }
+
+  /**
+   * Triggered after a user-driven model/provider change. If the chosen
+   * level is still valid for the new model, no-op; otherwise snap to
+   * `"off"`. Never called from the constructor — opening must not
+   * silently mutate the form.
+   */
+  snapThinkingIfInvalid(): void {
+    this.state = snapThinkingSelection(this.state, this.currentModel());
+  }
+
+  /**
+   * Hide the editor overlay, open the multi-line prompt editor, and
+   * commit the result into the form state when the user confirms.
+   */
+  async openPromptEditor(): Promise<void> {
+    const result = await this.runWithHiddenOverlay(() =>
+      openPromptEditor(this.ctx, {
+        initialText: this.state.instructions,
+        presetName: this.state.name,
+      }),
+    );
+
+    if (result.confirmed) {
+      this.state = { ...this.state, instructions: result.text };
+    }
+  }
+
+  activateButton(action: "cancel" | "save" | "test"): void {
     void this.runAsync(() => this.executeButton(action));
   }
 
   private async executeButton(
-    action: ButtonAction = this.buttonAction,
+    action: "cancel" | "save" | "test",
   ): Promise<void> {
     switch (action) {
       case "cancel":
@@ -423,178 +373,6 @@ class PresetEditorComponent implements Component, Focusable {
     this.done(result);
   }
 
-  private handleButtonsInput(input: string): void {
-    if (matchesKey(input, Key.left)) {
-      this.moveButton(-1);
-    } else if (matchesKey(input, Key.right)) {
-      this.moveButton(1);
-    } else if (matchesKey(input, Key.enter) || input === " ") {
-      this.activateButton(this.buttonAction);
-    }
-  }
-
-  private handleInstructionsInput(input: string): void {
-    if (!matchesKey(input, Key.enter)) return;
-
-    void this.runAsync(() => this.openPromptEditor());
-  }
-
-  private handleModelInput(input: string): void {
-    if (!matchesKey(input, Key.left) && !matchesKey(input, Key.right)) return;
-
-    const providerModels = this.modelsForProvider(this.state.provider);
-    const currentIndex = providerModels.findIndex(
-      (item) => item.id === this.state.model,
-    );
-    const direction = matchesKey(input, Key.right) ? 1 : -1;
-    const nextIndex = wrapIndex(currentIndex, providerModels.length, direction);
-    const next = providerModels[nextIndex];
-
-    if (!next) return;
-
-    this.state = { ...this.state, model: next.id };
-    this.clearFieldDiagnosticsFor("model");
-    this.snapThinkingIfInvalid();
-  }
-
-  private handleProviderInput(input: string): void {
-    if (!matchesKey(input, Key.left) && !matchesKey(input, Key.right)) return;
-
-    const providers = this.providers();
-    const currentIndex = providers.indexOf(this.state.provider);
-    const direction = matchesKey(input, Key.right) ? 1 : -1;
-    const nextProvider =
-      providers[wrapIndex(currentIndex, providers.length, direction)];
-
-    if (!nextProvider) return;
-
-    const nextModel = this.modelsForProvider(nextProvider)[0];
-
-    this.state = {
-      ...this.state,
-      model: nextModel?.id ?? "",
-      provider: nextProvider,
-    };
-    this.clearFieldDiagnosticsFor("provider");
-    this.snapThinkingIfInvalid();
-  }
-
-  private handleScopeInput(input: string): void {
-    if (
-      matchesKey(input, Key.left) ||
-      matchesKey(input, Key.right) ||
-      input === " "
-    ) {
-      this.state = {
-        ...this.state,
-        scope: this.state.scope === "user" ? "project" : "user",
-      };
-      this.clearFieldDiagnosticsFor("scope");
-    }
-  }
-
-  private handleThinkingInput(input: string): void {
-    if (!matchesKey(input, Key.left) && !matchesKey(input, Key.right)) return;
-
-    const valid = validThinkingLevels(this.currentModel());
-    const selectable = THINKING_LEVELS.filter((level) => valid.includes(level));
-    const currentIndex = selectable.indexOf(this.state.thinkingLevel);
-    const direction = matchesKey(input, Key.right) ? 1 : -1;
-    const next =
-      selectable[wrapIndex(currentIndex, selectable.length, direction)];
-
-    if (next) this.state = { ...this.state, thinkingLevel: next };
-  }
-
-  private handleToolsInput(input: string): void {
-    if (matchesKey(input, Key.left)) {
-      if (this.state.toolsMode === "preset" && this.toolIndex === 0) {
-        this.state = { ...this.state, toolsMode: "session" };
-      } else {
-        this.toolIndex = Math.max(0, this.toolIndex - 1);
-      }
-    } else if (matchesKey(input, Key.right)) {
-      if (this.state.toolsMode === "session") {
-        this.enterPresetToolsMode();
-      } else {
-        this.toolIndex = Math.min(
-          Math.max(0, this.allTools.length - 1),
-          this.toolIndex + 1,
-        );
-      }
-    } else if (input === " ") {
-      if (this.state.toolsMode === "session") {
-        this.enterPresetToolsMode();
-      } else {
-        this.state = { ...this.state, toolsMode: "session" };
-      }
-    } else if (
-      matchesKey(input, Key.enter) &&
-      this.state.toolsMode === "preset"
-    ) {
-      const tool = this.allTools[this.toolIndex];
-
-      if (!tool) return;
-
-      const selected = new Set(this.state.selectedTools);
-
-      if (selected.has(tool)) {
-        selected.delete(tool);
-      } else {
-        selected.add(tool);
-      }
-
-      this.state = { ...this.state, selectedTools: [...selected] };
-    }
-  }
-
-  private enterPresetToolsMode(): void {
-    const selectedTools =
-      this.state.selectedTools.length > 0
-        ? this.state.selectedTools
-        : (this.options.pi?.getActiveTools() ?? []);
-
-    this.state = { ...this.state, selectedTools, toolsMode: "preset" };
-    this.toolIndex = 0;
-  }
-
-  private async openPromptEditor(): Promise<void> {
-    const result = await this.runWithHiddenOverlay(() =>
-      openPromptEditor(this.ctx, {
-        initialText: this.state.instructions,
-        presetName: this.state.name,
-      }),
-    );
-
-    if (result.confirmed) {
-      this.state = { ...this.state, instructions: result.text };
-    }
-  }
-
-  /**
-   * Triggered after a user-driven model/provider change. If the chosen
-   * level is still valid for the new model, no-op; otherwise snap to
-   * `"off"`. Never called from the constructor — opening must not
-   * silently mutate the form.
-   */
-  private snapThinkingIfInvalid(): void {
-    this.state = snapThinkingSelection(this.state, this.currentModel());
-  }
-
-  private modelsForProvider(provider: string): readonly ModelItem[] {
-    return this.models.filter((item) => item.provider === provider);
-  }
-
-  private moveButton(direction: -1 | 1): void {
-    const currentIndex = this.buttonOrder.indexOf(this.buttonAction);
-    const next =
-      this.buttonOrder[
-        wrapIndex(currentIndex, this.buttonOrder.length, direction)
-      ];
-
-    if (next) this.buttonAction = next;
-  }
-
   private moveFocus(direction: -1 | 1): void {
     this.focusedRowIndex = wrapIndex(
       this.focusedRowIndex,
@@ -604,7 +382,7 @@ class PresetEditorComponent implements Component, Focusable {
     this.syncFocus();
   }
 
-  private providers(): string[] {
+  providers(): readonly string[] {
     return [...new Set(this.models.map((item) => item.provider))];
   }
 
@@ -645,352 +423,24 @@ class PresetEditorComponent implements Component, Focusable {
   /**
    * Build the per-instance row registry.
    *
-   * Each entry binds its inline / delegated input handler and renderer to
-   * `this`. The closures resolve `this.state`, `this.buttonOrder`, etc. at
-   * call time, so a state update flows through naturally on the next
-   * `handleInput` or `renderLines` invocation.
+   * Each factory builds an `EditorRow` against `this` as the host. The
+   * editor implements `EditorRowHost`; row modules consume only the
+   * methods and fields they declare on that interface.
    */
   private buildRowsRegistry(): ReadonlyMap<EditorRowId, EditorRow> {
     const entries: readonly EditorRow[] = [
-      {
-        id: "name",
-        help: {
-          body: [
-            "Give your preset a short, memorable name.",
-            "Names need to be unique within their scope, so two user-scope presets can't share a name.",
-          ],
-          editAddendum: [
-            "If you rename this preset, its file is renamed automatically too.",
-          ],
-          title: "Name",
-        },
-        handleInput: (input) => {
-          this.nameInput.handleInput(input);
-          this.state = { ...this.state, name: this.nameInput.getValue() };
-          this.clearFieldDiagnosticsFor("name");
-        },
-        renderLines: (width) => this.renderNameRow(width),
-      },
-      {
-        id: "scope",
-        help: {
-          body: [
-            "User presets follow you everywhere \u2014 across every project on your machine. Project presets stay tied to this project, which makes them easy to share with collaborators.",
-          ],
-          editAddendum: [
-            "If you switch scope on an existing preset, its file moves to the new location.",
-          ],
-          title: "Scope",
-        },
-        handleInput: (input) => this.handleScopeInput(input),
-        renderLines: () =>
-          this.withFieldDiagnostic(
-            renderChoiceRow(
-              this.theme,
-              "Scope",
-              ["user", "project"],
-              this.state.scope,
-              this.currentRow() === "scope",
-            ),
-            "scope",
-          ),
-      },
-      {
-        id: "provider",
-        help: {
-          body: [
-            "The provider is the service that hosts the model, like OpenAI or Anthropic.",
-            "Only providers Pi knows about show up here. Switching providers refreshes the model list.",
-          ],
-          title: "Provider",
-        },
-        handleInput: (input) => this.handleProviderInput(input),
-        renderLines: () =>
-          this.withFieldDiagnostic(
-            renderValueRow(
-              this.theme,
-              "Provider",
-              this.state.provider || "none",
-              this.currentRow() === "provider",
-            ),
-            "provider",
-          ),
-      },
-      {
-        id: "model",
-        help: {
-          body: [
-            "Pick which model Pi should use whenever this preset is active.",
-            "Models marked (no key) don't have an API key set up yet, but you can still pick them \u2014 handy if you need to repair a preset whose key was removed.",
-          ],
-          title: "Model",
-        },
-        handleInput: (input) => this.handleModelInput(input),
-        renderLines: () =>
-          this.withFieldDiagnostic(
-            renderValueRow(
-              this.theme,
-              MODEL_LABEL,
-              this.renderModelValue(),
-              this.currentRow() === "model",
-            ),
-            "model",
-          ),
-      },
-      {
-        id: "thinking",
-        help: {
-          body: [
-            "Thinking is how much extra reasoning effort Pi asks the model to spend. Higher levels can produce better answers but take longer and cost more.",
-            "Off means no extra reasoning. Some models support fewer levels than others.",
-          ],
-          title: "Thinking",
-        },
-        handleInput: (input) => this.handleThinkingInput(input),
-        renderLines: () => this.renderThinkingRows(),
-      },
-      {
-        id: "tools",
-        help: {
-          body: [
-            "Tools are the abilities Pi has during a session \u2014 things like reading files, running commands, or searching the web.",
-            "Session means this preset uses whatever tools are active when you apply it.",
-            "Preset means this preset always uses the specific tools you pick here, no matter what's currently active.",
-          ],
-          title: "Tools",
-        },
-        handleInput: (input) => this.handleToolsInput(input),
-        renderLines: () => this.renderToolsRows(),
-      },
-      {
-        id: "instructions",
-        help: {
-          body: [
-            "Whatever you write here gets added to Pi's system prompt when this preset is active. It doesn't replace what Pi already has \u2014 it adds to it.",
-            "Use it to describe your project's conventions, the tone you want, or any rules Pi should follow.",
-            "Press Enter on the Prompt row to open the multi-line editor, then Ctrl-S to confirm or Esc to cancel.",
-          ],
-          title: "Prompt",
-        },
-        handleInput: (input) => this.handleInstructionsInput(input),
-        renderLines: (width) => this.renderInstructionsRows(width),
-      },
-      {
-        id: "hotkey",
-        help: {
-          body: [
-            "Hotkeys let you switch to this preset with a single key combination.",
-            "Use Pi's format, like ctrl+shift+1 or ctrl+m. Leave it blank if you don't want a hotkey.",
-            "If your choice conflicts with another preset or a Pi built-in, you'll see a warning, but you can still save.",
-          ],
-          title: "Hotkey",
-        },
-        handleInput: (input) => {
-          this.hotkeyInput.handleInput(input);
-          this.state = { ...this.state, hotkey: this.hotkeyInput.getValue() };
-          this.recomputeHotkeyDiagnostic();
-        },
-        renderLines: (width) => this.renderHotkeyRow(width),
-      },
-      {
-        id: "buttons",
-        help: {
-          body: [
-            "Save writes this preset to disk after checking the values you entered.",
-            "Cancel closes the editor and discards any changes you made.",
-            "Test applies this preset to the current session without saving it \u2014 useful for trying things out.",
-          ],
-          title: "Actions",
-        },
-        handleInput: (input) => this.handleButtonsInput(input),
-        renderLines: () => [
-          renderChoiceRow(
-            this.theme,
-            "Actions",
-            this.buttonOrder.map(formatButton),
-            formatButton(this.buttonAction),
-            this.currentRow() === "buttons",
-          ),
-        ],
-      },
+      makeNameRow(this),
+      makeScopeRow(this),
+      makeProviderRow(this),
+      makeModelRow(this),
+      makeThinkingRow(this),
+      makeToolsRow(this),
+      makeInstructionsRow(this),
+      makeHotkeyRow(this),
+      makeButtonsRow(this),
     ];
 
     return new Map(entries.map((entry) => [entry.id, entry]));
-  }
-
-  private renderHotkeyRow(width: number): string[] {
-    return this.renderTextInputRow(
-      "Hotkey",
-      "hotkey",
-      this.hotkeyInput,
-      this.state.hotkey,
-      width,
-    );
-  }
-
-  private renderNameRow(width: number): string[] {
-    return this.renderTextInputRow(
-      "Name",
-      "name",
-      this.nameInput,
-      this.state.name,
-      width,
-    );
-  }
-
-  private renderTextInputRow(
-    label: string,
-    row: Extract<EditorRowId, "hotkey" | "name">,
-    input: Input,
-    text: string,
-    width: number,
-  ): string[] {
-    if (this.currentRow() === row) {
-      return this.withFieldDiagnostic(
-        renderValueRow(
-          this.theme,
-          label,
-          input.render(Math.max(1, width - 16))[0] ?? "",
-          true,
-        ),
-        row,
-      );
-    }
-
-    const value =
-      text.length > 0 ? text : this.theme.fg("dim", EMPTY_INPUT_PLACEHOLDER);
-
-    return this.withFieldDiagnostic(
-      renderValueRow(this.theme, label, value, false),
-      row,
-    );
-  }
-
-  private withFieldDiagnostic(line: string, row: EditorRowId): string[] {
-    const diagnostic = this.renderFieldDiagnostic(row);
-
-    return diagnostic ? [line, diagnostic] : [line];
-  }
-
-  private renderFieldDiagnostic(row: EditorRowId): string | undefined {
-    const diagnostic = this.fieldDiagnostics.get(row);
-
-    if (!diagnostic) return undefined;
-
-    const color = diagnostic.severity === "warning" ? "warning" : "error";
-
-    return this.theme.fg(color, `    ${diagnostic.message}`);
-  }
-
-  /**
-   * Render the Model row's right-hand value with an availability hint
-   * appended for unavailable entries. Mirrors the picker card's
-   * unavailable status row in intent but stays inline to keep the
-   * dropdown compact.
-   */
-  private renderModelValue(): string {
-    if (this.state.model.length === 0) return "none";
-
-    const item = this.models.find(
-      (candidate) =>
-        candidate.provider === this.state.provider &&
-        candidate.id === this.state.model,
-    );
-
-    if (!item) {
-      // Model id didn't resolve at all (e.g. preset references a provider
-      // not present in `models.json`). Mark it so the user isn't left
-      // staring at a seemingly-fine value.
-      return `${this.state.model} ${this.theme.fg("dim", "(unknown)")}`;
-    }
-
-    return item.available
-      ? this.state.model
-      : `${this.state.model} ${this.theme.fg("dim", "(no key)")}`;
-  }
-
-  private renderThinkingRows(): string[] {
-    const lines = renderThinkingRowsForState(
-      this.theme,
-      this.state,
-      this.currentModel(),
-      this.currentRow() === "thinking",
-    );
-    const error = this.renderFieldDiagnostic("thinking");
-
-    return error ? [...lines, error] : lines;
-  }
-
-  private renderToolsRows(): string[] {
-    // Tools-capability gating is intentionally out of scope until pi-ai exposes
-    // a supports-tools flag; see gate-thinking-levels-by-model-map.
-
-    // Labels pair with `formatToolsSummary` on the picker card so the
-    // editor and card share one vocabulary:
-    //   session — session tools pass through at apply time (no `tools`
-    //             field is persisted).
-    //   preset  — an explicit `tools: [...]` list is persisted and wins
-    //             at apply time.
-    const sessionMarker = this.state.toolsMode === "session" ? "●" : "○";
-    const presetMarker = this.state.toolsMode === "preset" ? "●" : "○";
-    const mode = `${sessionMarker} session   ${presetMarker} preset`;
-    const lines = [
-      renderValueRow(
-        this.theme,
-        TOOLS_LABEL,
-        mode,
-        this.currentRow() === "tools",
-      ),
-    ];
-
-    if (this.state.toolsMode === "session") {
-      // Explain the less-obvious mode inline; in `preset` mode the
-      // multi-toggle list below speaks for itself.
-      lines.push(
-        this.theme.fg("dim", "    Session: inherits the active tool set."),
-      );
-    } else {
-      if (this.allTools.length === 0) {
-        lines.push(this.theme.fg("dim", "    No tools available"));
-
-        return lines;
-      }
-
-      const selected = new Set(this.state.selectedTools);
-      const renderedTools = this.allTools.map((tool, toolIndex) => {
-        const marker = selected.has(tool) ? "x" : " ";
-        const text = `[${marker}] ${tool}`;
-
-        return toolIndex === this.toolIndex && this.currentRow() === "tools"
-          ? this.theme.fg("accent", text)
-          : text;
-      });
-
-      lines.push(`    ${renderedTools.join("  ")}`);
-    }
-
-    const error = this.renderFieldDiagnostic("tools");
-
-    return error ? [...lines, error] : lines;
-  }
-
-  private renderInstructionsRows(width: number): string[] {
-    const preview =
-      this.state.instructions.length === 0
-        ? this.theme.fg("dim", EMPTY_INPUT_PLACEHOLDER)
-        : this.state.instructions.replaceAll("\n", " ↵ ");
-
-    return this.withFieldDiagnostic(
-      renderValueRow(
-        this.theme,
-        this.currentRow() === "instructions"
-          ? "Prompt (Enter to edit)"
-          : "Prompt",
-        truncateToWidth(preview, Math.max(1, width - 16), "…"),
-        this.currentRow() === "instructions",
-      ),
-      "instructions",
-    );
   }
 
   private renderMessages(): string[] {
@@ -1012,7 +462,7 @@ class PresetEditorComponent implements Component, Focusable {
     return lines;
   }
 
-  private async runAsync(fn: () => Promise<void>): Promise<void> {
+  async runAsync(fn: () => Promise<void>): Promise<void> {
     this.actionInFlight = true;
 
     try {
@@ -1151,7 +601,7 @@ class PresetEditorComponent implements Component, Focusable {
     );
   }
 
-  private recomputeHotkeyDiagnostic(): void {
+  recomputeHotkeyDiagnostic(): void {
     this.fieldDiagnostics.delete("hotkey");
     this.addHotkeyDiagnostic(this.fieldDiagnostics);
   }
@@ -1277,7 +727,7 @@ class PresetEditorComponent implements Component, Focusable {
     this.flowError = undefined;
   }
 
-  private clearFieldDiagnosticsFor(row: EditorRowId): void {
+  clearFieldDiagnosticsFor(row: EditorRowId): void {
     this.fieldDiagnostics.delete(row);
 
     if (row === "scope") this.fieldDiagnostics.delete("name");
@@ -1435,77 +885,6 @@ export async function openEditor(
 }
 
 /**
- * Exported solely to enable rendering-side regression coverage of the
- * no-notice contract without instantiating the interactive editor.
- */
-export function renderThinkingRowsForState(
-  theme: Pick<Theme, "fg">,
-  state: EditorFormState,
-  model: Model<Api> | undefined,
-  focused: boolean,
-): string[] {
-  const valid = validThinkingLevels(model);
-  // Disabled options are conveyed by dim color alone (no " disabled"
-  // suffix). The disabled-state legend below the row explains the
-  // convention so screen-reader users still get a hint.
-  const options = THINKING_LEVELS.map((level) => {
-    const label = formatThinking(level);
-    const rendered = valid.includes(level) ? label : theme.fg("dim", label);
-
-    return state.thinkingLevel === level ? `● ${rendered}` : `○ ${rendered}`;
-  });
-  const lines = [
-    renderValueRow(theme, THINKING_LABEL, options.join("  "), focused),
-  ];
-
-  if (valid.length < THINKING_LEVELS.length) {
-    // Undefined models return the full set of valid levels, so this dimmed
-    // branch can only fire when the model is defined; the reasoning flag is
-    // therefore the complete branch condition.
-    const message =
-      model?.reasoning === false
-        ? "This model does not support thinking."
-        : "Dimmed levels are unavailable for this model.";
-
-    lines.push(theme.fg("dim", `    ${message}`));
-  }
-
-  return lines;
-}
-
-/**
- * Pure helper: consume the returned form state directly after a user-driven
- * model/provider change. If the selected level is still valid for the new
- * model, return the same state object as the explicit no-op signal;
- * otherwise snap the selection to `"off"`.
- */
-export function snapThinkingSelection(
-  state: EditorFormState,
-  model: Model<Api> | undefined,
-): EditorFormState {
-  if (validThinkingLevels(model).includes(state.thinkingLevel)) {
-    return state;
-  }
-
-  return { ...state, thinkingLevel: "off" };
-}
-
-function formatButton(action: ButtonAction): string {
-  switch (action) {
-    case "cancel":
-      return CANCEL_LABEL;
-    case "save":
-      return SAVE_LABEL;
-    case "test":
-      return TEST_LABEL;
-  }
-}
-
-function formatThinking(level: ThinkingLevel): string {
-  return level;
-}
-
-/**
  * Canonical Hotkey-conflict warning used by proactive recompute and the
  * Save-time validation backstop; keep wording aligned with the spec scenario.
  */
@@ -1519,34 +898,6 @@ function hotkeyConflictWarning(normalized: string, presetName: string): string {
  */
 function hotkeyShadowsBuiltinWarning(normalized: string): string {
   return `⚠ ${normalized} shadows a Pi built-in; saving will replace Pi's behavior for this key.`;
-}
-
-function renderChoiceRow(
-  theme: Theme,
-  label: string,
-  options: readonly string[],
-  selected: string,
-  focused: boolean,
-): string {
-  const rendered = options
-    .map((option) => (option === selected ? `● ${option}` : `○ ${option}`))
-    .join("  ");
-
-  return renderValueRow(theme, label, rendered, focused);
-}
-
-function renderValueRow(
-  theme: Pick<Theme, "fg">,
-  label: string,
-  value: string,
-  focused: boolean,
-): string {
-  const marker = focused ? theme.fg("accent", "▌") : " ";
-  const paddedLabel = `${label}${" ".repeat(Math.max(0, EDITOR_LABEL_WIDTH - label.length))}`;
-  const labelText = theme.fg("muted", paddedLabel);
-  const renderedValue = focused ? theme.fg("accent", value) : value;
-
-  return `${marker} ${labelText}${renderedValue}`;
 }
 
 /**
@@ -1569,14 +920,4 @@ function setInputValueCursorAtEnd(input: Input, value: string): void {
   if (value.length === 0) return;
 
   input.handleInput("\x1b[F");
-}
-
-function wrapIndex(
-  currentIndex: number,
-  length: number,
-  direction: -1 | 1,
-): number {
-  if (length <= 0) return 0;
-
-  return (((currentIndex + direction) % length) + length) % length;
 }
