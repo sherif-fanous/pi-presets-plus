@@ -553,8 +553,9 @@ describe("preset editor input UX", () => {
   it("opens focused-row help with F1", async () => {
     // Drive the loop by row identity (not positional index) so the test
     // stays correct if EDITOR_ROWS is reordered. The keyed lookup pairs
-    // each EditorRowId with the title authored in EDITOR_ROW_HELP; if
-    // a row's title or set of rows changes, this map must change too.
+    // each EditorRowId with the title authored in the editor's row
+    // registry; if a row's title or set of rows changes, this map must
+    // change too.
     const titlesByRow: Record<(typeof EDITOR_ROWS)[number], string> = {
       buttons: "Actions",
       hotkey: "Hotkey",

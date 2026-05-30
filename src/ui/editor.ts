@@ -104,6 +104,24 @@ export interface EditorResult {
   tested?: LoadedPreset;
 }
 
+/**
+ * Behavior + presentation contract for a single editor row.
+ *
+ * Each entry owns the row's stable id, its F1 help payload, the input
+ * handler invoked when the row has focus, and the line(s) it contributes
+ * to the editor's body render. The editor stores entries in a `rowsById`
+ * map built once in the constructor and consumes them from three sites
+ * \u2014 input dispatch, help-key lookup, and the row render sequence \u2014
+ * so adding or reordering rows only requires touching `EDITOR_ROWS` (for
+ * order) and the registry build (for behavior).
+ */
+interface EditorRow {
+  readonly id: EditorRowId;
+  readonly help: EditorRowHelpEntry;
+  handleInput(input: string): void;
+  renderLines(width: number): string[];
+}
+
 interface EditorRowHelpEntry {
   readonly body: readonly string[];
   /**
@@ -159,81 +177,6 @@ type ValidationResult =
       ok: false;
     };
 
-const EDITOR_ROW_HELP: Record<EditorRowId, EditorRowHelpEntry> = {
-  buttons: {
-    body: [
-      "Save writes this preset to disk after checking the values you entered.",
-      "Cancel closes the editor and discards any changes you made.",
-      "Test applies this preset to the current session without saving it \u2014 useful for trying things out.",
-    ],
-    title: "Actions",
-  },
-  hotkey: {
-    body: [
-      "Hotkeys let you switch to this preset with a single key combination.",
-      "Use Pi's format, like ctrl+shift+1 or ctrl+m. Leave it blank if you don't want a hotkey.",
-      "If your choice conflicts with another preset or a Pi built-in, you'll see a warning, but you can still save.",
-    ],
-    title: "Hotkey",
-  },
-  instructions: {
-    body: [
-      "Whatever you write here gets added to Pi's system prompt when this preset is active. It doesn't replace what Pi already has \u2014 it adds to it.",
-      "Use it to describe your project's conventions, the tone you want, or any rules Pi should follow.",
-      "Press Enter on the Prompt row to open the multi-line editor, then Ctrl-S to confirm or Esc to cancel.",
-    ],
-    title: "Prompt",
-  },
-  model: {
-    body: [
-      "Pick which model Pi should use whenever this preset is active.",
-      "Models marked (no key) don't have an API key set up yet, but you can still pick them \u2014 handy if you need to repair a preset whose key was removed.",
-    ],
-    title: "Model",
-  },
-  name: {
-    body: [
-      "Give your preset a short, memorable name.",
-      "Names need to be unique within their scope, so two user-scope presets can't share a name.",
-    ],
-    editAddendum: [
-      "If you rename this preset, its file is renamed automatically too.",
-    ],
-    title: "Name",
-  },
-  provider: {
-    body: [
-      "The provider is the service that hosts the model, like OpenAI or Anthropic.",
-      "Only providers Pi knows about show up here. Switching providers refreshes the model list.",
-    ],
-    title: "Provider",
-  },
-  scope: {
-    body: [
-      "User presets follow you everywhere \u2014 across every project on your machine. Project presets stay tied to this project, which makes them easy to share with collaborators.",
-    ],
-    editAddendum: [
-      "If you switch scope on an existing preset, its file moves to the new location.",
-    ],
-    title: "Scope",
-  },
-  thinking: {
-    body: [
-      "Thinking is how much extra reasoning effort Pi asks the model to spend. Higher levels can produce better answers but take longer and cost more.",
-      "Off means no extra reasoning. Some models support fewer levels than others.",
-    ],
-    title: "Thinking",
-  },
-  tools: {
-    body: [
-      "Tools are the abilities Pi has during a session \u2014 things like reading files, running commands, or searching the web.",
-      "Session means this preset uses whatever tools are active when you apply it.",
-      "Preset means this preset always uses the specific tools you pick here, no matter what's currently active.",
-    ],
-    title: "Tools",
-  },
-};
-
 const ALL_BUTTONS: readonly ButtonAction[] = ["save", "cancel", "test"];
 
 /**
@@ -277,6 +220,12 @@ class PresetEditorComponent implements Component, Focusable {
   private readonly hotkeyInput = new Input();
   private resolved = false;
   /**
+   * Source-of-truth row registry. Built once in the constructor; consumed
+   * by `handleInput`, `openHelpForFocusedRow`, and `renderRows`. Iteration
+   * order comes from `EDITOR_ROWS`; the map is for id-keyed lookup.
+   */
+  private readonly rowsById: ReadonlyMap<EditorRowId, EditorRow>;
+  /**
    * Direct alias for `options.session`. Pinned to a class field so dead-code
    * analysis (fallow) can trace method calls without losing the edge through
    * the `EditorOptions` interface boundary; mirrors how `PresetPickerComponent`
@@ -308,6 +257,7 @@ class PresetEditorComponent implements Component, Focusable {
       : ALL_BUTTONS.filter((button) => button !== "test");
     setInputValueCursorAtEnd(this.nameInput, this.state.name);
     setInputValueCursorAtEnd(this.hotkeyInput, this.state.hotkey);
+    this.rowsById = this.buildRowsRegistry();
     // Note: we deliberately do NOT auto-snap thinking level on open. A
     // preset whose declared level will clamp at apply time stays selected
     // here so save-without-edit round-trips the original value; only
@@ -366,50 +316,7 @@ class PresetEditorComponent implements Component, Focusable {
       return;
     }
 
-    const row = this.currentRow();
-
-    switch (row) {
-      case "buttons":
-        this.handleButtonsInput(input);
-
-        break;
-      case "hotkey":
-        this.hotkeyInput.handleInput(input);
-        this.state = { ...this.state, hotkey: this.hotkeyInput.getValue() };
-        this.recomputeHotkeyDiagnostic();
-
-        break;
-      case "instructions":
-        this.handleInstructionsInput(input);
-
-        break;
-      case "model":
-        this.handleModelInput(input);
-
-        break;
-      case "name":
-        this.nameInput.handleInput(input);
-        this.state = { ...this.state, name: this.nameInput.getValue() };
-        this.clearFieldDiagnosticsFor("name");
-
-        break;
-      case "provider":
-        this.handleProviderInput(input);
-
-        break;
-      case "scope":
-        this.handleScopeInput(input);
-
-        break;
-      case "thinking":
-        this.handleThinkingInput(input);
-
-        break;
-      case "tools":
-        this.handleToolsInput(input);
-
-        break;
-    }
+    this.rowsById.get(this.currentRow())?.handleInput(input);
   }
 
   invalidate(): void {}
@@ -451,7 +358,10 @@ class PresetEditorComponent implements Component, Focusable {
   }
 
   private async openHelpForFocusedRow(): Promise<void> {
-    const entry = EDITOR_ROW_HELP[this.currentRow()];
+    const entry = this.rowsById.get(this.currentRow())?.help;
+
+    if (!entry) return;
+
     // Edit-mode addenda surface consequences that only apply to existing
     // presets (rename migrates the file, scope-change moves the file)
     // without cluttering the new-preset experience.
@@ -716,51 +626,196 @@ class PresetEditorComponent implements Component, Focusable {
   }
 
   private renderRows(width: number): string[] {
-    const rows = [
-      ...this.renderNameRow(width),
-      ...this.withFieldDiagnostic(
-        renderChoiceRow(
-          this.theme,
-          "Scope",
-          ["user", "project"],
-          this.state.scope,
-          this.currentRow() === "scope",
-        ),
-        "scope",
-      ),
-      ...this.withFieldDiagnostic(
-        renderValueRow(
-          this.theme,
-          "Provider",
-          this.state.provider || "none",
-          this.currentRow() === "provider",
-        ),
-        "provider",
-      ),
-      ...this.withFieldDiagnostic(
-        renderValueRow(
-          this.theme,
-          MODEL_LABEL,
-          this.renderModelValue(),
-          this.currentRow() === "model",
-        ),
-        "model",
-      ),
-      ...this.renderThinkingRows(),
-      ...this.renderToolsRows(),
-      ...this.renderInstructionsRows(width),
-      ...this.renderHotkeyRow(width),
-      ...this.renderMessages(),
-      renderChoiceRow(
-        this.theme,
-        "Actions",
-        this.buttonOrder.map(formatButton),
-        formatButton(this.buttonAction),
-        this.currentRow() === "buttons",
-      ),
-    ];
+    const rows: string[] = [];
+
+    for (const id of EDITOR_ROWS) {
+      // Hotkey-reload notice + flow error land between the last value row
+      // (hotkey) and the buttons row. They are not row-owned content so
+      // they live outside the registry.
+      if (id === "buttons") rows.push(...this.renderMessages());
+
+      const row = this.rowsById.get(id);
+
+      if (row) rows.push(...row.renderLines(width));
+    }
 
     return rows.map((line) => padToWidth(line, width));
+  }
+
+  /**
+   * Build the per-instance row registry.
+   *
+   * Each entry binds its inline / delegated input handler and renderer to
+   * `this`. The closures resolve `this.state`, `this.buttonOrder`, etc. at
+   * call time, so a state update flows through naturally on the next
+   * `handleInput` or `renderLines` invocation.
+   */
+  private buildRowsRegistry(): ReadonlyMap<EditorRowId, EditorRow> {
+    const entries: readonly EditorRow[] = [
+      {
+        id: "name",
+        help: {
+          body: [
+            "Give your preset a short, memorable name.",
+            "Names need to be unique within their scope, so two user-scope presets can't share a name.",
+          ],
+          editAddendum: [
+            "If you rename this preset, its file is renamed automatically too.",
+          ],
+          title: "Name",
+        },
+        handleInput: (input) => {
+          this.nameInput.handleInput(input);
+          this.state = { ...this.state, name: this.nameInput.getValue() };
+          this.clearFieldDiagnosticsFor("name");
+        },
+        renderLines: (width) => this.renderNameRow(width),
+      },
+      {
+        id: "scope",
+        help: {
+          body: [
+            "User presets follow you everywhere \u2014 across every project on your machine. Project presets stay tied to this project, which makes them easy to share with collaborators.",
+          ],
+          editAddendum: [
+            "If you switch scope on an existing preset, its file moves to the new location.",
+          ],
+          title: "Scope",
+        },
+        handleInput: (input) => this.handleScopeInput(input),
+        renderLines: () =>
+          this.withFieldDiagnostic(
+            renderChoiceRow(
+              this.theme,
+              "Scope",
+              ["user", "project"],
+              this.state.scope,
+              this.currentRow() === "scope",
+            ),
+            "scope",
+          ),
+      },
+      {
+        id: "provider",
+        help: {
+          body: [
+            "The provider is the service that hosts the model, like OpenAI or Anthropic.",
+            "Only providers Pi knows about show up here. Switching providers refreshes the model list.",
+          ],
+          title: "Provider",
+        },
+        handleInput: (input) => this.handleProviderInput(input),
+        renderLines: () =>
+          this.withFieldDiagnostic(
+            renderValueRow(
+              this.theme,
+              "Provider",
+              this.state.provider || "none",
+              this.currentRow() === "provider",
+            ),
+            "provider",
+          ),
+      },
+      {
+        id: "model",
+        help: {
+          body: [
+            "Pick which model Pi should use whenever this preset is active.",
+            "Models marked (no key) don't have an API key set up yet, but you can still pick them \u2014 handy if you need to repair a preset whose key was removed.",
+          ],
+          title: "Model",
+        },
+        handleInput: (input) => this.handleModelInput(input),
+        renderLines: () =>
+          this.withFieldDiagnostic(
+            renderValueRow(
+              this.theme,
+              MODEL_LABEL,
+              this.renderModelValue(),
+              this.currentRow() === "model",
+            ),
+            "model",
+          ),
+      },
+      {
+        id: "thinking",
+        help: {
+          body: [
+            "Thinking is how much extra reasoning effort Pi asks the model to spend. Higher levels can produce better answers but take longer and cost more.",
+            "Off means no extra reasoning. Some models support fewer levels than others.",
+          ],
+          title: "Thinking",
+        },
+        handleInput: (input) => this.handleThinkingInput(input),
+        renderLines: () => this.renderThinkingRows(),
+      },
+      {
+        id: "tools",
+        help: {
+          body: [
+            "Tools are the abilities Pi has during a session \u2014 things like reading files, running commands, or searching the web.",
+            "Session means this preset uses whatever tools are active when you apply it.",
+            "Preset means this preset always uses the specific tools you pick here, no matter what's currently active.",
+          ],
+          title: "Tools",
+        },
+        handleInput: (input) => this.handleToolsInput(input),
+        renderLines: () => this.renderToolsRows(),
+      },
+      {
+        id: "instructions",
+        help: {
+          body: [
+            "Whatever you write here gets added to Pi's system prompt when this preset is active. It doesn't replace what Pi already has \u2014 it adds to it.",
+            "Use it to describe your project's conventions, the tone you want, or any rules Pi should follow.",
+            "Press Enter on the Prompt row to open the multi-line editor, then Ctrl-S to confirm or Esc to cancel.",
+          ],
+          title: "Prompt",
+        },
+        handleInput: (input) => this.handleInstructionsInput(input),
+        renderLines: (width) => this.renderInstructionsRows(width),
+      },
+      {
+        id: "hotkey",
+        help: {
+          body: [
+            "Hotkeys let you switch to this preset with a single key combination.",
+            "Use Pi's format, like ctrl+shift+1 or ctrl+m. Leave it blank if you don't want a hotkey.",
+            "If your choice conflicts with another preset or a Pi built-in, you'll see a warning, but you can still save.",
+          ],
+          title: "Hotkey",
+        },
+        handleInput: (input) => {
+          this.hotkeyInput.handleInput(input);
+          this.state = { ...this.state, hotkey: this.hotkeyInput.getValue() };
+          this.recomputeHotkeyDiagnostic();
+        },
+        renderLines: (width) => this.renderHotkeyRow(width),
+      },
+      {
+        id: "buttons",
+        help: {
+          body: [
+            "Save writes this preset to disk after checking the values you entered.",
+            "Cancel closes the editor and discards any changes you made.",
+            "Test applies this preset to the current session without saving it \u2014 useful for trying things out.",
+          ],
+          title: "Actions",
+        },
+        handleInput: (input) => this.handleButtonsInput(input),
+        renderLines: () => [
+          renderChoiceRow(
+            this.theme,
+            "Actions",
+            this.buttonOrder.map(formatButton),
+            formatButton(this.buttonAction),
+            this.currentRow() === "buttons",
+          ),
+        ],
+      },
+    ];
+
+    return new Map(entries.map((entry) => [entry.id, entry]));
   }
 
   private renderHotkeyRow(width: number): string[] {
