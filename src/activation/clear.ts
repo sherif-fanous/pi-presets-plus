@@ -11,6 +11,7 @@ import {
   formatTools,
   renderClearSummary,
 } from "../ui/clear-summary.js";
+import { classifyOverlayField } from "./classify-overlay-field.js";
 import { sameModel } from "./same-model.js";
 import { sameSet } from "./same-set.js";
 import type { ActivePresetSession } from "./session.js";
@@ -140,54 +141,85 @@ export function decideClear(snapshot: ClearSnapshot): ClearDecision {
   } = {};
   const { baseline, lastApplied, owned } = active.restore;
 
-  if (sameModel(snapshot.currentModel, baseline.model)) {
-    parts.push({
-      action: "already-baseline",
-      field: "model",
-      value: formatModel(baseline.model),
-    });
-  } else if (sameModel(snapshot.currentModel, lastApplied.model)) {
-    if (baseline.model) {
-      writes.model = baseline.model;
+  const modelClass = classifyOverlayField(
+    snapshot.currentModel,
+    baseline.model,
+    lastApplied.model,
+    sameModel,
+  );
+
+  switch (modelClass) {
+    case "already-baseline":
       parts.push({
-        action: "restored",
+        action: "already-baseline",
         field: "model",
         value: formatModel(baseline.model),
       });
-    } else {
+
+      break;
+    case "matches-last-applied":
+      if (baseline.model) {
+        writes.model = baseline.model;
+        parts.push({
+          action: "restored",
+          field: "model",
+          value: formatModel(baseline.model),
+        });
+      } else {
+        // Activation captured no prior model (e.g. pi was launched without
+        // one selected); restoring to null is not actionable, so we keep
+        // the current value and surface it as baseline-null.
+        parts.push({
+          action: "baseline-null",
+          field: "model",
+          value: currentModelDisplay,
+        });
+      }
+
+      break;
+    case "user-override":
       parts.push({
-        action: "baseline-null",
+        action: "user-override",
         field: "model",
         value: currentModelDisplay,
       });
-    }
-  } else {
-    parts.push({
-      action: "user-override",
-      field: "model",
-      value: currentModelDisplay,
-    });
+
+      break;
   }
 
-  if (snapshot.currentThinking === baseline.thinkingLevel) {
-    parts.push({
-      action: "already-baseline",
-      field: "thinking",
-      value: baseline.thinkingLevel,
-    });
-  } else if (snapshot.currentThinking === lastApplied.thinkingLevel) {
-    writes.thinkingLevel = baseline.thinkingLevel;
-    parts.push({
-      action: "restored",
-      field: "thinking",
-      value: baseline.thinkingLevel,
-    });
-  } else {
-    parts.push({
-      action: "user-override",
-      field: "thinking",
-      value: snapshot.currentThinking,
-    });
+  const thinkingClass = classifyOverlayField(
+    snapshot.currentThinking,
+    baseline.thinkingLevel,
+    lastApplied.thinkingLevel,
+    samePrimitive,
+  );
+
+  switch (thinkingClass) {
+    case "already-baseline":
+      parts.push({
+        action: "already-baseline",
+        field: "thinking",
+        value: baseline.thinkingLevel,
+      });
+
+      break;
+    case "matches-last-applied":
+      writes.thinkingLevel = baseline.thinkingLevel;
+      parts.push({
+        action: "restored",
+        field: "thinking",
+        value: baseline.thinkingLevel,
+      });
+
+      break;
+    case "user-override":
+      parts.push({
+        action: "user-override",
+        field: "thinking",
+        value: snapshot.currentThinking,
+      });
+
+      break;
   }
 
   if (!owned.tools) {
@@ -197,36 +229,51 @@ export function decideClear(snapshot: ClearSnapshot): ClearDecision {
       value: currentToolsDisplay,
     });
   } else {
-    const lastAppliedTools = lastApplied.tools ?? [];
+    const toolsClass = classifyOverlayField(
+      snapshot.currentTools,
+      baseline.tools,
+      lastApplied.tools ?? [],
+      sameSet,
+    );
 
-    if (sameSet(snapshot.currentTools, baseline.tools)) {
-      parts.push({
-        action: "already-baseline",
-        field: "tools",
-        value: formatTools(baseline.tools),
-      });
-    } else if (sameSet(snapshot.currentTools, lastAppliedTools)) {
-      const available = new Set(snapshot.allTools);
-      const filtered = baseline.tools.filter((toolName) =>
-        available.has(toolName),
-      );
-      const dropped = baseline.tools.filter(
-        (toolName) => !available.has(toolName),
-      );
+    switch (toolsClass) {
+      case "already-baseline":
+        parts.push({
+          action: "already-baseline",
+          field: "tools",
+          value: formatTools(baseline.tools),
+        });
 
-      writes.tools = filtered;
-      parts.push({
-        action: dropped.length > 0 ? "restored-partial" : "restored",
-        dropped: dropped.length > 0 ? dropped : undefined,
-        field: "tools",
-        value: formatTools(filtered),
-      });
-    } else {
-      parts.push({
-        action: "user-override",
-        field: "tools",
-        value: currentToolsDisplay,
-      });
+        break;
+
+      case "matches-last-applied": {
+        const available = new Set(snapshot.allTools);
+        const filtered = baseline.tools.filter((toolName) =>
+          available.has(toolName),
+        );
+        const dropped = baseline.tools.filter(
+          (toolName) => !available.has(toolName),
+        );
+
+        writes.tools = filtered;
+        parts.push({
+          action: dropped.length > 0 ? "restored-partial" : "restored",
+          dropped: dropped.length > 0 ? dropped : undefined,
+          field: "tools",
+          value: formatTools(filtered),
+        });
+
+        break;
+      }
+
+      case "user-override":
+        parts.push({
+          action: "user-override",
+          field: "tools",
+          value: currentToolsDisplay,
+        });
+
+        break;
     }
   }
 
@@ -270,4 +317,8 @@ async function executeClear(
   }
 
   return parts;
+}
+
+function samePrimitive<T>(left: T, right: T): boolean {
+  return left === right;
 }
