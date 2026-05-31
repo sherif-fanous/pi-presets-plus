@@ -2,6 +2,12 @@
 
 This changelog follows [Common Changelog](https://common-changelog.org/).
 
+## [0.2.1] - 2026-05-31
+
+### Changed
+
+- Refactored the preset editor and picker internals so each module stays focused and easy to follow. The editor's row layout, the picker's action keys, and the shared clear/status comparison logic now each live in a single dedicated location. No user-visible behavior change; the picker, editor, `/presets` subcommands, `--preset` flag, hotkeys, drift detection, and session restore all behave identically.
+
 ## [0.2.0] - 2026-05-12
 
 ### Changed
@@ -41,6 +47,7 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 _Initial release._
 
+[0.2.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.2.1
 [0.2.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.2.0
 [0.1.4]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.4
 [0.1.3]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.3
