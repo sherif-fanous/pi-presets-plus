@@ -34,6 +34,48 @@ The package SHALL provide an editor UI (opened via `openEditor(ctx, preset?)` or
 - **WHEN** `openEditor(ctx)` is called with no preset
 - **THEN** the form SHALL open with sensible defaults (empty name, scope = user, provider/model unselected, thinking = off, tools = session, instructions empty, hotkey empty)
 
+### Requirement: Editor distinguishes new, edit, and duplicate via an explicit mode
+
+The editor SHALL accept an explicit `mode: "new" | "edit" | "duplicate"` that separates the form *seed* (the values pre-populating the rows) from the edit-*target* identity (the on-disk preset a Save mutates). The seed SHALL drive only row pre-population. The target SHALL be present only in `edit` mode and SHALL be the single source of identity for `updatePreset`/move and for every identity-keyed check (`samePresetIdentity`, the active-preset reference, and reload-prompt identity).
+
+`persist()` SHALL route on `mode`:
+
+- In `new` mode the editor SHALL persist via `addPreset` and SHALL carry no target.
+- In `edit` mode the editor SHALL persist via `updatePreset` (or the move-across-scope flow) against the target.
+- In `duplicate` mode the editor SHALL seed rows from the source preset but SHALL persist via `addPreset` and SHALL carry no target; it SHALL NOT call `updatePreset` or the move flow.
+
+In `duplicate` mode the editor SHALL seed the name row with the next available `uniqueCopyName(...)` and SHALL clear the hotkey so a Save with no further edits does not collide.
+
+The editor window title SHALL be derived from `mode`: `New preset` in `new` mode, `Edit '<name>'` in `edit` mode (where `<name>` is the target preset's name), and `Duplicate '<name>'` in `duplicate` mode (where `<name>` is the source preset's name).
+
+#### Scenario: Editor title reflects mode
+
+- **WHEN** the editor is opened in `new` mode
+- **THEN** the title SHALL read `New preset`
+- **WHEN** the editor is opened in `edit` mode targeting preset `plan`
+- **THEN** the title SHALL read `Edit 'plan'`
+- **WHEN** the editor is opened in `duplicate` mode seeded from preset `plan`
+- **THEN** the title SHALL read `Duplicate 'plan'`
+
+#### Scenario: Duplicate mode seeds from source but persists as new
+
+- **WHEN** the editor is opened in `duplicate` mode seeded from preset `plan`
+- **THEN** all form rows SHALL be pre-populated from `plan`
+- **AND** the name row SHALL be pre-filled with `plan-copy` (or the next available `plan-copy-N`) and the hotkey SHALL be cleared
+- **AND** the title SHALL read `Duplicate 'plan'`
+- **AND** a Save SHALL persist via `addPreset` and SHALL NOT call `updatePreset` or the move flow
+
+#### Scenario: Duplicate mode does not treat the source as an edit target
+
+- **WHEN** the editor is opened in `duplicate` mode seeded from preset `plan`
+- **THEN** the source `plan` SHALL NOT be used as the edit-target identity
+- **AND** `samePresetIdentity`, the active-preset reference, and reload-prompt identity SHALL key off `mode`/target rather than the seed
+
+#### Scenario: Cancel in duplicate mode creates no preset
+
+- **WHEN** the editor is opened in `duplicate` mode and the user cancels without saving
+- **THEN** no preset SHALL be created and no `-copy` row SHALL be written to disk
+
 ### Requirement: Thinking-level radio respects model capability
 
 The editor's thinking-level radio SHALL render greyed and unselectable for any level not in `validThinkingLevels(currentlySelectedModel)`. `validThinkingLevels` mirrors pi-ai's `getSupportedThinkingLevels`: if the model has `reasoning: false` (or falsy), only `"off"` SHALL be valid; otherwise, for each level other than `"xhigh"` the level is valid unless `thinkingLevelMap?.[level]` is exactly `null`, and `"xhigh"` is valid only when `thinkingLevelMap?.["xhigh"]` is defined and not `null`.
@@ -408,7 +450,7 @@ The editor SHALL no longer surface the flow-state message `"Save cancelled."`. W
 
 ### Requirement: Picker CRUD action keys are functional
 
-The picker's `n`, `e`, `d`, `x`, `c`, `⌃↑`, and `⌃↓` keys SHALL perform real actions: new (open editor with sensible defaults for a new preset), edit (open editor for selected), duplicate (with confirmation; create copy with unique name suffix and cleared hotkey), delete (with confirmation), clear active preset (with confirmation), and reorder up/down within the selected preset's scope (persists via `reorderWithinScope`). After every successful CRUD operation the picker SHALL refresh by calling `loadAll` unless the user chose to reload Pi and the picker closes to allow `ctx.reload()`.
+The picker's `n`, `e`, `d`, `x`, `c`, `⌃↑`, and `⌃↓` keys SHALL perform real actions: new (open editor with sensible defaults for a new preset), edit (open editor for selected), duplicate (open the editor in `duplicate` mode pre-populated from the selected preset with a unique copy name and cleared hotkey; the copy persists only on Save), delete (with confirmation), clear active preset (with confirmation), and reorder up/down within the selected preset's scope (persists via `reorderWithinScope`). After every successful CRUD operation the picker SHALL refresh by calling `loadAll` unless the user chose to reload Pi and the picker closes to allow `ctx.reload()`.
 
 When the `x` (delete) action successfully removes a preset whose runtime-baseline `hotkey` field was non-empty, the picker SHALL open a `"Reload Pi?"` confirmation overlay with No selected by default. On Yes, `ctx.reload()` SHALL be called after the picker closes. On No, the dialog SHALL close and the picker SHALL refresh and remain open as before. If the deleted preset had no runtime-baseline hotkey, no reload prompt SHALL appear.
 
@@ -424,8 +466,9 @@ When the `x` (delete) action successfully removes a preset whose runtime-baselin
 
 #### Scenario: Duplicate from picker
 
-- **WHEN** the user presses `d` on selected preset `plan` and confirms
-- **THEN** a new preset SHALL be created in the same scope via `addPreset` with name `plan-copy` (or the next available `plan-copy-N`), with `hotkey` cleared, then placed immediately after the source in file order via `reorderWithinScope`
+- **WHEN** the user presses `d` on selected preset `plan`
+- **THEN** the editor SHALL open in `duplicate` mode pre-populated from `plan`, with the name row seeded to `plan-copy` (or the next available `plan-copy-N`) and the hotkey cleared, without any confirmation dialog
+- **AND** the copy SHALL be persisted in `plan`'s scope via `addPreset` only when the user saves, landing at the end of the scope
 
 #### Scenario: Delete with confirmation
 

@@ -143,7 +143,10 @@ async function runSave(options: {
     openConfirm.mockResolvedValue(options.confirmAnswer ?? false);
   }
 
-  const result = await openEditor(ctx as never, initial, {
+  const openOptions = initial
+    ? { mode: "edit" as const, seed: initial, target: initial }
+    : { mode: "new" as const };
+  const result = await openEditor(ctx as never, openOptions, {
     hotkeys,
     presets: initial ? [initial] : [],
     session: new ActivePresetSession(),
@@ -279,10 +282,14 @@ describe("openEditor reload prompt", () => {
 
     updatePreset.mockResolvedValue({ ok: false, reason: "nope" });
 
-    await openEditor(ctx as never, initial, {
-      presets: [initial],
-      session: new ActivePresetSession(),
-    });
+    await openEditor(
+      ctx as never,
+      { mode: "edit", seed: initial, target: initial },
+      {
+        presets: [initial],
+        session: new ActivePresetSession(),
+      },
+    );
 
     expect(openConfirm).not.toHaveBeenCalled();
     expect(ctx.reload).not.toHaveBeenCalled();

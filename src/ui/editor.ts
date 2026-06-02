@@ -102,6 +102,28 @@ export interface EditorResult {
   tested?: LoadedPreset;
 }
 
+/**
+ * Editor entry options keyed by `mode`, deliberately separating the form
+ * `seed` (values that pre-populate the rows) from the edit-`target`
+ * identity (the on-disk preset a Save mutates):
+ *
+ * - `new`       — no seed, no target; Save appends a fresh preset.
+ * - `edit`      — `seed` and `target` are the same existing preset; Save
+ *                 updates (or moves) `target`.
+ * - `duplicate` — `seed` is the renamed/hotkey-cleared copy; `source` is
+ *                 the original, carried solely so the title can name it.
+ *                 No `target`, so Save appends rather than overwriting.
+ */
+export type EditorOpenOptions =
+  | { mode: "new"; seed?: undefined; target?: undefined }
+  | { mode: "edit"; seed: LoadedPreset; target: LoadedPreset }
+  | {
+      mode: "duplicate";
+      seed: LoadedPreset;
+      source: LoadedPreset;
+      target?: undefined;
+    };
+
 type ValidationResult =
   | { fieldDiagnostics: ReadonlyMap<EditorRowId, FieldDiagnostic>; ok: true }
   | {
@@ -148,12 +170,12 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
     readonly models: readonly ModelItem[],
     private readonly allPresets: readonly LoadedPreset[],
     readonly allTools: readonly string[],
-    readonly initialPreset: LoadedPreset | undefined,
+    private readonly openOptions: EditorOpenOptions,
     private readonly options: EditorOptions,
     private readonly done: (result: EditorResult | undefined) => void,
     private readonly requestRender: () => void,
     private state: EditorFormState = initialState(
-      initialPreset,
+      openOptions.seed,
       models,
       options.pi?.getActiveTools() ?? [],
     ),
@@ -235,9 +257,7 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
   render(width: number): string[] {
     const frameWidth = Math.max(2, width);
     const bodyWidth = Math.max(1, frameWidth - 2);
-    const title = this.initialPreset
-      ? `Edit preset: ${this.initialPreset.name}`
-      : "New preset";
+    const title = editorTitle(this.openOptions);
     const lines = [
       frameSegment("┌", "─", "┐", frameWidth),
       frameLine(
@@ -272,7 +292,7 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
     // Edit-mode addenda surface consequences that only apply to existing
     // presets (rename migrates the file, scope-change moves the file)
     // without cluttering the new-preset experience.
-    const isEdit = this.initialPreset !== undefined;
+    const isEdit = this.openOptions.mode === "edit";
     const paragraphs = [
       ...entry.body,
       ...(isEdit ? (entry.editAddendum ?? []) : []),
@@ -447,7 +467,9 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
     const lines: string[] = [];
 
     const hotkeyNotice = formatHotkeyReloadNotice(
-      this.initialPreset?.hotkey ?? "",
+      this.openOptions.mode === "edit"
+        ? (this.openOptions.target.hotkey ?? "")
+        : "",
       this.state.hotkey,
     );
 
@@ -500,7 +522,10 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
 
     const saved = loaded ?? { ...next, scope: this.state.scope };
 
-    if (this.options.hotkeys?.saveNeedsReload(this.initialPreset, saved)) {
+    const reloadBaseline =
+      this.openOptions.mode === "edit" ? this.openOptions.target : undefined;
+
+    if (this.options.hotkeys?.saveNeedsReload(reloadBaseline, saved)) {
       const reloadRequested = await this.promptReloadHidden();
 
       this.finish({ reloadRequested, saved });
@@ -524,20 +549,19 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
   private async persist(
     next: Preset,
   ): Promise<{ ok: true } | { ok: false; reason: string }> {
-    if (!this.initialPreset) return addPreset(next, this.state.scope, this.ctx);
+    if (this.openOptions.mode !== "edit") {
+      return addPreset(next, this.state.scope, this.ctx);
+    }
 
-    if (this.initialPreset.scope === this.state.scope) {
-      return updatePreset(
-        this.initialPreset.name,
-        this.state.scope,
-        next,
-        this.ctx,
-      );
+    const target = this.openOptions.target;
+
+    if (target.scope === this.state.scope) {
+      return updatePreset(target.name, this.state.scope, next, this.ctx);
     }
 
     const confirmed = await this.confirm(
       MOVE_PRESET_TITLE,
-      `Move "${this.initialPreset.name}" from ${this.initialPreset.scope} to ${this.state.scope}? The old copy will be removed.`,
+      `Move "${target.name}" from ${target.scope} to ${this.state.scope}? The old copy will be removed.`,
     );
 
     if (!confirmed) return { ok: false, reason: "Move cancelled." };
@@ -546,11 +570,7 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
 
     if (!added.ok) return added;
 
-    await removePreset(
-      this.initialPreset.name,
-      this.initialPreset.scope,
-      this.ctx,
-    );
+    await removePreset(target.name, target.scope, this.ctx);
 
     return { ok: true };
   }
@@ -582,14 +602,12 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
    * surface refresh against the new identity on the next render.
    */
   private updateActiveAfterMoveOrRename(next: Preset): void {
-    if (!this.initialPreset || !this.options.pi) return;
+    if (this.openOptions.mode !== "edit" || !this.options.pi) return;
 
+    const target = this.openOptions.target;
     const active = this.session.current();
 
-    if (
-      active?.name !== this.initialPreset.name ||
-      active.scope !== this.initialPreset.scope
-    ) {
+    if (active?.name !== target.name || active.scope !== target.scope) {
       return;
     }
 
@@ -636,7 +654,9 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
     const conflict = findConflictingPreset(
       parsed.parsed,
       this.allPresets,
-      this.initialPreset?.name,
+      this.openOptions.mode === "edit"
+        ? this.openOptions.target.name
+        : undefined,
     );
 
     // v1 intentionally keeps first-match behavior for combined warning
@@ -675,7 +695,8 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
       if (preset.name !== this.state.name.trim()) return false;
 
       return !(
-        this.initialPreset && samePresetIdentity(preset, this.initialPreset)
+        this.openOptions.mode === "edit" &&
+        samePresetIdentity(preset, this.openOptions.target)
       );
     });
   }
@@ -833,7 +854,7 @@ export function initialState(
 
 export async function openEditor(
   ctx: ExtensionCommandContext,
-  preset: LoadedPreset | undefined,
+  openOptions: EditorOpenOptions,
   options: EditorOptions,
 ): Promise<EditorResult | undefined> {
   const presets = options.presets ?? (await loadAll(ctx)).presets;
@@ -860,7 +881,7 @@ export async function openEditor(
         modelItems,
         presets,
         allTools,
-        preset,
+        openOptions,
         options,
         done,
         () => tui.requestRender(),
@@ -882,6 +903,27 @@ export async function openEditor(
       },
     },
   );
+}
+
+/**
+ * Derive the editor window title from the entry mode: a plain label for a
+ * new preset, or the source/target preset's name for edit and duplicate.
+ */
+function editorTitle(openOptions: EditorOpenOptions): string {
+  switch (openOptions.mode) {
+    case "new":
+      return "New preset";
+    case "edit":
+      return `Edit '${openOptions.target.name}'`;
+    case "duplicate":
+      return `Duplicate '${openOptions.source.name}'`;
+
+    default: {
+      const exhaustive: never = openOptions;
+
+      return exhaustive;
+    }
+  }
 }
 
 /**

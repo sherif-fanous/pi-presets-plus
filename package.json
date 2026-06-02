@@ -43,22 +43,22 @@
     ]
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.13",
-    "@earendil-works/pi-ai": "^0.74.0",
-    "@earendil-works/pi-coding-agent": "^0.74.0",
-    "@earendil-works/pi-tui": "^0.74.0",
+    "@biomejs/biome": "^2.4.16",
+    "@earendil-works/pi-ai": "^0.74.2",
+    "@earendil-works/pi-coding-agent": "^0.74.2",
+    "@earendil-works/pi-tui": "^0.74.2",
     "@eslint/js": "^10.0.1",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
     "@stylistic/eslint-plugin": "^5.10.0",
-    "eslint": "^10.2.1",
+    "eslint": "^10.4.1",
     "eslint-plugin-perfectionist": "^5.9.0",
     "eslint-plugin-unicorn": "^64.0.0",
-    "fallow": "^2.55.0",
+    "fallow": "^2.86.0",
     "prettier": "^3.8.3",
     "sort-package-json": "^3.6.1",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.1",
-    "vitest": "^4.1.5"
+    "typescript-eslint": "^8.60.1",
+    "vitest": "^4.1.8"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
