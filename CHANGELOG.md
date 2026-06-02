@@ -2,6 +2,12 @@
 
 This changelog follows [Common Changelog](https://common-changelog.org/).
 
+## [0.3.0] - 2026-06-02
+
+### Changed
+
+- Duplicating a preset now opens the editor pre-filled with the original preset's settings, so you can adjust a field or two and save in one step. Previously, duplicating asked for confirmation and immediately created a separate copy that you then had to find and edit. The duplicate is saved only when you confirm in the editor — cancelling leaves nothing behind.
+
 ## [0.2.1] - 2026-05-31
 
 ### Changed
@@ -47,6 +53,7 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 _Initial release._
 
+[0.3.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.3.0
 [0.2.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.2.1
 [0.2.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.2.0
 [0.1.4]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.1.4
