@@ -148,6 +148,8 @@ function moveFocus(editor: EditorHarness, count: number): void {
 
 async function openHarness(
   options: {
+    readonly duplicateSeed?: LoadedPreset;
+    readonly duplicateSource?: LoadedPreset;
     readonly initial?: LoadedPreset;
     readonly models?: readonly (typeof model)[];
     readonly onTest?: (preset: LoadedPreset) => Promise<{ ok: boolean }>;
@@ -172,7 +174,20 @@ async function openHarness(
     options.models,
     options.theme,
   );
-  const result = openEditor(ctx as never, options.initial, {
+  const openOptions = options.duplicateSeed
+    ? {
+        mode: "duplicate" as const,
+        seed: options.duplicateSeed,
+        source: options.duplicateSource ?? options.duplicateSeed,
+      }
+    : options.initial
+      ? {
+          mode: "edit" as const,
+          seed: options.initial,
+          target: options.initial,
+        }
+      : { mode: "new" as const };
+  const result = openEditor(ctx as never, openOptions, {
     onTest: options.onTest,
     presets: options.presets ?? (options.initial ? [options.initial] : []),
     session: new ActivePresetSession(),
@@ -440,6 +455,41 @@ describe("preset editor input UX", () => {
 
     expect(updatePreset).toHaveBeenCalledOnce();
     expect(openConfirm).not.toHaveBeenCalled();
+  });
+
+  it("opens duplicate mode pre-populated and saves via addPreset", async () => {
+    const source = preset({ hotkey: "ctrl+1", name: "plan" });
+    const seed = { ...source, hotkey: undefined, name: "plan-copy" };
+    const { editor, result } = await openHarness({
+      duplicateSeed: seed,
+      duplicateSource: source,
+      presets: [source],
+    });
+
+    expect(renderText(editor)).toContain("Duplicate 'plan'");
+    expect(lineContaining(editor, "Name")).toContain("plan-copy");
+    expect(lineContaining(editor, "Hotkey")).toContain("—");
+
+    editor.handleInput("\x13");
+
+    await result;
+
+    expect(addPreset).toHaveBeenCalledOnce();
+    expect(updatePreset).not.toHaveBeenCalled();
+    expect(removePreset).not.toHaveBeenCalled();
+  });
+
+  it("cancels duplicate mode without creating a preset", async () => {
+    const source = preset({ name: "plan" });
+    const seed = { ...source, hotkey: undefined, name: "plan-copy" };
+    const { editor, result } = await openHarness({ duplicateSeed: seed });
+
+    editor.handleInput("\u001b");
+
+    await result;
+
+    expect(addPreset).not.toHaveBeenCalled();
+    expect(updatePreset).not.toHaveBeenCalled();
   });
 
   it("refuses Save when an error is present alongside a warning", async () => {

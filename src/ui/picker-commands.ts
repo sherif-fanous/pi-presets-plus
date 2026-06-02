@@ -15,13 +15,8 @@ import { clearReturning } from "../activation/clear.js";
 import type { ActivePresetSession } from "../activation/session.js";
 import { formatStatusBody } from "../commands/presets/status.js";
 import type { HotkeyRegistry } from "../hotkey-registry.js";
-import {
-  addPreset,
-  removePreset,
-  reorderWithinScope,
-  toPersistedPreset,
-} from "../store/api.js";
-import type { LoadedPreset, Preset } from "../types.js";
+import { removePreset, reorderWithinScope } from "../store/api.js";
+import type { LoadedPreset } from "../types.js";
 import { renderClearSummary } from "./clear-summary.js";
 import { openConfirm } from "./confirm.js";
 import { openEditor } from "./editor.js";
@@ -36,6 +31,7 @@ import {
   STATUS_DIALOG_TITLE,
 } from "./labels.js";
 import { loadedPresetKey } from "./picker-state.js";
+import { serializeForCopy, uniqueCopyName } from "./preset-copy.js";
 import { confirmReload, reloadAfterOverlayClose } from "./reload-prompt.js";
 import type {
   ExtensionAPI,
@@ -217,42 +213,31 @@ export class PickerCommands {
   }
 
   async duplicate(): Promise<void> {
-    await this.confirmAndActOnSelection(
-      (preset) => ({
-        title: `Duplicate '${preset.name}'?`,
-        message: `Create a copy of "${preset.name}" in ${preset.scope} scope?`,
-      }),
-      async (preset) => {
-        const scopedNames = this.host
-          .getAllPresets()
-          .filter((candidate) => candidate.scope === preset.scope)
-          .map((candidate) => candidate.name);
-        const copyName = uniqueCopyName(preset.name, scopedNames);
-        const copy = serializeForCopy(preset, copyName);
-        // Route through the canonical CRUD primitive so any future
-        // invariant checks added to addPreset apply here too. The preset
-        // is appended at the end of the scope; the reorderWithinScope
-        // call below moves it immediately after its source.
-        const added = await addPreset(copy, preset.scope, this.host.ctx);
+    const preset = this.host.currentSelection();
 
-        if (!added.ok) {
-          this.host.ui.notify(added.reason, "error");
+    if (!preset) return;
 
-          return;
-        }
+    const scopedNames = this.host
+      .getAllPresets()
+      .filter((candidate) => candidate.scope === preset.scope)
+      .map((candidate) => candidate.name);
+    const copyName = uniqueCopyName(preset.name, scopedNames);
+    const copy = serializeForCopy(preset, copyName);
+    // The seed carries only the source scope; load-time metadata
+    // (`shadowed`, `unavailable`) is deliberately dropped so the editor
+    // recomputes availability for the copy rather than inheriting stale
+    // flags from the source.
+    const seed: LoadedPreset = { ...copy, scope: preset.scope };
 
-        const sourceIndex = scopedNames.indexOf(preset.name);
-        const reordered = [...scopedNames];
-
-        reordered.splice(Math.max(0, sourceIndex + 1), 0, copyName);
-        await reorderWithinScope(preset.scope, reordered, this.host.ctx);
-        await this.host.refreshPresets(`${preset.scope}:${copyName}`);
-      },
-    );
+    await this.openEditorAndDispatch({
+      mode: "duplicate",
+      seed,
+      source: preset,
+    });
   }
 
   async openEditorForNew(): Promise<void> {
-    await this.openEditorAndDispatch(undefined);
+    await this.openEditorAndDispatch({ mode: "new" });
   }
 
   async openEditorForSelection(): Promise<void> {
@@ -260,7 +245,11 @@ export class PickerCommands {
 
     if (!preset) return;
 
-    await this.openEditorAndDispatch(preset);
+    await this.openEditorAndDispatch({
+      mode: "edit",
+      seed: preset,
+      target: preset,
+    });
   }
 
   async reorder(direction: -1 | 1): Promise<void> {
@@ -349,10 +338,10 @@ export class PickerCommands {
    * names the right preset.
    */
   private async openEditorAndDispatch(
-    preset: LoadedPreset | undefined,
+    openOptions: Parameters<typeof openEditor>[1],
   ): Promise<void> {
     const result = await this.host.runWithHiddenOverlay(() =>
-      openEditor(this.host.ctx, preset, {
+      openEditor(this.host.ctx, openOptions, {
         onReloadRequested: () => {
           this.host.finish(undefined);
           reloadAfterOverlayClose(this.host.ctx);
@@ -387,36 +376,6 @@ export class PickerCommands {
       }),
     );
   }
-}
-
-/**
- * Build the on-disk shape for a duplicated preset.
- *
- * Deliberately drops `hotkey`: the copy lands in the same scope as its
- * source, and reusing the source's hotkey would immediately register as
- * a conflict. Every other optional field is preserved verbatim through
- * the canonical `toPersistedPreset` funnel.
- */
-function serializeForCopy(preset: LoadedPreset, name: string): Preset {
-  return toPersistedPreset({ ...preset, name, hotkey: undefined });
-}
-
-function uniqueCopyName(
-  name: string,
-  existingNames: readonly string[],
-): string {
-  const existing = new Set(existingNames);
-  const base = `${name}-copy`;
-
-  if (!existing.has(base)) return base;
-
-  for (let suffix = 2; suffix < Number.MAX_SAFE_INTEGER; suffix++) {
-    const candidate = `${base}-${suffix}`;
-
-    if (!existing.has(candidate)) return candidate;
-  }
-
-  return `${base}-${Date.now().toString(36)}`;
 }
 
 function withWarnings(body: string, warnings: readonly string[]): string {

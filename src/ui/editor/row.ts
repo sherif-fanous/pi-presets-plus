@@ -11,7 +11,6 @@
  * stitches them together.
  */
 import type { ActivePresetSession } from "../../activation/session.js";
-import type { LoadedPreset } from "../../types.js";
 import type {
   EditorFormState,
   EditorRowHelpEntry,
@@ -56,7 +55,6 @@ export interface EditorRowHost {
   readonly theme: Pick<Theme, "fg" | "bold">;
   readonly models: readonly ModelItem[];
   readonly allTools: readonly string[];
-  readonly initialPreset: LoadedPreset | undefined;
   readonly nameInput: Input;
   readonly hotkeyInput: Input;
   readonly session: ActivePresetSession;
