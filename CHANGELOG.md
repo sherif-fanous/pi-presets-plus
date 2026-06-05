@@ -2,6 +2,12 @@
 
 This changelog follows [Common Changelog](https://common-changelog.org/).
 
+## [0.4.0] - 2026-06-04
+
+### Added
+
+- The preset picker now shows which preset is active at all times, on a dedicated line at the top of the picker. Previously the active preset was marked only by a dot on its card in the list, so when that preset was scrolled out of view, filtered out, or hidden by the scope filter, the picker could look as though no preset was active. The new line always names the active preset (with its scope), or shows `Active: none` when nothing is active.
+
 ## [0.3.0] - 2026-06-02
 
 ### Changed
@@ -53,6 +59,7 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 _Initial release._
 
+[0.4.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.4.0
 [0.3.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.3.0
 [0.2.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.2.1
 [0.2.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.2.0
