@@ -46,7 +46,7 @@ import {
   type PickerFocusMode,
   type PickerState,
 } from "./picker-state.js";
-import { presetCard } from "./widgets.js";
+import { formatScopeName, presetCard } from "./widgets.js";
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
@@ -98,11 +98,11 @@ export interface PickerResult {
  */
 const FALLBACK_AVG_CARD_LINES = 7;
 /**
- * Lines consumed by chrome (top border + filter row + rule + rule + footer +
- * bottom border). Subtracted from the overlay's available height to get the
- * card-rendering budget.
+ * Lines consumed by chrome (top border + active row + filter row + rule +
+ * rule + footer + bottom border). Subtracted from the overlay's available
+ * height to get the card-rendering budget.
  */
-const CHROME_LINES = 6;
+const CHROME_LINES = 7;
 /** Fallback page size when the terminal height is unknown or absurdly small. */
 const MIN_PAGE_SIZE = 1;
 
@@ -248,6 +248,7 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
 
     return [
       this.renderTopBorder(frameWidth),
+      frameLine(this.renderActiveStatusContent(frameWidth), frameWidth),
       frameLine(this.renderFilterContent(frameWidth), frameWidth),
       this.renderRule(frameWidth),
       ...list.lines,
@@ -494,7 +495,7 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
 
   private renderFilterContent(width: number): string {
     const label = this.theme.fg("muted", " Filter: ");
-    const inputWidth = Math.max(1, width - 2 - visibleWidth(label));
+    const inputWidth = labelledContentWidth(width, label);
     const query = this.filterInput.getValue();
 
     if (this.state.focusMode !== "filter" && query.length === 0) {
@@ -504,6 +505,32 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     const inputLine = this.filterInput.render(inputWidth)[0] ?? "";
 
     return `${label}${inputLine}`;
+  }
+
+  private renderActiveStatusContent(width: number): string {
+    const label = this.theme.fg("muted", " Active: ");
+    const contentWidth = labelledContentWidth(width, label);
+    const active = this.session.current();
+
+    // No active preset: render the sentinel in `dim` so it reads as an
+    // absence marker, not a preset literally named "none" (names are only
+    // required to be non-empty, so `none` is a legal preset name).
+    if (!active) {
+      const sentinel = this.theme.fg(
+        "dim",
+        middleEllipsize("none", contentWidth),
+      );
+
+      return `${label}${sentinel}`;
+    }
+
+    // Disambiguate by scope (rendered `dim`) so the row identifies the active
+    // preset as precisely as the in-list dot, which matches on name + scope.
+    const scopeSuffix = ` (${formatScopeName(active.scope)})`;
+    const nameWidth = Math.max(1, contentWidth - visibleWidth(scopeSuffix));
+    const name = middleEllipsize(active.name, nameWidth);
+
+    return `${label}${name}${this.theme.fg("dim", scopeSuffix)}`;
   }
 
   private renderFooterContent(): string {
@@ -756,4 +783,85 @@ function formatScopeFilter(scopeFilter: ScopeFilter): string {
     case "project":
       return "Project only";
   }
+}
+
+/**
+ * Visible-column budget for a labelled chrome row's value, after the row
+ * label and the two border columns are reserved.
+ *
+ * `visibleWidth` strips ANSI, so callers MUST pass the already-themed label
+ * (the same string concatenated into the rendered row) to keep the measured
+ * width aligned with what `frameLine` later pads/truncates against. Clamped
+ * to a minimum of 1 so an over-wide label degrades to a single value column
+ * rather than a negative budget.
+ */
+function labelledContentWidth(width: number, label: string): number {
+  return Math.max(1, width - 2 - visibleWidth(label));
+}
+
+/**
+ * Truncate `text` in the middle to fit `width` visible columns, preserving
+ * the leading and trailing portions around a single `…`.
+ *
+ * Invariants:
+ *  - Returns `text` unchanged when it already fits (no spurious ellipsis).
+ *  - The result's visible width never exceeds `width`.
+ *  - The prefix and suffix can never overlap: the ellipsis branch is only
+ *    reached when `visibleWidth(text) > width`, and the two side budgets sum
+ *    to `width - 1`, which is strictly less than `visibleWidth(text)`.
+ *  - The prefix receives the larger half (`ceil`) and the suffix the smaller
+ *    (`floor`) of the side budget, biasing retention toward the start.
+ * Both sides truncate on grapheme-cluster boundaries so neither half can
+ * split a multi-code-point glyph.
+ */
+function middleEllipsize(text: string, width: number): string {
+  if (visibleWidth(text) <= width) return text;
+
+  if (width <= 1) return truncateToWidth(text, width, "…");
+
+  const ellipsis = "…";
+  const sideBudget = width - visibleWidth(ellipsis);
+  const prefixWidth = Math.ceil(sideBudget / 2);
+  const suffixWidth = Math.floor(sideBudget / 2);
+  const prefix = truncateToWidth(text, prefixWidth, "");
+  const suffix = truncateFromEnd(text, suffixWidth);
+
+  return `${prefix}${ellipsis}${suffix}`;
+}
+
+/**
+ * Return the longest trailing run of `text` whose visible width is at most
+ * `width`, truncating on grapheme-cluster boundaries.
+ *
+ * Mirrors the start-anchored `truncateToWidth` for the suffix side of
+ * {@link middleEllipsize}: it segments into grapheme clusters (so emoji and
+ * combining sequences stay intact, matching `truncateToWidth`) and measures
+ * each cluster once, making it O(n) rather than re-measuring a growing
+ * candidate string on every step.
+ */
+function truncateFromEnd(text: string, width: number): string {
+  if (width <= 0) return "";
+
+  const segmenter = new Intl.Segmenter();
+  const clusters = Array.from(
+    segmenter.segment(text),
+    (entry) => entry.segment,
+  );
+  const tail: string[] = [];
+  let used = 0;
+
+  for (let index = clusters.length - 1; index >= 0; index--) {
+    const cluster = clusters[index];
+
+    if (cluster === undefined) continue;
+
+    const clusterWidth = visibleWidth(cluster);
+
+    if (used + clusterWidth > width) break;
+
+    tail.push(cluster);
+    used += clusterWidth;
+  }
+
+  return tail.reverse().join("");
 }

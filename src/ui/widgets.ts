@@ -202,8 +202,12 @@ export function formatInstructionsPreview(
   return `${singleLine.slice(0, PROMPT_PREVIEW_WIDTH - 1).trimEnd()}…`;
 }
 
+export function formatScopeName(scope: LoadedPreset["scope"]): string {
+  return scope === "project" ? "Project" : "User";
+}
+
 export function formatScopeValue(loadedPreset: LoadedPreset): string {
-  return loadedPreset.scope === "project" ? "Project" : "User";
+  return formatScopeName(loadedPreset.scope);
 }
 
 export function formatStatusDot(active: boolean): string {
