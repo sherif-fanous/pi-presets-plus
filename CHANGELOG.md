@@ -2,6 +2,14 @@
 
 This changelog follows [Common Changelog](https://common-changelog.org/).
 
+## [0.5.0] - 2026-08-30
+
+### Added
+
+- You can now define optional directory-specific access rules in `<agent-dir>/presets-plus/policy.json`. Rules can allow or prohibit presets by name, provider, or `provider/model`. When a new activation falls outside the policy, the extension asks whether to override or cancel before changing the session.
+- Policy rules can select a permitted default preset for fresh sessions. The `--preset` flag and a successful session restore still take precedence. If the default cannot be resolved or applied, the session stays on the Pi baseline and shows a warning.
+- `/presets policy` shows the rules that match the current directory, the combined allow and prohibit sets, and the resolved default. The command only reads the policy file.
+
 ## [0.4.0] - 2026-06-04
 
 ### Added
@@ -59,6 +67,7 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 _Initial release._
 
+[0.5.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.5.0
 [0.4.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.4.0
 [0.3.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.3.0
 [0.2.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.2.1
