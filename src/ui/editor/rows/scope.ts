@@ -13,7 +13,7 @@ export function makeScopeRow(host: EditorRowHost): EditorRow {
     id: "scope",
     help: {
       body: [
-        "User presets follow you everywhere \u2014 across every project on your machine. Project presets stay tied to this project, which makes them easy to share with collaborators.",
+        "User presets are available in every project on your machine. Project presets stay with this project, so you can share them with collaborators.",
       ],
       editAddendum: [
         "If you switch scope on an existing preset, its file moves to the new location.",

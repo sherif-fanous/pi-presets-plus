@@ -5,6 +5,7 @@
  * does NOT own session restore, preset storage, or the apply implementation.
  */
 import { apply } from "./activation/apply.js";
+import { gateActivation } from "./activation/policy-gate.js";
 import type { ActivePresetSession } from "./activation/session.js";
 import type { LoadedPreset } from "./types.js";
 import type {
@@ -19,14 +20,14 @@ export async function applyPresetFlag(
   ctx: ExtensionContext,
   presets: readonly LoadedPreset[],
   session: ActivePresetSession,
-): Promise<void> {
+): Promise<boolean> {
   const value = pi.getFlag(PRESET_FLAG);
 
-  if (typeof value !== "string") return;
+  if (typeof value !== "string") return false;
 
   const name = value.trim();
 
-  if (name.length === 0) return;
+  if (name.length === 0) return false;
 
   const preset = findPresetForFlag(presets, name);
 
@@ -36,12 +37,16 @@ export async function applyPresetFlag(
       "warning",
     );
 
-    return;
+    return false;
   }
+
+  if (!(await gateActivation(preset, ctx))) return false;
 
   const result = await apply(preset, ctx, pi, session);
 
   if (!result.ok) ctx.ui.notify(result.reason, "error");
+
+  return result.ok;
 }
 
 export function registerPresetFlag(

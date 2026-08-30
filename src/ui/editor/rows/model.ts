@@ -20,7 +20,7 @@ export function makeModelRow(host: EditorRowHost): EditorRow {
     help: {
       body: [
         "Pick which model Pi should use whenever this preset is active.",
-        "Models marked (no key) don't have an API key set up yet, but you can still pick them \u2014 handy if you need to repair a preset whose key was removed.",
+        "Models marked (no key) don't have an API key set up yet. You can still pick one if you need to repair a preset whose key was removed.",
       ],
       title: "Model",
     },

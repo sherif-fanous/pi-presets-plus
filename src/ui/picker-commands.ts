@@ -40,15 +40,6 @@ import type {
   Theme,
 } from "@earendil-works/pi-coding-agent";
 
-/**
- * One row in the picker's selection-targeted action registry.
- *
- * Pairs the single-character trigger key with its footer label and the
- * `PickerCommands` method that runs the action. The picker uses this
- * registry as the single source of truth for both keyboard dispatch and
- * the footer hint string — a new action lands here once and shows up in
- * both surfaces.
- */
 export interface PickerAction {
   readonly key: string;
   readonly label: string;
@@ -76,12 +67,25 @@ export interface PickerCommandHost {
   /** Hide the picker overlay while a nested dialog runs. */
   runWithHiddenOverlay<T>(fn: () => Promise<T>): Promise<T>;
   /** Apply a preset (used by the editor's Test button as a passthrough). */
-  onActivate(preset: LoadedPreset): Promise<ApplyResult>;
+  onActivate(preset: LoadedPreset): Promise<PickerActivationResult>;
   /** Reload presets from disk and re-focus on `selectionKey`, if given. */
   refreshPresets(selectionKey?: string): Promise<void>;
   /** Close the picker; pass an `activated` payload when a preset was applied. */
   finish(result: { activated?: LoadedPreset } | undefined): void;
 }
+
+/**
+ * One row in the picker's selection-targeted action registry.
+ *
+ * Pairs the single-character trigger key with its footer label and the
+ * `PickerCommands` method that runs the action. The picker uses this
+ * registry as the single source of truth for both keyboard dispatch and
+ * the footer hint string — a new action lands here once and shows up in
+ * both surfaces.
+ */
+export type PickerActivationResult =
+  | ApplyResult
+  | { readonly kind: "cancelled"; readonly ok: false; readonly reason: string };
 
 /**
  * Ordered list of selection-targeted action keys.
@@ -370,7 +374,7 @@ export class PickerCommands {
   private async showUnavailableDialog(title: string): Promise<void> {
     await this.host.runWithHiddenOverlay(() =>
       openInfoDialog(this.host.ctx, {
-        body: "This action is unavailable because the Pi API was not provided.",
+        body: "Pi did not provide the API needed for this action.",
         title,
         tone: "warning",
       }),
@@ -382,7 +386,7 @@ function withWarnings(body: string, warnings: readonly string[]): string {
   if (warnings.length === 0) return body;
 
   return [
-    `warnings:`,
+    `Warnings:`,
     ...warnings.map((warning) => `- ${warning}`),
     "",
     body,

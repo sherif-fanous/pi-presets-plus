@@ -18,8 +18,8 @@ export function makeInstructionsRow(host: EditorRowHost): EditorRow {
     id: "instructions",
     help: {
       body: [
-        "Whatever you write here gets added to Pi's system prompt when this preset is active. It doesn't replace what Pi already has \u2014 it adds to it.",
-        "Use it to describe your project's conventions, the tone you want, or any rules Pi should follow.",
+        "This text is added to Pi's system prompt while the preset is active. It does not replace Pi's existing prompt.",
+        "Use it for project conventions, your preferred tone, or rules Pi should follow.",
         "Press Enter on the Prompt row to open the multi-line editor, then Ctrl-S to confirm or Esc to cancel.",
       ],
       title: "Prompt",

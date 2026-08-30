@@ -16,7 +16,7 @@ import type { Input } from "@earendil-works/pi-tui";
 
 const EDITOR_LABEL_WIDTH = 15;
 
-export const EMPTY_INPUT_PLACEHOLDER = "—";
+export const EMPTY_INPUT_PLACEHOLDER = "(empty)";
 
 /** Render a row whose value is a one-of choice (e.g. user / project). */
 export function renderChoiceRow(

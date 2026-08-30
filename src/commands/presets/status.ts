@@ -210,7 +210,7 @@ export async function runStatus(
 const STATUS_VOCABULARY: Record<OverlayFieldClassification, string> = {
   "already-baseline": "Already at baseline",
   "matches-last-applied": "Managed by active preset",
-  "user-override": "Left as-is — you changed it after activation",
+  "user-override": "Left as-is because you changed it after activation",
 };
 
 function formatModel(model: { provider: string; id: string } | null): string {

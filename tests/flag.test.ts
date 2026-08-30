@@ -9,10 +9,17 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const applyMock = vi.fn();
+const { applyMock, gateActivationMock } = vi.hoisted(() => ({
+  applyMock: vi.fn(),
+  gateActivationMock: vi.fn(),
+}));
 
 vi.mock("../src/activation/apply.js", () => ({
   apply: applyMock,
+}));
+
+vi.mock("../src/activation/policy-gate.js", () => ({
+  gateActivation: gateActivationMock,
 }));
 
 const { applyPresetFlag } = await import("../src/flag.js");
@@ -52,7 +59,9 @@ function preset(
 
 beforeEach(() => {
   applyMock.mockReset();
+  gateActivationMock.mockReset();
   applyMock.mockResolvedValue({ ok: true });
+  gateActivationMock.mockResolvedValue(true);
 });
 
 describe("applyPresetFlag", () => {
@@ -103,6 +112,20 @@ describe("applyPresetFlag", () => {
       '--preset: Unknown preset "bad". Available: plan (Unavailable: no-key).',
       "warning",
     );
+  });
+
+  it("does not apply when the policy gate is cancelled", async () => {
+    const { ctx } = fakeCtx();
+    const pi = fakePi("plan");
+    const selected = preset("plan", "project");
+
+    gateActivationMock.mockResolvedValueOnce(false);
+
+    await expect(
+      applyPresetFlag(pi, ctx, [selected], new ActivePresetSession()),
+    ).resolves.toBe(false);
+    expect(gateActivationMock).toHaveBeenCalledWith(selected, ctx);
+    expect(applyMock).not.toHaveBeenCalled();
   });
 
   it("notifies once when activation refuses a preset", async () => {

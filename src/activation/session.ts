@@ -165,7 +165,7 @@ export class ActivePresetSession {
       return {
         state: undefined,
         warnings: [
-          `Restored session referenced preset "${data.name}" which is not loaded. Not attaching.`,
+          `The restored session references preset "${data.name}", which is not loaded. The extension did not attach it.`,
         ],
       };
     }
@@ -174,7 +174,7 @@ export class ActivePresetSession {
       return {
         state: undefined,
         warnings: [
-          `Restored session referenced preset "${data.name}" which is unavailable (${preset.unavailable}). Not attaching.`,
+          `The restored session references preset "${data.name}", which is unavailable (${preset.unavailable}). The extension did not attach it.`,
         ],
       };
     }

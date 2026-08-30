@@ -6,10 +6,14 @@
  * modules.
  */
 import { apply } from "../../activation/apply.js";
+import { gateActivation } from "../../activation/policy-gate.js";
 import type { ActivePresetSession } from "../../activation/session.js";
 import type { HotkeyRegistry } from "../../hotkey-registry.js";
+import { loadAll } from "../../store/api.js";
 import { openPicker } from "../../ui/picker.js";
 import { runClear } from "./clear.js";
+import { surfaceWarnings } from "./notify.js";
+import { runPolicy } from "./policy.js";
 import { runReload } from "./reload.js";
 import { runShowPrompt } from "./show-prompt.js";
 import { runStatus } from "./status.js";
@@ -45,6 +49,11 @@ const SUBCOMMANDS: readonly Subcommand[] = [
     value: "status",
     label: "status: show active preset details",
     run: runStatusWrapper,
+  },
+  {
+    value: "policy",
+    label: "policy: show access policy for this directory",
+    run: runPolicyWrapper,
   },
   {
     value: "show-prompt",
@@ -113,10 +122,36 @@ export async function handlePresetsCommand(
     return;
   }
 
+  if (pi && (await activateNamedPreset(trimmedArgs, ctx, pi, session))) return;
+
   ctx.ui.notify(
-    `unknown subcommand "${subCommand ?? ""}". try ${formatSupportedCommandHint()}.`,
+    `Unknown subcommand "${subCommand ?? ""}". Try ${formatSupportedCommandHint()}.`,
     "warning",
   );
+}
+
+async function activateNamedPreset(
+  name: string,
+  ctx: ExtensionCommandContext,
+  pi: ExtensionAPI,
+  session: ActivePresetSession,
+): Promise<boolean> {
+  const { presets, warnings } = await loadAll(ctx);
+
+  surfaceWarnings(ctx, warnings);
+
+  const preset = presets.find(
+    (candidate) => candidate.name === name && !candidate.shadowed,
+  );
+
+  if (!preset) return false;
+  if (!(await gateActivation(preset, ctx))) return true;
+
+  const result = await apply(preset, ctx, pi, session);
+
+  if (!result.ok) ctx.ui.notify(result.reason, "error");
+
+  return true;
 }
 
 function formatSupportedCommandHint(): string {
@@ -160,10 +195,24 @@ async function runPicker(
   await openPicker(ctx, {
     hotkeys,
     inheritedTools: pi.getActiveTools(),
-    onActivate: (preset) => apply(preset, ctx, pi, session),
+    onActivate: async (preset) => {
+      if (!(await gateActivation(preset, ctx))) {
+        return {
+          kind: "cancelled",
+          ok: false,
+          reason: "Activation cancelled.",
+        };
+      }
+
+      return apply(preset, ctx, pi, session);
+    },
     pi,
     session,
   });
+}
+
+async function runPolicyWrapper(ctx: ExtensionCommandContext): Promise<void> {
+  await runPolicy(ctx);
 }
 
 async function runReloadWrapper(ctx: ExtensionCommandContext): Promise<void> {

@@ -8,7 +8,7 @@
 import { ActivePresetSession } from "../../src/activation/session.js";
 import type { ActivePresetState, LoadedPreset } from "../../src/types.js";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 const baselineActive: ActivePresetState = {
   declared: {
@@ -149,6 +149,27 @@ describe("ActivePresetSession", () => {
     });
   });
 
+  it("restores without consulting an activation overlay", () => {
+    const { ctx, session } = harness();
+    const custom = vi.fn();
+    const restoreCtx = {
+      ...ctx,
+      ui: { ...ctx.ui, custom },
+    } as Pick<ExtensionContext, "ui">;
+    const branch = [
+      {
+        customType: "presets-plus:active",
+        data: { name: "plan", scope: "project" },
+        type: "custom",
+      },
+    ] as ReturnType<ExtensionContext["sessionManager"]["getBranch"]>;
+
+    session.restoreFromBranch(branch, [loadedPreset], restoreCtx);
+
+    expect(custom).not.toHaveBeenCalled();
+    expect(session.current()?.name).toBe("plan");
+  });
+
   it("restores active state from a branch", () => {
     const { ctx, session } = harness();
     const branch = [
@@ -225,7 +246,7 @@ describe("ActivePresetSession", () => {
 
     expect(result.state).toBeUndefined();
     expect(result.warnings).toEqual([
-      'Restored session referenced preset "missing" which is not loaded. Not attaching.',
+      'The restored session references preset "missing", which is not loaded. The extension did not attach it.',
     ]);
   });
 
@@ -247,7 +268,7 @@ describe("ActivePresetSession", () => {
 
     expect(result.state).toBeUndefined();
     expect(result.warnings).toEqual([
-      'Restored session referenced preset "plan" which is unavailable (no-key). Not attaching.',
+      'The restored session references preset "plan", which is unavailable (no-key). The extension did not attach it.',
     ]);
   });
 });

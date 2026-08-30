@@ -144,8 +144,8 @@ describe("preset widget formatting", () => {
       "  Status:         ⚠ Thinking will be clamped.",
       "  Status:         ⚠ Hotkey conflict.",
       "  Status:         ⚠ This preset's provider has no API key configured.",
-      "  Drift:          ⚠ Dirty — model, tools differ",
-      "  Shadowing:      Overridden by project preset",
+      "  Drift:          ⚠ Dirty: model, tools differ",
+      "  Shadowing:      Project preset takes precedence",
     ]);
   });
 

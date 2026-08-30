@@ -231,7 +231,7 @@ describe("openPicker info actions", () => {
     await runPicker("s");
 
     expect(openInfoDialog).toHaveBeenCalledWith(expect.anything(), {
-      body: "warnings:\n- failed to read user presets\n\nstatus body",
+      body: "Warnings:\n- failed to read user presets\n\nstatus body",
       title: "Preset Status",
       tone: "info",
     });
@@ -257,7 +257,7 @@ describe("openPicker info actions", () => {
     await runPicker("s", { withPi: false });
 
     expect(openInfoDialog).toHaveBeenCalledWith(expect.anything(), {
-      body: "This action is unavailable because the Pi API was not provided.",
+      body: "Pi did not provide the API needed for this action.",
       title: "Status Unavailable",
       tone: "warning",
     });
@@ -296,7 +296,7 @@ describe("openPicker info actions", () => {
     await runPicker("c", { withPi: false });
 
     expect(openInfoDialog).toHaveBeenCalledWith(expect.anything(), {
-      body: "This action is unavailable because the Pi API was not provided.",
+      body: "Pi did not provide the API needed for this action.",
       title: "Clear Unavailable",
       tone: "warning",
     });

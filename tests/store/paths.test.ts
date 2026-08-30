@@ -6,6 +6,7 @@
  * than the real environment so the tests are hermetic.
  */
 import {
+  getGlobalPolicyPath,
   getGlobalPresetsPath,
   getProjectPresetsPath,
 } from "../../src/store/paths.js";
@@ -27,6 +28,14 @@ describe("getGlobalPresetsPath", () => {
 
     expect(resolved.endsWith("/presets-plus/presets.json")).toBe(true);
     expect(resolved.startsWith("/")).toBe(true);
+  });
+});
+
+describe("getGlobalPolicyPath", () => {
+  it("resolves under the provided agent dir", () => {
+    expect(getGlobalPolicyPath("/tmp/fake-agent")).toBe(
+      "/tmp/fake-agent/presets-plus/policy.json",
+    );
   });
 });
 

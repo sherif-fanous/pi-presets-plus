@@ -33,9 +33,9 @@ export function makeToolsRow(host: EditorRowHost): EditorRow {
     id: "tools",
     help: {
       body: [
-        "Tools are the abilities Pi has during a session \u2014 things like reading files, running commands, or searching the web.",
-        "Session means this preset uses whatever tools are active when you apply it.",
-        "Preset means this preset always uses the specific tools you pick here, no matter what's currently active.",
+        "Tools are what Pi can use during a session, such as reading files, running commands, or searching the web.",
+        "Session uses whatever tools are active when you apply the preset.",
+        "Preset always uses the tools you pick here, regardless of what's currently active.",
       ],
       title: "Tools",
     },

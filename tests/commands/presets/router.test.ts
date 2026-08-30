@@ -7,7 +7,7 @@
  * (`runReload`) are covered by their own test files plus the storage API
  * integration tests — here we stub out `ctx` entirely.
  */
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -18,6 +18,18 @@ import {
 } from "../../../src/commands/presets/router.js";
 import { HotkeyRegistry } from "../../../src/hotkey-registry.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { applyMock, gateActivationMock, openPickerMock } = vi.hoisted(() => ({
+  applyMock: vi.fn(),
+  gateActivationMock: vi.fn(),
+  openPickerMock: vi.fn(),
+}));
+
+vi.mock("../../../src/activation/apply.js", () => ({ apply: applyMock }));
+vi.mock("../../../src/activation/policy-gate.js", () => ({
+  gateActivation: gateActivationMock,
+}));
+vi.mock("../../../src/ui/picker.js", () => ({ openPicker: openPickerMock }));
 
 let agentDir: string;
 let prevAgentDirEnv: string | undefined;
@@ -61,6 +73,11 @@ beforeEach(async () => {
   agentDir = await mkdtemp(join(tmpdir(), "pi-presets-router-agent-"));
   prevAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = agentDir;
+  applyMock.mockReset();
+  gateActivationMock.mockReset();
+  openPickerMock.mockReset();
+  applyMock.mockResolvedValue({ ok: true });
+  gateActivationMock.mockResolvedValue(true);
 });
 
 afterEach(async () => {
@@ -79,6 +96,7 @@ describe("getArgumentCompletions", () => {
 
     expect(result.map((completion) => completion.value).sort()).toEqual([
       "clear",
+      "policy",
       "reload",
       "show-prompt",
       "status",
@@ -226,28 +244,76 @@ describe("handlePresetsCommand", () => {
         new HotkeyRegistry(),
       );
       expect(notify).toHaveBeenCalledTimes(1);
-      expect(notify.mock.calls[0]?.[0]).toContain("unknown subcommand");
+      expect(notify.mock.calls[0]?.[0]).toContain("Unknown subcommand");
       expect(notify.mock.calls[0]?.[1]).toBe("warning");
     },
   );
 
-  it("does not support exact-name activation fallback", async () => {
-    const { ctx, notify } = makeStubCtx();
+  it("gates and applies an exact-name activation", async () => {
+    const { ctx } = makeStubCtx();
     const pi = { getActiveTools: () => [] } as unknown as NonNullable<
       Parameters<typeof handlePresetsCommand>[2]
     >;
+    const session = new ActivePresetSession();
+    const preset = {
+      model: "claude-opus",
+      name: "plan",
+      provider: "anthropic",
+    };
+
+    await mkdir(join(agentDir, "presets-plus"), { recursive: true });
+    await writeFile(
+      join(agentDir, "presets-plus", "presets.json"),
+      JSON.stringify({ presets: [preset], version: 1 }),
+    );
+
+    await handlePresetsCommand("plan", ctx, pi, session, new HotkeyRegistry());
+
+    expect(gateActivationMock).toHaveBeenCalledWith(
+      expect.objectContaining(preset),
+      ctx,
+    );
+
+    expect(applyMock).toHaveBeenCalledWith(
+      expect.objectContaining(preset),
+      ctx,
+      pi,
+      session,
+    );
+  });
+
+  it("routes picker activation through the gate", async () => {
+    const { ctx } = makeStubCtx();
+    const pi = { getActiveTools: () => [] } as unknown as NonNullable<
+      Parameters<typeof handlePresetsCommand>[2]
+    >;
+    const selected = {
+      model: "claude-opus",
+      name: "plan",
+      provider: "anthropic",
+      scope: "user" as const,
+    };
 
     await handlePresetsCommand(
-      "plan",
+      "",
       ctx,
       pi,
       new ActivePresetSession(),
       new HotkeyRegistry(),
     );
-    expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify.mock.calls[0]?.[0]).toContain('"plan"');
-    expect(notify.mock.calls[0]?.[0]).toContain("unknown subcommand");
-    expect(notify.mock.calls[0]?.[1]).toBe("warning");
+
+    const options = openPickerMock.mock.calls[0]?.[1] as {
+      onActivate: (preset: typeof selected) => Promise<unknown>;
+    };
+
+    gateActivationMock.mockResolvedValueOnce(false);
+
+    await expect(options.onActivate(selected)).resolves.toEqual({
+      kind: "cancelled",
+      ok: false,
+      reason: "Activation cancelled.",
+    });
+    expect(applyMock).not.toHaveBeenCalled();
   });
 
   it("dispatches `show-prompt` to runShowPrompt", async () => {

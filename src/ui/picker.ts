@@ -6,7 +6,6 @@
  * the activation side effects (the `onActivate` callback is injected by
  * the caller).
  */
-import type { ApplyResult } from "../activation/apply.js";
 import { detectDriftReasons } from "../activation/drift.js";
 import type { ActivePresetSession } from "../activation/session.js";
 import { surfaceWarnings } from "../commands/presets/notify.js";
@@ -31,6 +30,7 @@ import { withHiddenOverlay } from "./overlay-host.js";
 import {
   PICKER_ACTIONS,
   PickerCommands,
+  type PickerActivationResult,
   type PickerCommandHost,
 } from "./picker-commands.js";
 import {
@@ -80,7 +80,7 @@ export interface PickerOptions {
    * `{ ok: false, reason }` to keep it open and surface the refusal in an
    * overlay-appropriate dialog.
    */
-  onActivate(preset: LoadedPreset): Promise<ApplyResult>;
+  onActivate(preset: LoadedPreset): Promise<PickerActivationResult>;
   hotkeys: HotkeyRegistry;
   pi?: ExtensionAPI;
   session: ActivePresetSession;
@@ -151,7 +151,9 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     private inheritedTools: readonly string[],
     readonly hotkeys: HotkeyRegistry,
     readonly session: ActivePresetSession,
-    readonly onActivate: (preset: LoadedPreset) => Promise<ApplyResult>,
+    readonly onActivate: (
+      preset: LoadedPreset,
+    ) => Promise<PickerActivationResult>,
     private readonly done: (result: PickerResult | undefined) => void,
     private readonly requestRender: () => void,
   ) {}
@@ -270,19 +272,21 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     this.applying = true;
 
     try {
-      const result = await this.onActivate(preset);
+      const result = await this.runWithHiddenOverlay(async () => {
+        const activationResult = await this.onActivate(preset);
 
-      if (result.ok) {
-        this.finish({ activated: preset });
-      } else {
-        await this.runWithHiddenOverlay(() =>
-          openInfoDialog(this.ctx, {
-            body: result.reason,
+        if (!activationResult.ok && activationResult.kind !== "cancelled") {
+          await openInfoDialog(this.ctx, {
+            body: activationResult.reason,
             title: ACTIVATION_FAILED_TITLE,
             tone: "error",
-          }),
-        );
-      }
+          });
+        }
+
+        return activationResult;
+      });
+
+      if (result.ok) this.finish({ activated: preset });
     } finally {
       this.applying = false;
     }

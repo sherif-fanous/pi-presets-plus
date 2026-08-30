@@ -50,7 +50,7 @@ export async function addPreset(
   if (current.some((existing) => existing.name === preset.name)) {
     return {
       ok: false,
-      reason: `a preset named "${preset.name}" already exists in scope "${presetScope}".`,
+      reason: `A preset named "${preset.name}" already exists in scope "${presetScope}".`,
     };
   }
 
@@ -223,7 +223,7 @@ export async function updatePreset(
   if (index === -1) {
     return {
       ok: false,
-      reason: `no preset named "${oldName}" in scope "${scope}".`,
+      reason: `No preset named "${oldName}" exists in scope "${scope}".`,
     };
   }
 
@@ -236,7 +236,7 @@ export async function updatePreset(
   ) {
     return {
       ok: false,
-      reason: `a preset named "${next.name}" already exists in scope "${scope}".`,
+      reason: `A preset named "${next.name}" already exists in scope "${scope}".`,
     };
   }
 

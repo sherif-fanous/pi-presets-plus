@@ -561,7 +561,7 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
 
     const confirmed = await this.confirm(
       MOVE_PRESET_TITLE,
-      `Move "${target.name}" from ${target.scope} to ${this.state.scope}? The old copy will be removed.`,
+      `Move "${target.name}" from ${target.scope} to ${this.state.scope}? This will remove the old copy.`,
     );
 
     if (!confirmed) return { ok: false, reason: "Move cancelled." };
@@ -799,20 +799,20 @@ export function formatHotkeyReloadNotice(
   if (previous.length === 0) {
     return [
       `    Hotkey added: ${next}.`,
-      "    Takes effect after /reload; no binding is active until then.",
+      "    Run /reload to activate it. No binding is active yet.",
     ];
   }
 
   if (next.length === 0) {
     return [
-      `    Hotkey removed (was: ${previous}).`,
-      "    Takes effect after /reload. The previous binding remains active until then.",
+      `    Hotkey removed: ${previous}.`,
+      "    Run /reload to finish removing it. The previous binding is still active.",
     ];
   }
 
   return [
     `    Hotkey changed: ${previous} → ${next}.`,
-    "    Takes effect after /reload. The previous binding remains active until then.",
+    "    Run /reload to activate the change. The previous binding is still active.",
   ];
 }
 
@@ -931,7 +931,7 @@ function editorTitle(openOptions: EditorOpenOptions): string {
  * Save-time validation backstop; keep wording aligned with the spec scenario.
  */
 function hotkeyConflictWarning(normalized: string, presetName: string): string {
-  return `⚠ ${normalized} is already used by preset "${presetName}"; this preset's binding will be skipped.`;
+  return `⚠ ${normalized} is already used by preset "${presetName}". Pi will skip this preset's binding.`;
 }
 
 /**
@@ -939,7 +939,7 @@ function hotkeyConflictWarning(normalized: string, presetName: string): string {
  * Save-time validation backstop; keep wording aligned with the spec scenario.
  */
 function hotkeyShadowsBuiltinWarning(normalized: string): string {
-  return `⚠ ${normalized} shadows a Pi built-in; saving will replace Pi's behavior for this key.`;
+  return `⚠ ${normalized} shadows a Pi built-in. Saving will replace Pi's behavior for this key.`;
 }
 
 /**

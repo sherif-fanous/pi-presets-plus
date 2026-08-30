@@ -50,11 +50,11 @@ const IDENTITY_STYLER: Styler = {
  */
 export function chooseClearLead(parts: readonly ClearPart[]): string {
   if (parts.every((part) => part.action === "unknown")) {
-    return "No saved baseline. Current settings were left as-is.";
+    return "No saved baseline. Pi left your current settings unchanged.";
   }
 
   if (parts.some((part) => part.action === "restore-failed")) {
-    return "Tried to restore your previous settings but ran into a problem.";
+    return "Pi could not restore all of your previous settings.";
   }
 
   if (parts.every((part) => part.action === "already-baseline")) {
@@ -63,15 +63,15 @@ export function chooseClearLead(parts: readonly ClearPart[]): string {
 
   if (parts.every((part) => isRestoreLike(part.action))) {
     return parts.some((part) => part.action === "restored-partial")
-      ? "Restored your previous settings. Some tools are no longer available."
-      : "Restored your previous settings.";
+      ? "Pi restored your previous settings. Some tools are no longer available."
+      : "Pi restored your previous settings.";
   }
 
   if (parts.every((part) => isKeptLike(part.action))) {
-    return "Kept all your manual changes. Nothing to restore.";
+    return "Pi kept all your manual changes. There was nothing else to restore.";
   }
 
-  return "Restored some settings. Kept your manual changes for others.";
+  return "Pi restored some settings and kept your manual changes for the rest.";
 }
 
 export function formatModel(
@@ -95,7 +95,7 @@ export function formatRowValue(part: ClearPart): string {
       return `${part.value} (Not managed by cleared preset)`;
 
     case "restore-failed":
-      return `Could not switch back to ${part.value}.`;
+      return `Pi could not switch back to ${part.value}.`;
 
     case "restored-partial":
       return part.dropped && part.dropped.length > 0
@@ -103,7 +103,7 @@ export function formatRowValue(part: ClearPart): string {
         : part.value;
 
     case "user-override":
-      return `${part.value} (Left as-is — you changed it after activation)`;
+      return `${part.value} (Left as-is because you changed it after activation)`;
   }
 }
 

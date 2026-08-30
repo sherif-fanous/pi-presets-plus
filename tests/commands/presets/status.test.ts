@@ -233,11 +233,11 @@ describe("formatStatus", () => {
     );
 
     expect(out).toContain(
-      "Current model:           openai/gpt (Left as-is — you changed it after activation)",
+      "Current model:           openai/gpt (Left as-is because you changed it after activation)",
     );
 
     expect(out).toContain(
-      "Current thinking level:  low (Left as-is — you changed it after activation)",
+      "Current thinking level:  low (Left as-is because you changed it after activation)",
     );
 
     expect(out).toContain(

@@ -6,6 +6,7 @@
  * decision logic beyond invoking the injected apply flow for shortcuts.
  */
 import { apply } from "./activation/apply.js";
+import { gateActivation } from "./activation/policy-gate.js";
 import type { ActivePresetSession } from "./activation/session.js";
 import { findPreset, type PresetIdentity } from "./preset-identity.js";
 import type { LoadedPreset } from "./types.js";
@@ -73,7 +74,7 @@ export class HotkeyRegistry {
 
     for (const invalid of hotkeyAnalysis.invalid) {
       ctx.ui.notify(
-        `${formatPresetSubject(invalid.preset)}: invalid hotkey "${invalid.preset.hotkey}" — ignored (${invalid.reason}). It will not be registered or considered for conflicts until fixed.`,
+        `${formatPresetSubject(invalid.preset)} has invalid hotkey "${invalid.preset.hotkey}" (${invalid.reason}). The extension ignored it and will not register it or check it for conflicts until fixed.`,
         "warning",
       );
     }
@@ -112,6 +113,8 @@ export class HotkeyRegistry {
 
               return;
             }
+
+            if (!(await gateActivation(current, handlerCtx))) return;
 
             const result = await apply(current, handlerCtx, pi, session);
 

@@ -16,10 +16,17 @@ import type {
 import type { KeyId } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const applyMock = vi.hoisted(() => vi.fn());
+const { applyMock, gateActivationMock } = vi.hoisted(() => ({
+  applyMock: vi.fn(),
+  gateActivationMock: vi.fn(),
+}));
 
 vi.mock("../src/activation/apply.js", () => ({
   apply: applyMock,
+}));
+
+vi.mock("../src/activation/policy-gate.js", () => ({
+  gateActivation: gateActivationMock,
 }));
 
 interface RegisteredShortcut {
@@ -94,7 +101,9 @@ function preset(
 
 beforeEach(() => {
   applyMock.mockReset();
+  gateActivationMock.mockReset();
   applyMock.mockResolvedValue({ ok: true });
+  gateActivationMock.mockResolvedValue(true);
 });
 
 describe("hotkeyChanged", () => {
@@ -235,7 +244,7 @@ describe("HotkeyRegistry.bindForSession", () => {
 
     expect(registerShortcut).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith(
-      'Preset "plan": invalid hotkey "ctrl+ctrl+p" — ignored (duplicate modifier "ctrl"). It will not be registered or considered for conflicts until fixed.',
+      'Preset "plan" has invalid hotkey "ctrl+ctrl+p" (duplicate modifier "ctrl"). The extension ignored it and will not register it or check it for conflicts until fixed.',
       "warning",
     );
   });
@@ -303,6 +312,22 @@ describe("HotkeyRegistry.bindForSession", () => {
 
     expect(loadCurrentPresets).toHaveBeenCalledWith(ctx);
     expect(applyMock).toHaveBeenCalledWith(current, ctx, pi, session);
+  });
+
+  it("does not apply when the hotkey policy gate is cancelled", async () => {
+    const registry = new HotkeyRegistry();
+    const current = preset("plan", "ctrl+shift+1");
+
+    gateActivationMock.mockResolvedValueOnce(false);
+
+    const { ctx, shortcuts } = bind(registry, [current], () =>
+      Promise.resolve([current]),
+    );
+
+    await shortcuts.get("ctrl+shift+1")?.handler(ctx as ExtensionContext);
+
+    expect(gateActivationMock).toHaveBeenCalledWith(current, ctx);
+    expect(applyMock).not.toHaveBeenCalled();
   });
 
   it("notifies once when hotkey activation is refused", async () => {

@@ -37,7 +37,7 @@ export function makeButtonsRow(host: EditorRowHost): EditorRow {
       body: [
         "Save writes this preset to disk after checking the values you entered.",
         "Cancel closes the editor and discards any changes you made.",
-        "Test applies this preset to the current session without saving it \u2014 useful for trying things out.",
+        "Test applies this preset to the current session without saving it, so you can try it first.",
       ],
       title: "Actions",
     },

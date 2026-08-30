@@ -271,17 +271,17 @@ describe("formatHotkeyReloadNotice", () => {
   it("formats add, change, remove, and unchanged notices", () => {
     expect(formatHotkeyReloadNotice("", "ctrl+shift+1")).toEqual([
       "    Hotkey added: ctrl+shift+1.",
-      "    Takes effect after /reload; no binding is active until then.",
+      "    Run /reload to activate it. No binding is active yet.",
     ]);
 
     expect(formatHotkeyReloadNotice("ctrl+shift+1", "ctrl+shift+2")).toEqual([
       "    Hotkey changed: ctrl+shift+1 → ctrl+shift+2.",
-      "    Takes effect after /reload. The previous binding remains active until then.",
+      "    Run /reload to activate the change. The previous binding is still active.",
     ]);
 
     expect(formatHotkeyReloadNotice("ctrl+shift+1", "")).toEqual([
-      "    Hotkey removed (was: ctrl+shift+1).",
-      "    Takes effect after /reload. The previous binding remains active until then.",
+      "    Hotkey removed: ctrl+shift+1.",
+      "    Run /reload to finish removing it. The previous binding is still active.",
     ]);
 
     expect(formatHotkeyReloadNotice("ctrl+shift+1", "ctrl+shift+1")).toEqual(

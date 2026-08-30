@@ -152,7 +152,7 @@ class PresetCardComponent implements Component {
           "Drift:",
           this.theme.fg(
             "warning",
-            `⚠ Dirty — ${this.options.driftReasons.join(", ")} differ`,
+            `⚠ Dirty: ${this.options.driftReasons.join(", ")} differ`,
           ),
         ),
       );
@@ -162,7 +162,7 @@ class PresetCardComponent implements Component {
       lines.push(
         this.renderField(
           "Shadowing:",
-          this.theme.fg("dim", "Overridden by project preset"),
+          this.theme.fg("dim", "Project preset takes precedence"),
         ),
       );
     }

@@ -16,6 +16,11 @@ import {
   type Focusable,
 } from "@earendil-works/pi-tui";
 
+interface ConfirmLabels {
+  readonly no: string;
+  readonly yes: string;
+}
+
 class ConfirmComponent implements Component, Focusable {
   private selected: "no" | "yes" = "no";
   private resolved = false;
@@ -26,6 +31,7 @@ class ConfirmComponent implements Component, Focusable {
     private readonly message: string,
     private readonly theme: Theme,
     private readonly done: (result: boolean) => void,
+    private readonly labels: ConfirmLabels,
   ) {}
 
   get focused(): boolean {
@@ -75,8 +81,8 @@ class ConfirmComponent implements Component, Focusable {
     const bodyWidth = Math.max(1, frameWidth - 2);
     const messageLines = wrapBody(this.message, bodyWidth - 4);
     const buttons = [
-      this.renderButton("yes", "Yes"),
-      this.renderButton("no", "No"),
+      this.renderButton("yes", this.labels.yes),
+      this.renderButton("no", this.labels.no),
     ].join("   ");
 
     return renderDialogFrame({
@@ -108,10 +114,11 @@ export async function openConfirm(
   ctx: Pick<ExtensionCommandContext, "ui">,
   title: string,
   message: string,
+  labels: ConfirmLabels = { no: "No", yes: "Yes" },
 ): Promise<boolean> {
   return ctx.ui.custom<boolean>(
     (_tui, theme, _keybindings, done) =>
-      new ConfirmComponent(title, message, theme, done),
+      new ConfirmComponent(title, message, theme, done, labels),
     {
       overlay: true,
       overlayOptions: {

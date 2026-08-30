@@ -270,7 +270,7 @@ describe("preset editor input UX", () => {
 
     moveFocus(editor, 1);
 
-    expect(lineContaining(editor, "Name")).toContain("—");
+    expect(lineContaining(editor, "Name")).toContain("(empty)");
 
     moveFocus(editor, 8);
 
@@ -278,7 +278,7 @@ describe("preset editor input UX", () => {
 
     expect(nameLine).toContain("> ");
     expect(nameLine).toContain("\x1b[7m");
-    expect(nameLine).not.toContain("—");
+    expect(nameLine).not.toContain("(empty)");
   });
 
   it("saves with Ctrl+S from the Prompt row without mutating the prompt", async () => {
@@ -468,7 +468,7 @@ describe("preset editor input UX", () => {
 
     expect(renderText(editor)).toContain("Duplicate 'plan'");
     expect(lineContaining(editor, "Name")).toContain("plan-copy");
-    expect(lineContaining(editor, "Hotkey")).toContain("—");
+    expect(lineContaining(editor, "Hotkey")).toContain("(empty)");
 
     editor.handleInput("\x13");
 

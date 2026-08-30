@@ -23,7 +23,7 @@ describe("chooseClearLead", () => {
         part("unknown", "thinking"),
         part("unknown", "tools"),
       ]),
-    ).toBe("No saved baseline. Current settings were left as-is.");
+    ).toBe("No saved baseline. Pi left your current settings unchanged.");
   });
 
   it("returns the failure lead whenever any field failed to restore", () => {
@@ -33,7 +33,7 @@ describe("chooseClearLead", () => {
         part("restored", "thinking"),
         part("already-baseline", "tools"),
       ]),
-    ).toBe("Tried to restore your previous settings but ran into a problem.");
+    ).toBe("Pi could not restore all of your previous settings.");
   });
 
   it("returns the all-already-baseline lead when nothing changed", () => {
@@ -53,7 +53,7 @@ describe("chooseClearLead", () => {
         part("already-baseline", "thinking"),
         part("restored", "tools"),
       ]),
-    ).toBe("Restored your previous settings.");
+    ).toBe("Pi restored your previous settings.");
   });
 
   it("surfaces unavailable tools when restore-like with restored-partial", () => {
@@ -64,7 +64,7 @@ describe("chooseClearLead", () => {
         part("restored-partial", "tools"),
       ]),
     ).toBe(
-      "Restored your previous settings. Some tools are no longer available.",
+      "Pi restored your previous settings. Some tools are no longer available.",
     );
   });
 
@@ -75,7 +75,9 @@ describe("chooseClearLead", () => {
         part("baseline-null", "thinking"),
         part("not-owned", "tools"),
       ]),
-    ).toBe("Kept all your manual changes. Nothing to restore.");
+    ).toBe(
+      "Pi kept all your manual changes. There was nothing else to restore.",
+    );
   });
 
   it("returns the mixed lead when restore-like and kept-like fields coexist", () => {
@@ -85,7 +87,9 @@ describe("chooseClearLead", () => {
         part("restored", "thinking"),
         part("not-owned", "tools"),
       ]),
-    ).toBe("Restored some settings. Kept your manual changes for others.");
+    ).toBe(
+      "Pi restored some settings and kept your manual changes for the rest.",
+    );
   });
 });
 
@@ -96,7 +100,7 @@ describe("formatRowValue", () => {
     [part("baseline-null"), "x (No baseline saved for this field)"],
     [part("unknown"), "x (No baseline saved for this field)"],
     [part("not-owned"), "x (Not managed by cleared preset)"],
-    [part("restore-failed"), "Could not switch back to x."],
+    [part("restore-failed"), "Pi could not switch back to x."],
     [
       {
         action: "restored-partial",
@@ -106,7 +110,10 @@ describe("formatRowValue", () => {
       } satisfies ClearPart,
       "read (Unavailable: bash)",
     ],
-    [part("user-override"), "x (Left as-is — you changed it after activation)"],
+    [
+      part("user-override"),
+      "x (Left as-is because you changed it after activation)",
+    ],
   ])("formats %s", (clearPart, expected) => {
     expect(formatRowValue(clearPart)).toBe(expected);
   });
@@ -121,7 +128,7 @@ describe("renderClearSummary", () => {
     ]);
 
     expect(out).toContain("Preset cleared: plan");
-    expect(out).toContain("Restored your previous settings.");
+    expect(out).toContain("Pi restored your previous settings.");
     expect(out).toContain("Model:          anthropic/old");
     expect(out).toContain("Thinking level: medium");
     expect(out).toContain("Tools:          bash");
@@ -135,11 +142,11 @@ describe("renderClearSummary", () => {
     ]);
 
     expect(out).toContain(
-      "Restored some settings. Kept your manual changes for others.",
+      "Pi restored some settings and kept your manual changes for the rest.",
     );
 
     expect(out).toContain(
-      "Model:          openai/gpt (Left as-is — you changed it after activation)",
+      "Model:          openai/gpt (Left as-is because you changed it after activation)",
     );
     expect(out).toContain("Thinking level: medium");
     expect(out).toContain(

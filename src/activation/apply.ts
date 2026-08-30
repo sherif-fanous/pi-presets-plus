@@ -98,7 +98,7 @@ export async function apply(
 
   if (effective !== declared) {
     ctx.ui.notify(
-      `Preset "${preset.name}" requested thinking level "${declared}" for ${preset.provider}/${preset.model}. Applied "${effective}" instead.`,
+      `Preset "${preset.name}" requested thinking level "${declared}" for ${preset.provider}/${preset.model}. Pi applied "${effective}" instead.`,
       "info",
     );
   }
@@ -114,7 +114,7 @@ export async function apply(
 
     if (dropped.length > 0) {
       ctx.ui.notify(
-        `Preset "${preset.name}" references unknown tools: ${dropped.join(", ")}. They were ignored.`,
+        `Preset "${preset.name}" references unknown tools: ${dropped.join(", ")}. Pi ignored them.`,
         "warning",
       );
     }
@@ -166,13 +166,13 @@ function failureReason(
 ): string {
   switch (kind) {
     case "no-key":
-      return `Preset "${preset.name}" is unavailable: missing API key. Activation skipped.`;
+      return `Preset "${preset.name}" is unavailable because its provider has no API key. Pi did not activate it.`;
     case "no-model":
-      return `Preset "${preset.name}" is unavailable: model not installed. Activation skipped.`;
+      return `Preset "${preset.name}" is unavailable because its model is not installed. Pi did not activate it.`;
     case "unknown-model":
       return `Preset "${preset.name}" references unknown model ${preset.provider}/${preset.model}.`;
     case "key-revoked":
-      return `No API key configured for ${preset.provider}/${preset.model}.`;
+      return `Pi has no API key configured for ${preset.provider}/${preset.model}.`;
 
     default: {
       const exhaustive: never = kind;

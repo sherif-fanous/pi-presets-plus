@@ -45,7 +45,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
     if (isNotFoundError(err)) return emptyResult();
 
     return emptyResult(
-      `Failed to read preset file ${path}: ${describeError(err)}`,
+      `The extension could not read preset file ${path}: ${describeError(err)}`,
     );
   }
 
@@ -73,7 +73,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
 
   if (obj.version !== 1) {
     return emptyResult(
-      `The preset file ${path} declares unsupported version ${JSON.stringify(obj.version)}; expected 1. File ignored and left untouched.`,
+      `The preset file ${path} uses unsupported version ${JSON.stringify(obj.version)}; expected 1. The extension ignored the file and left it unchanged.`,
     );
   }
 
@@ -97,7 +97,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
       const label = describeInvalidPreset(candidatePreset, i);
 
       warnings.push(
-        `Preset ${label} in ${path} skipped: ${result.reason ?? "Invalid shape"}.`,
+        `The extension skipped preset ${label} in ${path}: ${result.reason ?? "Its shape is invalid."}`,
       );
 
       continue;
@@ -122,7 +122,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
 
         if (dropped) {
           warnings.push(
-            `Preset "${dropped.name}" in ${path} skipped: duplicate name (first occurrence kept).`,
+            `The extension skipped preset "${dropped.name}" in ${path} because its name is duplicated. It kept the first occurrence.`,
           );
         }
 

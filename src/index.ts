@@ -11,6 +11,7 @@ import {
   handleModelSelectDrift,
   syncDirtyFromCurrentState,
 } from "./activation/drift-handlers.js";
+import { maybeApplyPolicyDefault } from "./activation/policy-default.js";
 import { ActivePresetSession } from "./activation/session.js";
 import {
   getArgumentCompletions,
@@ -39,7 +40,7 @@ export default function presetsPlus(pi: ExtensionAPI) {
 
   pi.registerCommand("presets", {
     description:
-      "Browse and switch presets that bundle a model, thinking level, tools, and system prompt. Run `/presets` to open the picker, or use `reload`, `clear`, or `status`.",
+      "Browse and switch presets that bundle a model, thinking level, tools, and system prompt. Run `/presets` to open the picker, or use `reload`, `clear`, `status`, or `policy`.",
     getArgumentCompletions: (prefix) =>
       getArgumentCompletions(prefix, () => presetNamesLoader.fn()),
     handler: (args, ctx) =>
@@ -52,14 +53,20 @@ export default function presetsPlus(pi: ExtensionAPI) {
 
       surfaceWarnings(ctx, warnings);
 
-      const { warnings: restoreWarnings } = session.restoreFromBranch(
+      const restoreResult = session.restoreFromBranch(
         ctx.sessionManager.getBranch(),
         presets,
         ctx,
       );
 
-      surfaceWarnings(ctx, restoreWarnings);
-      await applyPresetFlag(pi, ctx, presets, session);
+      surfaceWarnings(ctx, restoreResult.warnings);
+
+      const flagApplied = await applyPresetFlag(pi, ctx, presets, session);
+
+      await maybeApplyPolicyDefault(presets, ctx, pi, session, {
+        flagApplied,
+        restored: restoreResult.state !== undefined,
+      });
 
       presetNamesLoader.fn = async () => {
         try {
