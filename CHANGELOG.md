@@ -2,6 +2,12 @@
 
 This changelog follows [Common Changelog](https://common-changelog.org/).
 
+## [0.5.1] - 2026-08-31
+
+### Changed
+
+- `/presets policy` now shows the allowed presets, prohibited presets, and selected default for the current directory instead of exposing policy rule details. Prohibited presets are marked with an asterisk and can still be activated by confirming the override.
+
 ## [0.5.0] - 2026-08-30
 
 ### Added
@@ -67,6 +73,7 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 _Initial release._
 
+[0.5.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.5.1
 [0.5.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.5.0
 [0.4.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.4.0
 [0.3.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.3.0
