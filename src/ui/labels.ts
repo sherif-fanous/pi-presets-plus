@@ -13,7 +13,7 @@ export const PRESET_LABEL = "Preset";
 export const SCOPE_LABEL = "Scope";
 export const STATUS_LABEL = "Status";
 
-// Per-surface composed labels used by status and related summaries.
+// Per-surface composed labels used by status, policy, and related summaries.
 export const BASELINE_MODEL_LABEL = "Baseline model";
 export const BASELINE_THINKING_LABEL = "Baseline thinking level";
 export const BASELINE_TOOLS_LABEL = "Baseline tools";
@@ -24,9 +24,14 @@ export const CURRENT_MODEL_LABEL = "Current model";
 export const CURRENT_THINKING_LABEL = "Current thinking level";
 export const CURRENT_TOOLS_LABEL = "Current tools";
 export const RESTORE_LABEL = "Restore";
+export const DIRECTORY_LABEL = "Directory";
+export const ALLOWED_PRESETS_LABEL = "Allowed presets";
+export const PROHIBITED_PRESETS_LABEL = "Prohibited presets";
+export const DEFAULT_PRESET_LABEL = "Default preset";
 
 // Dialog titles shared by overlays and formatter headings.
 export const STATUS_DIALOG_TITLE = "Preset Status";
+export const POLICY_DIALOG_TITLE = "Preset Policy";
 export const CLEAR_DIALOG_TITLE = "Preset cleared";
 export const ACTIVATION_FAILED_TITLE = "Activation failed";
 export const RELOAD_PROMPT_TITLE = "Reload Pi?";
