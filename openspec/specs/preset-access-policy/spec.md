@@ -273,11 +273,9 @@ The resulting precedence SHALL be:
 `--preset flag > session restore (if the named preset still exists) > policy default > baseline`.
 
 When the policy default is auto-activated, the package SHALL apply it through the
-existing apply flow (capturing a fresh baseline, emitting the activation
-audit-trail message, and refreshing the footer indicator), and SHALL emit
-exactly one additional informational notification via `ctx.ui.notify` naming the
-applied preset (e.g. `Applied default preset "apple-claude-opus-4-8".`) so the
-user understands that directory policy — not their own action — selected it.
+existing apply flow, capturing a fresh baseline, emitting the single visible
+activation message, and refreshing the footer indicator. It SHALL NOT emit a
+second success notification via `ctx.ui.notify` for the same activation.
 
 If the apply flow returns a refusal for the default (e.g. the model's key was
 revoked between load and apply), the package SHALL surface the refusal reason as
@@ -287,7 +285,9 @@ session.
 #### Scenario: Fresh session applies the default
 
 - **WHEN** a fresh session starts, no `--preset` flag is passed, no prior active preset is restored, and a policy default resolves to a permitted available preset
-- **THEN** the default SHALL be applied via the standard apply flow and one info notification naming it SHALL be emitted
+- **THEN** the default SHALL be applied via the standard apply flow
+- **AND** exactly one visible success message naming the applied preset SHALL be emitted
+- **AND** no additional success notification naming the same preset SHALL be emitted via `ctx.ui.notify`
 
 #### Scenario: Flag overrides policy default
 
@@ -303,6 +303,7 @@ session.
 
 - **WHEN** a session is resumed whose most recent `presets-plus:active` entry names a preset that no longer loads, and a policy default resolves to a permitted available preset
 - **THEN** restore SHALL attach nothing (and warn per the restore requirement) and the policy default SHALL then be applied
+- **AND** the successful default activation SHALL emit only its single visible success message
 
 #### Scenario: No notification when the default is preempted
 

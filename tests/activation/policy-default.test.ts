@@ -90,7 +90,7 @@ describe("maybeApplyPolicyDefault", () => {
     },
   );
 
-  it("applies after a failed restore and emits one default notification", async () => {
+  it("applies after a failed restore without an additional success notification", async () => {
     const { ctx, notify } = context();
     const pi = {} as ExtensionAPI;
     const session = new ActivePresetSession();
@@ -103,11 +103,7 @@ describe("maybeApplyPolicyDefault", () => {
     ).resolves.toBe(true);
 
     expect(applyMock).toHaveBeenCalledWith(selected, ctx, pi, session);
-    expect(notify).toHaveBeenCalledTimes(1);
-    expect(notify).toHaveBeenCalledWith(
-      'Applied default preset "work-opus".',
-      "info",
-    );
+    expect(notify).not.toHaveBeenCalled();
   });
 
   it("warns and keeps the baseline when the default is unresolvable", async () => {

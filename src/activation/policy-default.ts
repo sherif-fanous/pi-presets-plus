@@ -53,7 +53,5 @@ export async function maybeApplyPolicyDefault(
     return false;
   }
 
-  ctx.ui.notify(`Applied default preset "${resolved.preset.name}".`, "info");
-
   return true;
 }

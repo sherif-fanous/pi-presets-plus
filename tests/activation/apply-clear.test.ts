@@ -71,6 +71,11 @@ describe("apply", () => {
       scope: "project",
     });
     expect(harness.messages).toHaveLength(1);
+    expect(harness.messages[0]).toMatchObject({
+      content: "Preset plan applied",
+      customType: "presets-plus:activated",
+      display: true,
+    });
   });
 
   it("applies tools after filtering unknown names with a warning", async () => {
