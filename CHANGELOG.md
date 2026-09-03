@@ -2,6 +2,12 @@
 
 This changelog follows [Common Changelog](https://common-changelog.org/).
 
+## [0.5.2] - 2026-09-03
+
+### Fixed
+
+- Policy default activation no longer displays a duplicate success notification. The standard preset activation message remains the single success signal.
+
 ## [0.5.1] - 2026-08-31
 
 ### Changed
@@ -73,6 +79,7 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 _Initial release._
 
+[0.5.2]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.5.2
 [0.5.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.5.1
 [0.5.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.5.0
 [0.4.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.4.0
