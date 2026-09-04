@@ -6,7 +6,6 @@
  * refreshing status. It does NOT own command lookup, session restore, or
  * picker UI.
  */
-import { ACTIVATED_MESSAGE_TYPE } from "../messages.js";
 import { samePresetIdentity } from "../preset-identity.js";
 import type { LoadedPreset } from "../types.js";
 import { captureBaseline } from "./baseline.js";
@@ -27,8 +26,17 @@ import type {
  * - `unknown-model`: the preset references a provider/model not in the registry.
  * - `key-revoked`: the model resolved, but `setModel` refused it at apply time.
  */
+export interface ApplyNotice {
+  readonly severity: "info" | "warning";
+  readonly message: string;
+}
+
 export type ApplyResult =
-  | { ok: true }
+  | {
+      ok: true;
+      applied?: boolean;
+      notices?: readonly ApplyNotice[];
+    }
   | {
       ok: false;
       kind: "key-revoked" | "no-key" | "no-model" | "unknown-model";
@@ -36,10 +44,9 @@ export type ApplyResult =
     };
 
 /**
- * Apply `preset` to Pi state and return a structured refusal on expected
- * activation failures. Callers surface refusal `reason` through the channel
- * appropriate to their context; this function still emits non-refusal warning
- * or informational accompaniments inline for successful activation.
+ * Apply `preset` to Pi state and return structured refusals or successful
+ * accompaniments. Callers surface the result through the channel appropriate
+ * to their context.
  */
 export async function apply(
   preset: LoadedPreset,
@@ -63,7 +70,7 @@ export async function apply(
   ) {
     if (current.dirty) session.markClean(ctx);
 
-    return { ok: true };
+    return { applied: false, notices: [], ok: true };
   }
 
   const model = ctx.modelRegistry.find(preset.provider, preset.model);
@@ -93,14 +100,15 @@ export async function apply(
 
   const effective = effectiveThinkingLevel(preset, model);
   const declared = preset.thinkingLevel ?? "off";
+  const notices: ApplyNotice[] = [];
 
   pi.setThinkingLevel(effective);
 
   if (effective !== declared) {
-    ctx.ui.notify(
-      `Preset "${preset.name}" requested thinking level "${declared}" for ${preset.provider}/${preset.model}. Pi applied "${effective}" instead.`,
-      "info",
-    );
+    notices.push({
+      message: `Thinking level changed from ${declared} to ${effective} for preset "${preset.name}".`,
+      severity: "info",
+    });
   }
 
   let appliedTools = previousAppliedTools;
@@ -113,10 +121,10 @@ export async function apply(
     );
 
     if (dropped.length > 0) {
-      ctx.ui.notify(
-        `Preset "${preset.name}" references unknown tools: ${dropped.join(", ")}. Pi ignored them.`,
-        "warning",
-      );
+      notices.push({
+        message: `Unknown tools ignored for preset "${preset.name}": ${dropped.join(", ")}.`,
+        severity: "warning",
+      });
     }
 
     pi.setActiveTools(validTools);
@@ -124,12 +132,8 @@ export async function apply(
     ownedTools = true;
   }
 
-  // session.start commits the new active state (and refreshes the status
-  // badge as part of that commit) BEFORE the customType message is
-  // emitted, so observers seeing the "Preset … applied" message can
-  // already query the updated state. The reverse order — message first,
-  // status second — would briefly publish an event whose corresponding
-  // state is not yet visible.
+  // Commit active state before callers present the apply outcome so the
+  // footer and any related UI already reflect the new preset.
   session.start(
     {
       applyCount,
@@ -146,18 +150,7 @@ export async function apply(
     pi,
   );
 
-  pi.sendMessage({
-    customType: ACTIVATED_MESSAGE_TYPE,
-    content: `Preset ${preset.name} applied`,
-    display: true,
-    details: {
-      name: preset.name,
-      model: `${preset.provider}/${preset.model}`,
-      thinkingLevel: effective,
-    },
-  });
-
-  return { ok: true };
+  return { applied: true, notices, ok: true };
 }
 
 function failureReason(

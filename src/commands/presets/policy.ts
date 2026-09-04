@@ -13,6 +13,7 @@ import {
   type CompiledPolicyRule,
 } from "../../store/policy.js";
 import type { LoadedPreset } from "../../types.js";
+import { deliverCommandReport } from "../../ui/command-report.js";
 import {
   ALLOWED_PRESETS_LABEL,
   DEFAULT_PRESET_LABEL,
@@ -20,8 +21,8 @@ import {
   POLICY_DIALOG_TITLE,
   PROHIBITED_PRESETS_LABEL,
 } from "../../ui/labels.js";
-import { surfaceWarnings } from "./notify.js";
 import type {
+  ExtensionAPI,
   ExtensionCommandContext,
   Theme,
 } from "@earendil-works/pi-coding-agent";
@@ -94,14 +95,25 @@ export function formatPolicy(
 }
 
 /** Load and display the current effective policy through one notification. */
-export async function runPolicy(ctx: ExtensionCommandContext): Promise<void> {
+export async function runPolicy(
+  ctx: ExtensionCommandContext,
+  pi?: Pick<ExtensionAPI, "appendEntry">,
+): Promise<void> {
   const [policy, loaded] = await Promise.all([loadPolicy(), loadAll(ctx)]);
-
-  surfaceWarnings(ctx, [...policy.warnings, ...loaded.warnings]);
-  ctx.ui.notify(
-    formatPolicy(ctx.cwd, loaded.presets, policy.rules, ctx.ui.theme),
-    "info",
+  const warnings = [...policy.warnings, ...loaded.warnings];
+  const body = withWarnings(
+    formatPolicy(ctx.cwd, loaded.presets, policy.rules),
+    warnings,
   );
+
+  if (pi) {
+    deliverCommandReport(ctx, pi, {
+      body,
+      severity: warnings.length > 0 ? "warning" : "info",
+    });
+  } else {
+    ctx.ui.notify(body, warnings.length > 0 ? "warning" : "info");
+  }
 }
 
 function formatNames(names: readonly string[]): string {
@@ -112,4 +124,10 @@ function row(label: string, value: string, styler: Pick<Theme, "fg">): string {
   const padding = " ".repeat(POLICY_LABEL_WIDTH - label.length);
 
   return `  ${styler.fg("muted", label)}${padding} ${value}`;
+}
+
+function withWarnings(body: string, warnings: readonly string[]): string {
+  if (warnings.length === 0) return body;
+
+  return `${body}\n\nWarnings:\n${warnings.map((warning) => `- ${warning}`).join("\n")}`;
 }

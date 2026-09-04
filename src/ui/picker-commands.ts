@@ -18,6 +18,7 @@ import type { HotkeyRegistry } from "../hotkey-registry.js";
 import { removePreset, reorderWithinScope } from "../store/api.js";
 import type { LoadedPreset } from "../types.js";
 import { renderClearSummary } from "./clear-summary.js";
+import { styleReportText } from "./command-report.js";
 import { openConfirm } from "./confirm.js";
 import { openEditor } from "./editor.js";
 import { openInfoDialog } from "./info-dialog.js";
@@ -167,9 +168,18 @@ export class PickerCommands {
     if (result) {
       await this.host.runWithHiddenOverlay(() =>
         openInfoDialog(ctx, {
-          body: renderClearSummary(result.name, result.parts, theme),
+          body: styleReportText(
+            renderClearSummary(result.name, result.parts),
+            theme,
+          ),
           title: "Preset Cleared",
-          tone: "info",
+          tone: result.parts.some(
+            (part) =>
+              part.action === "restore-failed" ||
+              part.action === "restored-partial",
+          )
+            ? "warning"
+            : "info",
         }),
       );
     }
@@ -300,7 +310,10 @@ export class PickerCommands {
 
     await this.host.runWithHiddenOverlay(() =>
       openInfoDialog(ctx, {
-        body: withWarnings(result.body, result.warnings),
+        body: styleReportText(
+          withWarnings(result.body, result.warnings),
+          this.host.theme,
+        ),
         title: STATUS_DIALOG_TITLE,
         tone: result.severity,
       }),

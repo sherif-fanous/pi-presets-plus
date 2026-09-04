@@ -26,7 +26,10 @@ export function captureBaseline(
     model: ctx.model
       ? { provider: ctx.model.provider, id: ctx.model.id }
       : null,
-    thinkingLevel: pi.getThinkingLevel(),
+    // Keep the extension's existing level set until the dedicated thinking
+    // levels change adds support for newer Pi values.
+    thinkingLevel:
+      pi.getThinkingLevel() as PresetOverlayBaseline["thinkingLevel"],
     tools: pi.getActiveTools(),
   };
 }

@@ -15,6 +15,7 @@ import type { ActivePresetSession } from "../../activation/session.js";
 import { findPreset } from "../../preset-identity.js";
 import { loadAll } from "../../store/api.js";
 import type { LoadedPreset } from "../../types.js";
+import { deliverCommandReport } from "../../ui/command-report.js";
 import {
   BASELINE_MODEL_LABEL,
   BASELINE_THINKING_LABEL,
@@ -30,7 +31,6 @@ import {
   SCOPE_LABEL,
   STATUS_DIALOG_TITLE,
 } from "../../ui/labels.js";
-import { surfaceWarnings } from "./notify.js";
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
@@ -183,7 +183,7 @@ export async function formatStatusBody(
   }
 
   return {
-    body: formatStatus(active, preset, ctx, pi, ctx.ui.theme),
+    body: formatStatus(active, preset, ctx, pi),
     severity: "info",
     warnings,
   };
@@ -196,8 +196,12 @@ export async function runStatus(
 ): Promise<void> {
   const result = await formatStatusBody(ctx, pi, session);
 
-  surfaceWarnings(ctx, result.warnings);
-  ctx.ui.notify(result.body, result.severity);
+  const body = withWarnings(result.body, result.warnings);
+
+  deliverCommandReport(ctx, pi, {
+    body,
+    severity: result.severity,
+  });
 }
 
 /**
@@ -237,4 +241,10 @@ function samePrimitive<T>(left: T, right: T): boolean {
 
 function statusLabel(classification: OverlayFieldClassification): string {
   return STATUS_VOCABULARY[classification];
+}
+
+function withWarnings(body: string, warnings: readonly string[]): string {
+  if (warnings.length === 0) return body;
+
+  return `${body}\n\nWarnings:\n${warnings.map((warning) => `- ${warning}`).join("\n")}`;
 }

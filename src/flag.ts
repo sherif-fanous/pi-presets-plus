@@ -8,6 +8,7 @@ import { apply } from "./activation/apply.js";
 import { gateActivation } from "./activation/policy-gate.js";
 import type { ActivePresetSession } from "./activation/session.js";
 import type { LoadedPreset } from "./types.js";
+import { notifyApplyResult } from "./ui/apply-result.js";
 import type {
   ExtensionAPI,
   ExtensionContext,
@@ -44,7 +45,7 @@ export async function applyPresetFlag(
 
   const result = await apply(preset, ctx, pi, session);
 
-  if (!result.ok) ctx.ui.notify(result.reason, "error");
+  notifyApplyResult(ctx, preset, result);
 
   return result.ok;
 }

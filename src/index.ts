@@ -23,9 +23,9 @@ import {
   HotkeyRegistry,
   type CurrentPresetsLoader,
 } from "./hotkey-registry.js";
-import { ACTIVATED_MESSAGE_TYPE, renderActivatedMessage } from "./messages.js";
 import { findPreset } from "./preset-identity.js";
 import { loadAll } from "./store/api.js";
+import { registerCommandReportRenderer } from "./ui/command-report.js";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export default function presetsPlus(pi: ExtensionAPI) {
@@ -35,7 +35,7 @@ export default function presetsPlus(pi: ExtensionAPI) {
     fn: () => Promise.resolve([]),
   };
 
-  pi.registerMessageRenderer(ACTIVATED_MESSAGE_TYPE, renderActivatedMessage);
+  registerCommandReportRenderer(pi);
   registerPresetFlag(pi);
 
   pi.registerCommand("presets", {
@@ -48,22 +48,42 @@ export default function presetsPlus(pi: ExtensionAPI) {
   });
 
   pi.on("session_start", async (_event, ctx) => {
-    try {
-      const { hotkeyAnalysis, presets, warnings } = await loadAll(ctx);
+    const startupWarnings: string[] = [];
+    const startupCtx = {
+      ...ctx,
+      ui: {
+        ...ctx.ui,
+        notify(message: string, type?: "info" | "warning" | "error") {
+          if (type === "warning") {
+            startupWarnings.push(message);
+          } else {
+            ctx.ui.notify(message, type);
+          }
+        },
+      },
+    };
 
-      surfaceWarnings(ctx, warnings);
+    try {
+      const { hotkeyAnalysis, presets, warnings } = await loadAll(startupCtx);
+
+      surfaceWarnings(startupCtx, warnings);
 
       const restoreResult = session.restoreFromBranch(
-        ctx.sessionManager.getBranch(),
+        startupCtx.sessionManager.getBranch(),
         presets,
-        ctx,
+        startupCtx,
       );
 
-      surfaceWarnings(ctx, restoreResult.warnings);
+      surfaceWarnings(startupCtx, restoreResult.warnings);
 
-      const flagApplied = await applyPresetFlag(pi, ctx, presets, session);
+      const flagApplied = await applyPresetFlag(
+        pi,
+        startupCtx,
+        presets,
+        session,
+      );
 
-      await maybeApplyPolicyDefault(presets, ctx, pi, session, {
+      await maybeApplyPolicyDefault(presets, startupCtx, pi, session, {
         flagApplied,
         restored: restoreResult.state !== undefined,
       });
@@ -82,16 +102,19 @@ export default function presetsPlus(pi: ExtensionAPI) {
       hotkeys.bindForSession(
         presets,
         hotkeyAnalysis,
-        ctx,
+        startupCtx,
         pi,
         loadCurrentPresets,
         session,
       );
     } catch (err) {
-      ctx.ui.notify(
+      startupWarnings.push(
         `pi-presets-plus failed to load preset files: ${err instanceof Error ? err.message : String(err)}.`,
-        "error",
       );
+    }
+
+    if (startupWarnings.length > 0) {
+      ctx.ui.notify(startupWarnings.join("\n\n"), "warning");
     }
   });
 

@@ -70,18 +70,19 @@ describe("apply", () => {
       },
       scope: "project",
     });
-    expect(harness.messages).toHaveLength(1);
-    expect(harness.messages[0]).toMatchObject({
-      content: "Preset plan applied",
-      customType: "presets-plus:activated",
-      display: true,
+    expect(harness.messages).toHaveLength(0);
+    expect(
+      await apply(basePreset, harness.ctx, harness.pi, harness.session),
+    ).toMatchObject({
+      applied: false,
+      ok: true,
     });
   });
 
   it("applies tools after filtering unknown names with a warning", async () => {
     const harness = makeHarness();
 
-    await apply(
+    const result = await apply(
       { ...basePreset, tools: ["read", "missing"] },
       harness.ctx,
       harness.pi,
@@ -89,12 +90,16 @@ describe("apply", () => {
     );
 
     expect(harness.setToolsCalls).toEqual([["read"]]);
-    expect(harness.notificationCalls).toEqual([
-      [
-        'Preset "plan" references unknown tools: missing. Pi ignored them.',
-        "warning",
+    expect(result).toMatchObject({
+      ok: true,
+      notices: [
+        {
+          message: 'Unknown tools ignored for preset "plan": missing.',
+          severity: "warning",
+        },
       ],
-    ]);
+    });
+    expect(harness.notificationCalls).toEqual([]);
 
     expect(harness.session.current()).toMatchObject({
       restore: {
@@ -102,6 +107,32 @@ describe("apply", () => {
         owned: { tools: true },
       },
     });
+  });
+
+  it("returns all apply accompaniments without notifying", async () => {
+    const harness = makeHarness(false, { allTools: ["read"] });
+    const result = await apply(
+      { ...basePreset, tools: ["read", "missing"] },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      notices: [
+        {
+          severity: "info",
+          message: 'Thinking level changed from high to off for preset "plan".',
+        },
+        {
+          severity: "warning",
+          message: 'Unknown tools ignored for preset "plan": missing.',
+        },
+      ],
+    });
+    expect(harness.notificationCalls).toEqual([]);
+    expect(harness.messages).toEqual([]);
   });
 
   it("preserves baseline and sticky tools across preset switches", async () => {
@@ -293,18 +324,29 @@ describe("apply", () => {
   it("notifies when thinking is clamped", async () => {
     const harness = makeHarness(false);
 
-    await apply(basePreset, harness.ctx, harness.pi, harness.session);
+    const result = await apply(
+      basePreset,
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
 
     expect(harness.pi.getThinkingLevel()).toBe("off");
-    expect(harness.notifications.join("\n")).toContain(
-      'Pi applied "off" instead',
-    );
+    expect(result).toMatchObject({
+      notices: [
+        {
+          message: 'Thinking level changed from high to off for preset "plan".',
+          severity: "info",
+        },
+      ],
+    });
+    expect(harness.notifications).toEqual([]);
   });
 
   it("clamps when thinkingLevelMap explicitly nulls the requested level", async () => {
     const harness = makeHarness(true, { thinkingLevelMap: { low: null } });
 
-    await apply(
+    const result = await apply(
       { ...basePreset, thinkingLevel: "low" },
       harness.ctx,
       harness.pi,
@@ -312,9 +354,15 @@ describe("apply", () => {
     );
 
     expect(harness.pi.getThinkingLevel()).toBe("off");
-    expect(harness.notifications.join("\n")).toContain(
-      'Preset "plan" requested thinking level "low" for anthropic/claude. Pi applied "off" instead.',
-    );
+    expect(result).toMatchObject({
+      notices: [
+        {
+          message: 'Thinking level changed from low to off for preset "plan".',
+          severity: "info",
+        },
+      ],
+    });
+    expect(harness.notifications).toEqual([]);
   });
 
   it("honors requested levels through high when missing from thinkingLevelMap", async () => {
@@ -336,7 +384,7 @@ describe("apply", () => {
   it("clamps xhigh unless thinkingLevelMap explicitly maps it", async () => {
     const harness = makeHarness(true);
 
-    await apply(
+    const result = await apply(
       { ...basePreset, thinkingLevel: "xhigh" },
       harness.ctx,
       harness.pi,
@@ -344,9 +392,16 @@ describe("apply", () => {
     );
 
     expect(harness.pi.getThinkingLevel()).toBe("off");
-    expect(harness.notifications.join("\n")).toContain(
-      'Preset "plan" requested thinking level "xhigh" for anthropic/claude. Pi applied "off" instead.',
-    );
+    expect(result).toMatchObject({
+      notices: [
+        {
+          message:
+            'Thinking level changed from xhigh to off for preset "plan".',
+          severity: "info",
+        },
+      ],
+    });
+    expect(harness.notifications).toEqual([]);
   });
 });
 

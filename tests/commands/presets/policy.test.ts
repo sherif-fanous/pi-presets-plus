@@ -167,7 +167,7 @@ describe("formatPolicy", () => {
 });
 
 describe("runPolicy", () => {
-  it("surfaces warnings, applies the UI theme, and does not modify policy.json", async () => {
+  it("includes warnings in one report and does not modify policy.json", async () => {
     tempAgentDir = await mkdtemp(join(tmpdir(), "pi-policy-view-"));
     previousAgentDir = process.env.PI_CODING_AGENT_DIR;
     process.env.PI_CODING_AGENT_DIR = tempAgentDir;
@@ -195,17 +195,12 @@ describe("runPolicy", () => {
     } as unknown as ExtensionCommandContext);
 
     expect(await readFile(path, "utf-8")).toBe(original);
-    expect(notify).toHaveBeenNthCalledWith(
-      1,
-      expect.stringContaining("1 preset warning:"),
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining("Warnings:"),
       "warning",
     );
-
-    expect(notify).toHaveBeenNthCalledWith(
-      2,
-      expect.stringContaining("<bold><accent>Preset Policy</accent></bold>"),
-      "info",
-    );
+    expect(notify.mock.calls[0]?.[0]).toContain("Preset Policy");
   });
 });
 

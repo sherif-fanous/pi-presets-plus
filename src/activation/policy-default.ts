@@ -6,6 +6,7 @@
  */
 import { loadPolicy, resolvePolicyDefault } from "../store/policy.js";
 import type { LoadedPreset } from "../types.js";
+import { notifyApplyResult } from "../ui/apply-result.js";
 import { apply } from "./apply.js";
 import type { ActivePresetSession } from "./session.js";
 import type {
@@ -52,6 +53,8 @@ export async function maybeApplyPolicyDefault(
 
     return false;
   }
+
+  notifyApplyResult(ctx, resolved.preset, result);
 
   return true;
 }

@@ -102,21 +102,19 @@ export async function runShowPrompt(
   const result = findPresetForShowPrompt(name, session.current(), presets);
   const notification = formatShowPromptBody(result, ctx.ui.theme);
 
-  if (result.kind === "active" || result.kind === "named") {
-    // pi-tui exports a Markdown component, but this extension API does not
-    // expose a markdown render hook for command-output dialogs. Use the
-    // existing multi-line info overlay rather than short-form notifications,
-    // preserving the literal prompt text in a readable dismissible surface.
-    await openInfoDialog(ctx, {
-      body: notification.body,
-      title: PROMPT_DIALOG_TITLE,
-      tone: notification.severity,
-    });
+  // Keep prompt previews temporary. Do not copy preset instructions into the
+  // session when the user only asked to inspect them.
+  if (ctx.mode !== "tui" || typeof ctx.ui.custom !== "function") {
+    ctx.ui.notify(notification.body, notification.severity);
 
     return;
   }
 
-  ctx.ui.notify(notification.body, notification.severity);
+  await openInfoDialog(ctx, {
+    body: notification.body,
+    title: PROMPT_DIALOG_TITLE,
+    tone: notification.severity,
+  });
 }
 
 function findPresetByNameWithScopePrecedence(

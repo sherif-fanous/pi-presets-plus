@@ -10,6 +10,7 @@ import { gateActivation } from "../../activation/policy-gate.js";
 import type { ActivePresetSession } from "../../activation/session.js";
 import type { HotkeyRegistry } from "../../hotkey-registry.js";
 import { loadAll } from "../../store/api.js";
+import { notifyApplyResult } from "../../ui/apply-result.js";
 import { openPicker } from "../../ui/picker.js";
 import { runClear } from "./clear.js";
 import { surfaceWarnings } from "./notify.js";
@@ -149,7 +150,7 @@ async function activateNamedPreset(
 
   const result = await apply(preset, ctx, pi, session);
 
-  if (!result.ok) ctx.ui.notify(result.reason, "error");
+  notifyApplyResult(ctx, preset, result);
 
   return true;
 }
@@ -204,15 +205,29 @@ async function runPicker(
         };
       }
 
-      return apply(preset, ctx, pi, session);
+      const result = await apply(preset, ctx, pi, session);
+
+      if (result.ok) notifyApplyResult(ctx, preset, result);
+
+      return result;
     },
     pi,
     session,
   });
 }
 
-async function runPolicyWrapper(ctx: ExtensionCommandContext): Promise<void> {
-  await runPolicy(ctx);
+async function runPolicyWrapper(
+  ctx: ExtensionCommandContext,
+  _args: readonly string[],
+  pi: ExtensionAPI | undefined,
+  _session: ActivePresetSession,
+  _hotkeys: HotkeyRegistry,
+): Promise<void> {
+  void _session;
+  void _hotkeys;
+
+  if (!pi) return;
+  await runPolicy(ctx, pi);
 }
 
 async function runReloadWrapper(ctx: ExtensionCommandContext): Promise<void> {

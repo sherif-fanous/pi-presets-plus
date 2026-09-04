@@ -10,6 +10,7 @@ import { gateActivation } from "./activation/policy-gate.js";
 import type { ActivePresetSession } from "./activation/session.js";
 import { findPreset, type PresetIdentity } from "./preset-identity.js";
 import type { LoadedPreset } from "./types.js";
+import { notifyApplyResult } from "./ui/apply-result.js";
 import {
   isPiBuiltin,
   parseHotkey,
@@ -118,7 +119,7 @@ export class HotkeyRegistry {
 
             const result = await apply(current, handlerCtx, pi, session);
 
-            if (!result.ok) handlerCtx.ui.notify(result.reason, "error");
+            notifyApplyResult(handlerCtx, current, result);
           } catch (err) {
             handlerCtx.ui.notify(
               `pi-presets-plus failed to activate preset "${registeredName}" from hotkey: ${err instanceof Error ? err.message : String(err)}.`,

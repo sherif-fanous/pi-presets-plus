@@ -11,6 +11,7 @@ import {
   formatTools,
   renderClearSummary,
 } from "../ui/clear-summary.js";
+import { styleReportText } from "../ui/command-report.js";
 import { classifyOverlayField } from "./classify-overlay-field.js";
 import { sameModel } from "./same-model.js";
 import { sameSet } from "./same-set.js";
@@ -81,11 +82,22 @@ export async function clear(
 ): Promise<void> {
   const result = await clearReturning(ctx, pi, session);
 
+  const parts = result?.parts ?? [];
+  const severity = parts.some(
+    (part) =>
+      part.action === "restore-failed" || part.action === "restored-partial",
+  )
+    ? "warning"
+    : "info";
+
   ctx.ui.notify(
     result
-      ? renderClearSummary(result.name, result.parts, ctx.ui.theme)
+      ? styleReportText(
+          renderClearSummary(result.name, result.parts),
+          ctx.ui.theme,
+        )
       : "No preset is active.",
-    "info",
+    severity,
   );
 }
 
@@ -105,7 +117,9 @@ export async function clearReturning(
     active,
     allTools: pi.getAllTools().map((tool) => tool.name),
     currentModel,
-    currentThinking: pi.getThinkingLevel(),
+    // Keep the extension's existing level set until the dedicated thinking
+    // levels change adds support for newer Pi values.
+    currentThinking: pi.getThinkingLevel() as ThinkingLevel,
     currentTools: pi.getActiveTools(),
   });
   const finalParts = await executeClear(decision, ctx, pi, session);
