@@ -2,6 +2,14 @@
 
 This changelog follows [Common Changelog](https://common-changelog.org/).
 
+## [0.6.0] - 2026-09-03
+
+### Changed
+
+- **Breaking:** This release requires Pi `0.80.5` or newer. Earlier Pi versions are no longer supported.
+- Preset status and policy reports now remain visible in the TUI without entering LLM context. RPC mode receives them as notifications, while picker commands continue to use dialogs.
+- Preset activation, clear, and startup warnings now use one output per result instead of mixing notifications, overlays, and session messages.
+
 ## [0.5.2] - 2026-09-03
 
 ### Fixed
@@ -79,6 +87,7 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 _Initial release._
 
+[0.6.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.6.0
 [0.5.2]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.5.2
 [0.5.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.5.1
 [0.5.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.5.0
