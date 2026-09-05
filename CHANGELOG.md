@@ -1,12 +1,10 @@
 # Changelog
 
-This changelog follows [Common Changelog](https://common-changelog.org/).
-
 ## [0.7.0] - 2026-09-05
 
 ### Added
 
-- Add Pi's `max` thinking level to preset storage, activation, editing, and picker display; using `max` requires Pi 0.80.6 or newer, while existing levels remain supported on Pi 0.80.5 ([#20](https://github.com/sherif-fanous/pi-presets-plus/pull/20)) (Tiago Luchini)
+- Add Pi's `max` thinking level to preset storage, activation, editing, and picker display; require Pi 0.80.6 or newer only when using `max` ([#20](https://github.com/sherif-fanous/pi-presets-plus/pull/20)) (Tiago Luchini)
 
 ### Fixed
 
@@ -16,93 +14,93 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 ### Fixed
 
-- Preset files that cannot be loaded completely are no longer overwritten by edits, removals, reordering, or scope changes. The failed operation reports the problem and leaves the file unchanged.
-- Moving a preset between user and project scopes now checks both files before saving. If removing the source fails, the extension attempts to restore the destination file.
-- Clearing an active preset now restores its remaining baseline settings and detaches it even when Pi cannot restore the previous model. The clear summary reports the model failure.
-- The picker and editor now report unexpected action failures instead of leaving the failed operation without an explanation.
-- Picker navigation keeps the selected preset visible when cards have different heights, including after Page Up and Page Down.
-- Repeated tool names in a preset no longer cause false drift or prevent clear from recognizing the active tool set.
+- Prevent edits, removals, reordering, and scope changes from overwriting preset files that cannot be loaded completely ([#29](https://github.com/sherif-fanous/pi-presets-plus/pull/29))
+- Check both preset files before moving a preset between scopes and attempt to restore the destination if removing the source fails ([#29](https://github.com/sherif-fanous/pi-presets-plus/pull/29))
+- Restore remaining baseline settings and detach an active preset even when Pi cannot restore the previous model ([#29](https://github.com/sherif-fanous/pi-presets-plus/pull/29))
+- Report unexpected picker and editor action failures instead of leaving the failed operation unexplained ([#29](https://github.com/sherif-fanous/pi-presets-plus/pull/29))
+- Keep the selected preset visible during picker navigation when cards have different heights ([#29](https://github.com/sherif-fanous/pi-presets-plus/pull/29))
+- Treat repeated tool names as one tool when detecting drift and clearing a preset ([#29](https://github.com/sherif-fanous/pi-presets-plus/pull/29))
 
 ## [0.6.0] - 2026-09-03
 
 ### Changed
 
-- **Breaking:** This release requires Pi `0.80.5` or newer. Earlier Pi versions are no longer supported.
-- Preset status and policy reports now remain visible in the TUI without entering LLM context. RPC mode receives them as notifications, while picker commands continue to use dialogs.
-- Preset activation, clear, and startup warnings now use one output per result instead of mixing notifications, overlays, and session messages.
+- **Breaking:** Require Pi `0.80.5` or newer ([#27](https://github.com/sherif-fanous/pi-presets-plus/pull/27))
+- Keep preset status and policy reports visible in the TUI without adding them to LLM context, while sending them as notifications in RPC mode ([#27](https://github.com/sherif-fanous/pi-presets-plus/pull/27))
+- Send one output for each preset activation, clear result, and startup warning instead of mixing notifications, overlays, and session messages ([#27](https://github.com/sherif-fanous/pi-presets-plus/pull/27))
 
 ## [0.5.2] - 2026-09-03
 
 ### Fixed
 
-- Policy default activation no longer displays a duplicate success notification. The standard preset activation message remains the single success signal.
+- Remove the duplicate success notification from policy default activation ([#25](https://github.com/sherif-fanous/pi-presets-plus/pull/25))
 
 ## [0.5.1] - 2026-08-31
 
 ### Changed
 
-- `/presets policy` now shows the allowed presets, prohibited presets, and selected default for the current directory instead of exposing policy rule details. Prohibited presets are marked with an asterisk and can still be activated by confirming the override.
+- Show allowed presets, prohibited presets, and the selected default in `/presets policy` instead of exposing policy rule details ([#23](https://github.com/sherif-fanous/pi-presets-plus/pull/23))
 
 ## [0.5.0] - 2026-08-30
 
 ### Added
 
-- You can now define optional directory-specific access rules in `<agent-dir>/presets-plus/policy.json`. Rules can allow or prohibit presets by name, provider, or `provider/model`. When a new activation falls outside the policy, the extension asks whether to override or cancel before changing the session.
-- Policy rules can select a permitted default preset for fresh sessions. The `--preset` flag and a successful session restore still take precedence. If the default cannot be resolved or applied, the session stays on the Pi baseline and shows a warning.
-- `/presets policy` shows the rules that match the current directory, the combined allow and prohibit sets, and the resolved default. The command only reads the policy file.
+- Add directory-specific rules that allow or prohibit presets by name, provider, or `provider/model`, with confirmation before overriding a prohibition ([#21](https://github.com/sherif-fanous/pi-presets-plus/pull/21))
+- Select an optional permitted default preset for fresh sessions after checking the `--preset` flag and session restore ([#21](https://github.com/sherif-fanous/pi-presets-plus/pull/21))
+- Show matching rules, combined allow and prohibit sets, and the resolved default through `/presets policy` ([#21](https://github.com/sherif-fanous/pi-presets-plus/pull/21))
 
 ## [0.4.0] - 2026-06-04
 
 ### Added
 
-- The preset picker now shows which preset is active at all times, on a dedicated line at the top of the picker. Previously the active preset was marked only by a dot on its card in the list, so when that preset was scrolled out of view, filtered out, or hidden by the scope filter, the picker could look as though no preset was active. The new line always names the active preset (with its scope), or shows `Active: none` when nothing is active.
+- Show the active preset and its scope on a fixed picker row, including when its card is outside the visible or filtered list ([#18](https://github.com/sherif-fanous/pi-presets-plus/pull/18))
 
 ## [0.3.0] - 2026-06-02
 
 ### Changed
 
-- Duplicating a preset now opens the editor pre-filled with the original preset's settings, so you can adjust a field or two and save in one step. Previously, duplicating asked for confirmation and immediately created a separate copy that you then had to find and edit. The duplicate is saved only when you confirm in the editor — cancelling leaves nothing behind.
+- Open a prefilled editor when duplicating a preset and save the copy only after confirmation ([#16](https://github.com/sherif-fanous/pi-presets-plus/pull/16))
 
 ## [0.2.1] - 2026-05-31
 
 ### Changed
 
-- Refactored the preset editor and picker internals so each module stays focused and easy to follow. The editor's row layout, the picker's action keys, and the shared clear/status comparison logic now each live in a single dedicated location. No user-visible behavior change; the picker, editor, `/presets` subcommands, `--preset` flag, hotkeys, drift detection, and session restore all behave identically.
+- Refactor preset editing, picker actions, and clear and status comparisons into focused modules without changing user-visible behavior ([#13](https://github.com/sherif-fanous/pi-presets-plus/pull/13), [#14](https://github.com/sherif-fanous/pi-presets-plus/pull/14))
 
 ## [0.2.0] - 2026-05-12
 
 ### Changed
 
-- **Breaking:** The extension now targets Pi published under the `@earendil-works` npm scope (Pi `0.74.0` and later). Pi has moved away from its old `@mariozechner` scope, and `pi-presets-plus` v0.2.0 will not load on Pi versions prior to `0.74.0`. Upgrade Pi to `0.74.0` or newer before upgrading this extension.
+- **Breaking:** Target Pi from the `@earendil-works` npm scope and require Pi `0.74.0` or newer ([#9](https://github.com/sherif-fanous/pi-presets-plus/pull/9))
 
 ## [0.1.4] - 2026-05-11
 
 ### Fixed
 
-- The preset picker no longer drops the selected card from view when scrolling past a card-height boundary. Previously, pressing the down arrow (or Page Down) at certain positions would make the selection marker disappear and the next press appear to skip a preset. The picker now keeps the selected preset visible across every navigation, regardless of which optional rows individual preset cards contain.
+- Keep the selected picker card visible while navigating across cards with different heights ([#7](https://github.com/sherif-fanous/pi-presets-plus/pull/7))
 
 ## [0.1.3] - 2026-05-10
 
 ### Added
 
-- `/presets show-prompt [name]` shows the active preset's system prompt — or any named preset's prompt — in a dismissible dialog. With no name it shows the active preset; with a name it shows that preset's prompt without activating it.
+- Add `/presets show-prompt [name]` for viewing a preset's system prompt without activating it ([#5](https://github.com/sherif-fanous/pi-presets-plus/pull/5))
 
 ### Fixed
 
-- Editing the Prompt field on a preset now opens a real multi-line editor. Previously the field was a single-line input whose cursor became invisible past the visible width, making prompts beyond a few dozen characters effectively unreachable. Press Enter on the Prompt row to open the editor.
+- Open Pi's multi-line editor from the Prompt row so long prompts remain reachable and editable ([#5](https://github.com/sherif-fanous/pi-presets-plus/pull/5))
 
 ## [0.1.2] - 2026-05-09
 
 ### Fixed
 
-- Pressing `c` (clear) inside the preset picker with no preset active no longer opens an empty confirm-then-nothing dialog. The picker now shows an info-dialog stating "No preset is active." and returns to the picker.
-- The session-start notification for a preset that shadows a Pi built-in now uses warning severity to match the visual treatment of preset-vs-preset hotkey conflicts. Both collision-style notifications render consistently.
+- Show "No preset is active." instead of opening a clear confirmation when no preset is active ([#3](https://github.com/sherif-fanous/pi-presets-plus/pull/3))
+- Use warning severity when a preset hotkey shadows a Pi built-in ([#2](https://github.com/sherif-fanous/pi-presets-plus/pull/2))
 
 ## [0.1.1] - 2026-05-09
 
 ### Changed
 
-- Refactored the extension's internal architecture so the active-preset state, the runtime hotkey bindings, and the clear-summary renderer each live in a single dedicated module. No user-visible behavior change; the picker, editor, `/presets` subcommands, `--preset` flag, hotkeys, drift detection, and session restore all behave identically.
+- Refactor active-preset state, runtime hotkeys, and clear summaries into dedicated modules without changing user-visible behavior ([#1](https://github.com/sherif-fanous/pi-presets-plus/pull/1))
 
 ## [0.1.0] - 2026-05-09
 
