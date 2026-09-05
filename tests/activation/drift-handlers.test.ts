@@ -11,11 +11,7 @@ import {
   syncDirtyFromCurrentState,
 } from "../../src/activation/drift-handlers.js";
 import { ActivePresetSession } from "../../src/activation/session.js";
-import type {
-  ActivePresetState,
-  PresetDriftSnapshot,
-  ThinkingLevel,
-} from "../../src/types.js";
+import type { LoadedPreset, ThinkingLevel } from "../../src/types.js";
 import { makeStubModelRegistry } from "../helpers/model-registry.js";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
@@ -24,7 +20,7 @@ describe("handleModelSelectDrift", () => {
   it("ignores self-triggered model_select events", async () => {
     const harness = makeHarness();
 
-    harness.session.attach(activeState({ dirty: false }), harness.ctx);
+    restoreActive(harness, { dirty: false });
     await harness.session.withSelfTriggeredModelSet(() =>
       handleModelSelectDrift(
         { model: { id: "gpt", provider: "openai" }, source: "set" },
@@ -40,7 +36,7 @@ describe("handleModelSelectDrift", () => {
   it("ignores restore model_select events", async () => {
     const harness = makeHarness();
 
-    harness.session.attach(activeState({ dirty: false }), harness.ctx);
+    restoreActive(harness, { dirty: false });
     await handleModelSelectDrift(
       { model: { id: "gpt", provider: "openai" }, source: "restore" },
       harness.ctx,
@@ -69,7 +65,7 @@ describe("handleModelSelectDrift", () => {
       ctxModel: { id: "gpt", provider: "openai" },
     });
 
-    harness.session.attach(activeState({ dirty: false }), harness.ctx);
+    restoreActive(harness, { dirty: false });
     await handleModelSelectDrift(
       { model: { id: "gpt", provider: "openai" }, source: "cycle" },
       harness.ctx,
@@ -83,7 +79,7 @@ describe("handleModelSelectDrift", () => {
   it("marks clean when re-selecting the preset's model resyncs every dimension", async () => {
     const harness = makeHarness();
 
-    harness.session.attach(activeState({ dirty: true }), harness.ctx);
+    restoreActive(harness, { dirty: true });
     await handleModelSelectDrift(
       { model: { id: "claude", provider: "anthropic" }, source: "set" },
       harness.ctx,
@@ -99,7 +95,7 @@ describe("handleModelSelectDrift", () => {
     // thinking level is still off-spec must NOT flip the badge clean.
     const harness = makeHarness({ piThinking: "low" });
 
-    harness.session.attach(activeState({ dirty: true }), harness.ctx);
+    restoreActive(harness, { dirty: true });
     await handleModelSelectDrift(
       { model: { id: "claude", provider: "anthropic" }, source: "set" },
       harness.ctx,
@@ -115,7 +111,7 @@ describe("syncDirtyFromCurrentState", () => {
   it("marks dirty immediately for thinking-level drift", async () => {
     const harness = makeHarness({ piThinking: "low" });
 
-    harness.session.attach(activeState({ dirty: false }), harness.ctx);
+    restoreActive(harness, { dirty: false });
     await syncDirtyFromCurrentState(harness.ctx, harness.pi, harness.session);
 
     expect(harness.session.current()).toMatchObject({ dirty: true });
@@ -124,7 +120,7 @@ describe("syncDirtyFromCurrentState", () => {
   it("marks clean immediately when thinking level is re-synced", async () => {
     const harness = makeHarness({ piThinking: "high" });
 
-    harness.session.attach(activeState({ dirty: true }), harness.ctx);
+    restoreActive(harness, { dirty: true });
     await syncDirtyFromCurrentState(harness.ctx, harness.pi, harness.session);
 
     expect(harness.session.current()).toMatchObject({ dirty: false });
@@ -133,10 +129,7 @@ describe("syncDirtyFromCurrentState", () => {
   it("marks dirty for tools drift when the preset declares tools", async () => {
     const harness = makeHarness({ piTools: ["bash"] });
 
-    harness.session.attach(
-      activeState({ dirty: false, tools: ["read"] }),
-      harness.ctx,
-    );
+    restoreActive(harness, { dirty: false, tools: ["read"] });
     await syncDirtyFromCurrentState(harness.ctx, harness.pi, harness.session);
 
     expect(harness.session.current()).toMatchObject({ dirty: true });
@@ -145,7 +138,7 @@ describe("syncDirtyFromCurrentState", () => {
   it("does not flip dirty for a tools change when the preset omits tools", async () => {
     const harness = makeHarness({ piTools: ["bash", "grep"] });
 
-    harness.session.attach(activeState({ dirty: false }), harness.ctx);
+    restoreActive(harness, { dirty: false });
     await syncDirtyFromCurrentState(harness.ctx, harness.pi, harness.session);
 
     expect(harness.session.current()).toMatchObject({ dirty: false });
@@ -154,10 +147,7 @@ describe("syncDirtyFromCurrentState", () => {
   it("treats tools as order-independent sets", async () => {
     const harness = makeHarness({ piTools: ["bash", "read"] });
 
-    harness.session.attach(
-      activeState({ dirty: false, tools: ["read", "bash"] }),
-      harness.ctx,
-    );
+    restoreActive(harness, { dirty: false, tools: ["read", "bash"] });
     await syncDirtyFromCurrentState(harness.ctx, harness.pi, harness.session);
 
     expect(harness.session.current()).toMatchObject({ dirty: false });
@@ -165,14 +155,14 @@ describe("syncDirtyFromCurrentState", () => {
 
   it("is a no-op when already clean and no dimensions have drifted", async () => {
     const harness = makeHarness();
-    const before = activeState({ dirty: false });
 
-    harness.session.attach(before, harness.ctx);
+    restoreActive(harness, { dirty: false });
+
+    const before = harness.session.current();
+
     await syncDirtyFromCurrentState(harness.ctx, harness.pi, harness.session);
 
-    // Same object reference identity would be ideal but `setActive` clones
-    // on each write; structural equality is enough to prove no spurious
-    // mutation occurred.
+    // Structural equality proves that the clean state did not change.
     expect(harness.session.current()).toEqual(before);
   });
 });
@@ -187,23 +177,6 @@ interface HarnessOptions {
   ctxModel?: { id: string; provider: string };
   piThinking?: ThinkingLevel;
   piTools?: string[];
-}
-
-function activeState(options: ActiveStateOptions): ActivePresetState {
-  const declared: PresetDriftSnapshot = {
-    model: "claude",
-    provider: "anthropic",
-    thinkingLevel: options.thinkingLevel ?? "high",
-    ...(options.tools !== undefined ? { tools: options.tools } : {}),
-  };
-
-  return {
-    declared,
-    dirty: options.dirty,
-    name: "plan",
-    restore: { kind: "unknown" },
-    scope: "project",
-  };
 }
 
 function makeHarness(options: HarnessOptions = {}): {
@@ -236,4 +209,32 @@ function makeHarness(options: HarnessOptions = {}): {
     },
     session: new ActivePresetSession(),
   };
+}
+
+function restoreActive(
+  harness: ReturnType<typeof makeHarness>,
+  options: ActiveStateOptions,
+): void {
+  const preset: LoadedPreset = {
+    model: "claude",
+    name: "plan",
+    provider: "anthropic",
+    scope: "project",
+    thinkingLevel: options.thinkingLevel ?? "high",
+    ...(options.tools !== undefined ? { tools: [...options.tools] } : {}),
+  };
+
+  harness.session.restoreFromBranch(
+    [
+      {
+        customType: "presets-plus:active",
+        data: { name: preset.name, scope: preset.scope },
+        type: "custom",
+      },
+    ] as never,
+    [preset],
+    harness.ctx,
+  );
+
+  if (options.dirty) harness.session.markDirty(harness.ctx);
 }

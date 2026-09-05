@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const addPreset = vi.fn();
 const loadAll = vi.fn();
-const removePreset = vi.fn();
+const movePreset = vi.fn();
 const updatePreset = vi.fn();
 const openConfirm = vi.fn();
 
@@ -22,7 +22,7 @@ vi.mock("../../src/store/api.js", async (importOriginal) => {
     ...actual,
     addPreset,
     loadAll,
-    removePreset,
+    movePreset,
     updatePreset,
   };
 });
@@ -132,7 +132,7 @@ async function runSave(options: {
 
   addPreset.mockResolvedValue({ ok: true });
   updatePreset.mockResolvedValue({ ok: true });
-  removePreset.mockResolvedValue({ ok: true });
+  movePreset.mockResolvedValue({ ok: true });
   loadAll.mockResolvedValue({ presets: [saved], warnings: [] });
 
   if (options.confirmAnswers) {
@@ -250,7 +250,7 @@ describe("openEditor reload prompt", () => {
   it("prompts once for a scope move with a hotkey change", async () => {
     const initial = preset({ hotkey: "ctrl+1", scope: "user" });
 
-    await runSave({
+    const { ctx } = await runSave({
       initial,
       nextHotkey: "ctrl+2",
       scope: "project",
@@ -258,7 +258,14 @@ describe("openEditor reload prompt", () => {
     });
 
     expect(openConfirm).toHaveBeenCalledTimes(2);
-    expect(removePreset).toHaveBeenCalledOnce();
+    expect(movePreset).toHaveBeenCalledWith(
+      "plan",
+      "user",
+      "project",
+      expect.objectContaining({ hotkey: "ctrl+2", name: "plan" }),
+      ctx,
+    );
+    expect(addPreset).not.toHaveBeenCalled();
   });
 
   it("prompts for a scope move with an unchanged hotkey", async () => {

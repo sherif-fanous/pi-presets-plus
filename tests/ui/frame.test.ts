@@ -14,7 +14,10 @@ import {
 import { describe, expect, it } from "vitest";
 
 function stripAnsi(text: string): string {
-  return text.replaceAll("\u001B[0m", "");
+  const escapeCharacter = String.fromCharCode(27);
+  const ansiPattern = new RegExp(`${escapeCharacter}\\[[0-9;]*m`, "g");
+
+  return text.replaceAll(ansiPattern, "");
 }
 
 describe("frame helpers", () => {
@@ -42,5 +45,20 @@ describe("frame helpers", () => {
 
   it("wraps body lines without redundant inner padding", () => {
     expect(wrapBody("alpha beta gamma", 10)).toEqual(["alpha beta", "gamma"]);
+  });
+
+  it("wraps a long unbroken body value", () => {
+    expect(wrapBody("abcdefghij", 4)).toEqual(["abcd", "efgh", "ij"]);
+  });
+
+  it("wraps body lines by visible width", () => {
+    expect(wrapBody("東京大阪", 4)).toEqual(["東京", "大阪"]);
+  });
+
+  it("preserves body styling across wrapped lines", () => {
+    const lines = wrapBody("\u001B[31malpha beta\u001B[0m", 5);
+
+    expect(lines.map(stripAnsi)).toEqual(["alpha", "beta"]);
+    expect(lines.every((line) => line.includes("\u001B[31m"))).toBe(true);
   });
 });

@@ -7,12 +7,14 @@
  * the caller).
  */
 import { detectDriftReasons } from "../activation/drift.js";
+import type { ActivationResult } from "../activation/request.js";
 import type { ActivePresetSession } from "../activation/session.js";
 import { surfaceWarnings } from "../commands/presets/notify.js";
 import type { HotkeyRegistry } from "../hotkey-registry.js";
 import { samePresetIdentity } from "../preset-identity.js";
 import { loadAll } from "../store/api.js";
 import type { LoadedPreset } from "../types.js";
+import { formatActionError } from "./action-error.js";
 import type { ScopeFilter } from "./filter.js";
 import { centerText, frameLine, frameSegment, padToWidth } from "./frame.js";
 import { openInfoDialog } from "./info-dialog.js";
@@ -30,11 +32,14 @@ import { withHiddenOverlay } from "./overlay-host.js";
 import {
   PICKER_ACTIONS,
   PickerCommands,
-  type PickerActivationResult,
   type PickerCommandHost,
 } from "./picker-commands.js";
 import {
-  clampScrollToFit,
+  layoutPickerViewport,
+  pickerFallbackPageSize,
+  pickerListLineBudget,
+} from "./picker-layout.js";
+import {
   cycleScope as cyclePickerScope,
   initialPickerState,
   moveSelection as movePickerSelection,
@@ -58,6 +63,7 @@ import {
   Input,
   Key,
   matchesKey,
+  sliceByColumn,
   truncateToWidth,
   visibleWidth,
   type Component,
@@ -69,18 +75,11 @@ import {
 export interface PickerOptions {
   inheritedTools?: readonly string[];
   /**
-   * Optional fixed page size override. When omitted (the default) the picker
-   * derives page size dynamically from the terminal height. Retained for
-   * future tests / specialty callers; production callers should leave it
-   * unset so the layout responds to terminal resizes.
-   */
-  pageSize?: number;
-  /**
    * Activation callback. Returns `{ ok: true }` to close the picker, or
    * `{ ok: false, reason }` to keep it open and surface the refusal in an
    * overlay-appropriate dialog.
    */
-  onActivate(preset: LoadedPreset): Promise<PickerActivationResult>;
+  onActivate(preset: LoadedPreset): Promise<ActivationResult>;
   hotkeys: HotkeyRegistry;
   pi?: ExtensionAPI;
   session: ActivePresetSession;
@@ -90,31 +89,10 @@ export interface PickerResult {
   activated?: LoadedPreset;
 }
 
-/**
- * Average rendered card height used only before the first render, when no
- * actual packed page size has been measured yet. Once rendered, the picker
- * uses greedy actual-height card packing and remembers the most recent
- * rendered card count for page navigation / selection visibility.
- */
-const FALLBACK_AVG_CARD_LINES = 7;
-/**
- * Lines consumed by chrome (top border + active row + filter row + rule +
- * rule + footer + bottom border). Subtracted from the overlay's available
- * height to get the card-rendering budget.
- */
-const CHROME_LINES = 7;
-/** Fallback page size when the terminal height is unknown or absurdly small. */
-const MIN_PAGE_SIZE = 1;
-
-interface PackedListResult {
-  readonly lines: string[];
-  readonly renderedCards: number;
-}
-
 interface RenderListResult {
-  readonly correctedScrollOffset?: number;
   readonly lines: string[];
-  readonly renderedCards: number;
+  readonly pageSize: number;
+  readonly scrollOffset: number;
 }
 
 class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
@@ -125,7 +103,7 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
   private overlayHandle: OverlayHandle | undefined;
   private renderedPageSize: number | undefined;
   private resolved = false;
-  private applying = false;
+  private actionInFlight = false;
   private readonly commands: PickerCommands = new PickerCommands(this);
   /**
    * Memoized drift reasons for the currently-active preset.
@@ -147,13 +125,10 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     readonly ui: Pick<ExtensionUIContext, "notify">,
     readonly theme: Theme,
     private readonly terminal: Pick<Terminal, "rows">,
-    private readonly fixedPageSize: number | undefined,
     private inheritedTools: readonly string[],
     readonly hotkeys: HotkeyRegistry,
     readonly session: ActivePresetSession,
-    readonly onActivate: (
-      preset: LoadedPreset,
-    ) => Promise<PickerActivationResult>,
+    readonly onActivate: (preset: LoadedPreset) => Promise<ActivationResult>,
     private readonly done: (result: PickerResult | undefined) => void,
     private readonly requestRender: () => void,
   ) {}
@@ -168,6 +143,8 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
   }
 
   handleInput(input: string): void {
+    if (this.actionInFlight) return;
+
     this.dispatchInput(input);
     // Blanket request-render after every key dispatch keeps sync mutators
     // (moveSelection, cycleScope, setFocusMode, filter typing) visible
@@ -178,10 +155,6 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
   }
 
   private dispatchInput(input: string): void {
-    // Ignore further input while an activation is in flight so a held Enter
-    // doesn't queue duplicate apply calls.
-    if (this.applying) return;
-
     // Defensive Kitty CSI-u normalization: pi-tui currently doesn't request
     // CSI-u for plain printable keys (flag 1 alone leaves them as raw chars),
     // but future flag bumps or unusual layouts may wrap them. Normalize so
@@ -208,13 +181,13 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     } else if (matchesKey(input, Key.right)) {
       this.cycleScope(1);
     } else if (matchesKey(input, Key.enter)) {
-      void this.activateSelection();
+      this.runAction(() => this.activateSelection());
     } else if (matchesKey(input, Key.escape)) {
       this.finish(undefined);
     } else if (matchesKey(input, Key.ctrl(Key.up))) {
-      void this.commands.reorder(-1);
+      this.runAction(() => this.commands.reorder(-1));
     } else if (matchesKey(input, Key.ctrl(Key.down))) {
-      void this.commands.reorder(1);
+      this.runAction(() => this.commands.reorder(1));
     } else if (normalized === "/") {
       this.setFocusMode("filter");
     } else {
@@ -225,8 +198,23 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
         (candidate) => candidate.key === normalized,
       );
 
-      action?.run(this.commands);
+      if (action) this.runAction(() => action.run(this.commands));
     }
+  }
+
+  private runAction(action: () => Promise<void>): void {
+    this.actionInFlight = true;
+
+    void (async () => {
+      try {
+        await action();
+      } catch (error) {
+        this.ui.notify(formatActionError(error), "error");
+      } finally {
+        this.actionInFlight = false;
+        this.requestRender();
+      }
+    })();
   }
 
   invalidate(): void {}
@@ -240,12 +228,10 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
 
     const list = this.renderList(frameWidth);
 
-    if (list.correctedScrollOffset !== undefined) {
-      this.state = clampScrollToFit(
-        this.state,
-        list.renderedCards,
-        this.visiblePresets().length,
-      );
+    this.renderedPageSize = list.pageSize > 0 ? list.pageSize : undefined;
+
+    if (list.scrollOffset !== this.state.scrollOffset) {
+      this.state = { ...this.state, scrollOffset: list.scrollOffset };
     }
 
     return [
@@ -269,27 +255,21 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
 
     if (!preset) return;
 
-    this.applying = true;
+    const result = await this.runWithHiddenOverlay(async () => {
+      const activationResult = await this.onActivate(preset);
 
-    try {
-      const result = await this.runWithHiddenOverlay(async () => {
-        const activationResult = await this.onActivate(preset);
+      if (!activationResult.ok && activationResult.kind !== "cancelled") {
+        await openInfoDialog(this.ctx, {
+          body: activationResult.reason,
+          title: ACTIVATION_FAILED_TITLE,
+          tone: "error",
+        });
+      }
 
-        if (!activationResult.ok && activationResult.kind !== "cancelled") {
-          await openInfoDialog(this.ctx, {
-            body: activationResult.reason,
-            title: ACTIVATION_FAILED_TITLE,
-            tone: "error",
-          });
-        }
+      return activationResult;
+    });
 
-        return activationResult;
-      });
-
-      if (result.ok) this.finish({ activated: preset });
-    } finally {
-      this.applying = false;
-    }
+    if (result.ok) this.finish({ activated: preset });
   }
 
   private cycleScope(direction: -1 | 1): void {
@@ -460,37 +440,12 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     );
   }
 
-  /** Rows available for list cards after overlay chrome is accounted for. */
-  private listLineBudget(): number {
-    // The overlay clamps height to 80% of terminal rows; we mirror that
-    // here so the card packer doesn't pretend the entire terminal is ours.
-    return Math.max(
-      MIN_PAGE_SIZE,
-      Math.floor(this.terminal.rows * 0.8) - CHROME_LINES,
-    );
-  }
-
   /**
-   * Page size in cards. Fixed via the constructor option (tests/specialty
-   * callers) or learned from the last render's greedy actual-height packing.
-   * Before the first render we use a conservative fallback estimate so page
-   * navigation still behaves sensibly during the initial input/render cycle.
+   * Page size in cards, learned from the last variable-height layout pass.
+   * The fallback keeps navigation usable before the first render.
    */
   private get pageSize(): number {
-    if (this.fixedPageSize !== undefined) {
-      return Math.max(MIN_PAGE_SIZE, this.fixedPageSize);
-    }
-
-    if (this.renderedPageSize !== undefined) {
-      return Math.max(MIN_PAGE_SIZE, this.renderedPageSize);
-    }
-
-    const cardSpace = this.listLineBudget();
-
-    return Math.max(
-      MIN_PAGE_SIZE,
-      Math.floor(cardSpace / FALLBACK_AVG_CARD_LINES),
-    );
+    return this.renderedPageSize ?? pickerFallbackPageSize(this.terminal.rows);
   }
 
   private renderBottomBorder(width: number): string {
@@ -557,8 +512,6 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     const visiblePresets = this.visiblePresets();
 
     if (visiblePresets.length === 0) {
-      this.renderedPageSize = undefined;
-
       return {
         lines: [
           frameLine("", width),
@@ -571,79 +524,21 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
           ),
           frameLine("", width),
         ],
-        renderedCards: 0,
+        pageSize: 0,
+        scrollOffset: this.state.scrollOffset,
       };
     }
 
-    let scrollOffset = this.state.scrollOffset;
-    let packed = this.packList(width, scrollOffset);
-    let correctedScrollOffset: number | undefined;
-
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const lastPackedIndex = scrollOffset + packed.renderedCards - 1;
-
-      if (
-        this.state.selectedIndex >= scrollOffset &&
-        this.state.selectedIndex <= lastPackedIndex
-      ) {
-        this.renderedPageSize = Math.max(MIN_PAGE_SIZE, packed.renderedCards);
-
-        if (correctedScrollOffset !== undefined) {
-          return {
-            correctedScrollOffset,
-            lines: packed.lines,
-            renderedCards: packed.renderedCards,
-          };
-        }
-
-        return { lines: packed.lines, renderedCards: packed.renderedCards };
-      }
-
-      const nextScrollOffset = clampScrollToFit(
-        { ...this.state, scrollOffset },
-        packed.renderedCards,
-        visiblePresets.length,
-      ).scrollOffset;
-
-      if (nextScrollOffset === scrollOffset) break;
-
-      correctedScrollOffset = nextScrollOffset;
-      scrollOffset = nextScrollOffset;
-      packed = this.packList(width, scrollOffset);
-    }
-
-    this.renderedPageSize = Math.max(MIN_PAGE_SIZE, packed.renderedCards);
-
-    if (correctedScrollOffset !== undefined) {
-      return {
-        correctedScrollOffset,
-        lines: packed.lines,
-        renderedCards: packed.renderedCards,
-      };
-    }
-
-    return { lines: packed.lines, renderedCards: packed.renderedCards };
-  }
-
-  private packList(width: number, scrollOffset: number): PackedListResult {
-    const visiblePresets = this.visiblePresets();
     const active = this.session.current();
-    const lines: string[] = [];
-    const lineBudget = this.listLineBudget();
-    let renderedCards = 0;
+    const cardLinesByIndex = new Map<number, readonly string[]>();
+    const cardHeightAt = (absoluteIndex: number): number => {
+      const cachedLines = cardLinesByIndex.get(absoluteIndex);
 
-    for (
-      let absoluteIndex = scrollOffset;
-      absoluteIndex < visiblePresets.length;
-      absoluteIndex++
-    ) {
-      if (this.fixedPageSize !== undefined && renderedCards >= this.pageSize) {
-        break;
-      }
+      if (cachedLines) return cachedLines.length;
 
       const preset = visiblePresets[absoluteIndex];
 
-      if (!preset) continue;
+      if (!preset) return 0;
 
       const isActive = samePresetIdentity(active, preset);
       const driftReasons =
@@ -659,21 +554,39 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
         showShadowed: this.state.scopeFilter === "all",
       });
       const cardLines = card.render(width - 2);
-      const separatorCost = renderedCards > 0 ? 1 : 0;
-      const nextCost = separatorCost + cardLines.length;
 
-      if (renderedCards > 0 && lines.length + nextCost > lineBudget) break;
+      cardLinesByIndex.set(absoluteIndex, cardLines);
 
-      if (separatorCost > 0) lines.push(frameLine("", width));
+      return cardLines.length;
+    };
+    const layout = layoutPickerViewport(
+      visiblePresets.length,
+      this.state.selectedIndex,
+      this.state.scrollOffset,
+      pickerListLineBudget(this.terminal.rows),
+      cardHeightAt,
+    );
+    const lines: string[] = [];
+
+    for (
+      let absoluteIndex = layout.startIndex;
+      absoluteIndex < layout.endIndex;
+      absoluteIndex++
+    ) {
+      if (absoluteIndex > layout.startIndex) lines.push(frameLine("", width));
+
+      const cardLines = cardLinesByIndex.get(absoluteIndex) ?? [];
 
       for (const cardLine of cardLines) {
         lines.push(frameLine(cardLine, width));
       }
-
-      renderedCards++;
     }
 
-    return { lines, renderedCards };
+    return {
+      lines,
+      pageSize: layout.pageSize,
+      scrollOffset: layout.scrollOffset,
+    };
   }
 
   private renderRule(width: number): string {
@@ -751,7 +664,6 @@ export async function openPicker(
         ctx.ui,
         theme,
         tui.terminal,
-        options.pageSize,
         inheritedTools,
         options.hotkeys,
         options.session,
@@ -819,7 +731,9 @@ function labelledContentWidth(width: number, label: string): number {
  * split a multi-code-point glyph.
  */
 function middleEllipsize(text: string, width: number): string {
-  if (visibleWidth(text) <= width) return text;
+  const textWidth = visibleWidth(text);
+
+  if (textWidth <= width) return text;
 
   if (width <= 1) return truncateToWidth(text, width, "…");
 
@@ -828,44 +742,12 @@ function middleEllipsize(text: string, width: number): string {
   const prefixWidth = Math.ceil(sideBudget / 2);
   const suffixWidth = Math.floor(sideBudget / 2);
   const prefix = truncateToWidth(text, prefixWidth, "");
-  const suffix = truncateFromEnd(text, suffixWidth);
+  const suffix = sliceByColumn(
+    text,
+    textWidth - suffixWidth,
+    suffixWidth,
+    true,
+  );
 
   return `${prefix}${ellipsis}${suffix}`;
-}
-
-/**
- * Return the longest trailing run of `text` whose visible width is at most
- * `width`, truncating on grapheme-cluster boundaries.
- *
- * Mirrors the start-anchored `truncateToWidth` for the suffix side of
- * {@link middleEllipsize}: it segments into grapheme clusters (so emoji and
- * combining sequences stay intact, matching `truncateToWidth`) and measures
- * each cluster once, making it O(n) rather than re-measuring a growing
- * candidate string on every step.
- */
-function truncateFromEnd(text: string, width: number): string {
-  if (width <= 0) return "";
-
-  const segmenter = new Intl.Segmenter();
-  const clusters = Array.from(
-    segmenter.segment(text),
-    (entry) => entry.segment,
-  );
-  const tail: string[] = [];
-  let used = 0;
-
-  for (let index = clusters.length - 1; index >= 0; index--) {
-    const cluster = clusters[index];
-
-    if (cluster === undefined) continue;
-
-    const clusterWidth = visibleWidth(cluster);
-
-    if (used + clusterWidth > width) break;
-
-    tail.push(cluster);
-    used += clusterWidth;
-  }
-
-  return tail.reverse().join("");
 }

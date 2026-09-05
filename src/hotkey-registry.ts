@@ -3,10 +3,9 @@
  *
  * Owns hotkey conflict analysis, session shortcut binding, and reload-prompt
  * baseline state. It does NOT own preset storage, editor UI, or activation
- * decision logic beyond invoking the injected apply flow for shortcuts.
+ * decision logic beyond invoking the shared activation flow for shortcuts.
  */
-import { apply } from "./activation/apply.js";
-import { gateActivation } from "./activation/policy-gate.js";
+import { requestActivation } from "./activation/request.js";
 import type { ActivePresetSession } from "./activation/session.js";
 import { findPreset, type PresetIdentity } from "./preset-identity.js";
 import type { LoadedPreset } from "./types.js";
@@ -115,9 +114,14 @@ export class HotkeyRegistry {
               return;
             }
 
-            if (!(await gateActivation(current, handlerCtx))) return;
+            const result = await requestActivation(
+              current,
+              handlerCtx,
+              pi,
+              session,
+            );
 
-            const result = await apply(current, handlerCtx, pi, session);
+            if (!result.ok && result.kind === "cancelled") return;
 
             notifyApplyResult(handlerCtx, current, result);
           } catch (err) {

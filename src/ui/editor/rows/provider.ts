@@ -5,6 +5,7 @@
  * thinking level), help payload, and render. It does NOT own the model
  * registry or auth checks; those live on the host.
  */
+import { selectProvider } from "../draft.js";
 import {
   renderValueRow,
   withFieldDiagnostic,
@@ -35,15 +36,8 @@ export function makeProviderRow(host: EditorRowHost): EditorRow {
 
       if (!nextProvider) return;
 
-      const nextModel = host.modelsForProvider(nextProvider)[0];
-
-      host.setState({
-        ...state,
-        model: nextModel?.id ?? "",
-        provider: nextProvider,
-      });
+      host.setState(selectProvider(state, nextProvider, host.models));
       host.clearFieldDiagnosticsFor("provider");
-      host.snapThinkingIfInvalid();
     },
     renderLines() {
       return withFieldDiagnostic(

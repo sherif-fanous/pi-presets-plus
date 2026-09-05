@@ -9,17 +9,10 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { applyMock, gateActivationMock } = vi.hoisted(() => ({
-  applyMock: vi.fn(),
-  gateActivationMock: vi.fn(),
-}));
+const requestActivationMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../src/activation/apply.js", () => ({
-  apply: applyMock,
-}));
-
-vi.mock("../src/activation/policy-gate.js", () => ({
-  gateActivation: gateActivationMock,
+vi.mock("../src/activation/request.js", () => ({
+  requestActivation: requestActivationMock,
 }));
 
 const { applyPresetFlag } = await import("../src/flag.js");
@@ -58,10 +51,8 @@ function preset(
 }
 
 beforeEach(() => {
-  applyMock.mockReset();
-  gateActivationMock.mockReset();
-  applyMock.mockResolvedValue({ ok: true });
-  gateActivationMock.mockResolvedValue(true);
+  requestActivationMock.mockReset();
+  requestActivationMock.mockResolvedValue({ ok: true });
 });
 
 describe("applyPresetFlag", () => {
@@ -75,7 +66,12 @@ describe("applyPresetFlag", () => {
 
     await applyPresetFlag(pi, ctx, [userPreset, projectPreset], session);
 
-    expect(applyMock).toHaveBeenCalledWith(projectPreset, ctx, pi, session);
+    expect(requestActivationMock).toHaveBeenCalledWith(
+      projectPreset,
+      ctx,
+      pi,
+      session,
+    );
   });
 
   it("deduplicates available names in unknown-name warnings", async () => {
@@ -114,18 +110,27 @@ describe("applyPresetFlag", () => {
     );
   });
 
-  it("does not apply when the policy gate is cancelled", async () => {
+  it("returns false when activation is cancelled", async () => {
     const { ctx } = fakeCtx();
     const pi = fakePi("plan");
     const selected = preset("plan", "project");
 
-    gateActivationMock.mockResolvedValueOnce(false);
+    requestActivationMock.mockResolvedValueOnce({
+      kind: "cancelled",
+      ok: false,
+      reason: "Activation cancelled.",
+    });
 
     await expect(
       applyPresetFlag(pi, ctx, [selected], new ActivePresetSession()),
     ).resolves.toBe(false);
-    expect(gateActivationMock).toHaveBeenCalledWith(selected, ctx);
-    expect(applyMock).not.toHaveBeenCalled();
+
+    expect(requestActivationMock).toHaveBeenCalledWith(
+      selected,
+      ctx,
+      pi,
+      expect.any(ActivePresetSession),
+    );
   });
 
   it("notifies once when activation refuses a preset", async () => {
@@ -133,7 +138,7 @@ describe("applyPresetFlag", () => {
     const pi = fakePi("plan");
     const selected = preset("plan", "project", { unavailable: "no-key" });
 
-    applyMock.mockResolvedValueOnce({
+    requestActivationMock.mockResolvedValueOnce({
       kind: "no-key",
       ok: false,
       reason:
@@ -144,7 +149,12 @@ describe("applyPresetFlag", () => {
 
     await applyPresetFlag(pi, ctx, [selected], session);
 
-    expect(applyMock).toHaveBeenCalledWith(selected, ctx, pi, session);
+    expect(requestActivationMock).toHaveBeenCalledWith(
+      selected,
+      ctx,
+      pi,
+      session,
+    );
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith(
       'Preset "plan" is unavailable: missing API key. Activation skipped.',

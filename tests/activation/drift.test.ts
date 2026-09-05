@@ -88,6 +88,16 @@ describe("detectDriftReasons", () => {
     ).toEqual([]);
   });
 
+  it("does not let duplicate active tools hide drift", () => {
+    expect(
+      detectDriftReasons(
+        { ...baseDeclared, tools: ["read", "bash"] },
+        pi("high", ["read", "read"]),
+        { model: model(), modelRegistry: registry },
+      ),
+    ).toEqual(["tools"]);
+  });
+
   it("uses effective thinking for non-reasoning models", () => {
     const nonReasoningRegistry = makeStubModelRegistry({
       models: { anthropic: { claude: { hasKey: true, reasoning: false } } },

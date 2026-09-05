@@ -9,8 +9,8 @@
 import { samePresetIdentity } from "../preset-identity.js";
 import type { LoadedPreset } from "../types.js";
 import { captureBaseline } from "./baseline.js";
+import { detectDriftReasons, snapshotPresetForDrift } from "./drift.js";
 import type { ActivePresetSession } from "./session.js";
-import { stateMatches } from "./state-matches.js";
 import { effectiveThinkingLevel } from "./thinking.js";
 import type {
   ExtensionAPI,
@@ -66,7 +66,7 @@ export async function apply(
     current &&
     samePresetIdentity(current, preset) &&
     current.restore.kind === "baseline" &&
-    stateMatches(preset, pi, ctx)
+    detectDriftReasons(snapshotPresetForDrift(preset), pi, ctx).length === 0
   ) {
     if (current.dirty) session.markClean(ctx);
 

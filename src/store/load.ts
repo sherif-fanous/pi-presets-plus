@@ -104,7 +104,13 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
     }
 
     // validatePresetShape narrows to "object with required fields"; cast is safe.
-    validatedPresets.push(candidatePreset as Preset);
+    const preset = candidatePreset as Preset;
+
+    validatedPresets.push(
+      preset.tools === undefined
+        ? preset
+        : { ...preset, tools: [...new Set(preset.tools)] },
+    );
   }
 
   // Second pass: duplicate name detection. The first occurrence wins.

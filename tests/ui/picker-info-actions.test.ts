@@ -1,13 +1,14 @@
 /**
- * Integration tests for picker Status/Clear info-dialog actions.
+ * Integration tests for picker info actions and command failure reporting.
  *
- * These tests exercise picker key routing and overlay restoration with
- * mocked command runners; command formatter details are covered elsewhere.
+ * These tests exercise picker key routing, overlay restoration, and error
+ * notifications; command formatter details are covered elsewhere.
  */
 import type { ApplyResult } from "../../src/activation/apply.js";
 import { ActivePresetSession } from "../../src/activation/session.js";
 import { HotkeyRegistry } from "../../src/hotkey-registry.js";
-import type { ActivePresetState, LoadedPreset } from "../../src/types.js";
+import type { LoadedPreset } from "../../src/types.js";
+import type { PickerCommandHost } from "../../src/ui/picker-commands.js";
 import type { Component } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -17,6 +18,7 @@ const loadAll = vi.fn();
 const openConfirm = vi.fn();
 const openInfoDialog = vi.fn();
 const renderClearSummary = vi.fn();
+const reorderWithinScope = vi.fn();
 
 vi.mock("../../src/activation/clear.js", () => ({
   clearReturning,
@@ -39,7 +41,7 @@ vi.mock("../../src/store/api.js", async (importOriginal) => {
     addPreset: vi.fn(),
     loadAll,
     removePreset: vi.fn(),
-    reorderWithinScope: vi.fn(),
+    reorderWithinScope,
   };
 });
 
@@ -51,6 +53,8 @@ vi.mock("../../src/ui/info-dialog.js", () => ({
   openInfoDialog,
 }));
 
+const { PickerCommands: pickerCommandsClass } =
+  await import("../../src/ui/picker-commands.js");
 const { openPicker } = await import("../../src/ui/picker.js");
 
 const selected: LoadedPreset = {
@@ -63,6 +67,7 @@ const selected: LoadedPreset = {
 interface PickerHarness {
   readonly done: ReturnType<typeof vi.fn>;
   readonly focus: ReturnType<typeof vi.fn>;
+  readonly handleInput: (input: string) => void;
   readonly notify: ReturnType<typeof vi.fn>;
   readonly requestRender: ReturnType<typeof vi.fn>;
   readonly setHidden: ReturnType<typeof vi.fn>;
@@ -70,18 +75,9 @@ interface PickerHarness {
 
 interface RunPickerOptions {
   readonly active?: boolean;
-  readonly onActivate?: () => Promise<ApplyResult>;
+  readonly onActivate?: (preset: LoadedPreset) => Promise<ApplyResult>;
+  readonly presets?: LoadedPreset[];
   readonly withPi?: boolean;
-}
-
-function activeState(preset: LoadedPreset = selected): ActivePresetState {
-  return {
-    declared: preset,
-    dirty: false,
-    name: preset.name,
-    restore: { kind: "unknown" },
-    scope: preset.scope,
-  };
 }
 
 function makeCtx(
@@ -92,6 +88,7 @@ function makeCtx(
   const notify = vi.fn();
   const requestRender = vi.fn();
   const setHidden = vi.fn();
+  let picker: Component | undefined;
 
   return {
     getActiveTools: () => [],
@@ -107,7 +104,7 @@ function makeCtx(
           options: { onHandle?(handle: unknown): void },
         ) =>
           new Promise((resolve) => {
-            const component = factory(
+            picker = factory(
               { requestRender, terminal: { rows: 24 } },
               {
                 bold: (text: string) => text,
@@ -121,7 +118,7 @@ function makeCtx(
             );
 
             options.onHandle?.({ focus, setHidden });
-            component.handleInput?.(input);
+            picker.handleInput?.(input);
             setTimeout(() => resolve(undefined), 10);
           }),
       ),
@@ -133,6 +130,7 @@ function makeCtx(
     },
     done,
     focus,
+    handleInput: (nextInput: string) => picker?.handleInput?.(nextInput),
     notify,
     requestRender,
     setHidden,
@@ -146,15 +144,26 @@ async function runPicker(
   const {
     active = false,
     onActivate = () => Promise.resolve({ ok: true } as const),
+    presets = [selected],
     withPi = true,
   } = options;
   const ctx = makeCtx(input);
   const session = new ActivePresetSession();
 
-  loadAll.mockResolvedValue({ presets: [selected], warnings: [] });
+  loadAll.mockResolvedValue({ presets, warnings: [] });
 
   if (active) {
-    session.attach(activeState(), ctx);
+    session.restoreFromBranch(
+      [
+        {
+          customType: "presets-plus:active",
+          data: { name: selected.name, scope: selected.scope },
+          type: "custom",
+        },
+      ] as never,
+      [selected],
+      ctx,
+    );
   }
 
   const opened = openPicker(ctx, {
@@ -309,5 +318,76 @@ describe("openPicker info actions", () => {
 
     expect(clearReturning).not.toHaveBeenCalled();
     expect(openInfoDialog).not.toHaveBeenCalled();
+  });
+
+  it("reports a thrown action, ignores pending input, and accepts a later action", async () => {
+    let rejectStatus: ((reason?: unknown) => void) | undefined;
+    const next = { ...selected, name: "ship" };
+    const onActivate = vi.fn().mockResolvedValue({ ok: true });
+
+    formatStatusBody.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectStatus = reject;
+        }),
+    );
+
+    const ctx = await runPicker("s", {
+      onActivate,
+      presets: [selected, next],
+    });
+
+    ctx.handleInput("\u001b[B");
+    ctx.handleInput("/");
+    ctx.handleInput("x");
+    ctx.handleInput("\r");
+
+    expect(openConfirm).not.toHaveBeenCalled();
+    expect(onActivate).not.toHaveBeenCalled();
+
+    if (!rejectStatus) throw new Error("Status action did not start.");
+    rejectStatus(new Error("Status failed"));
+    await vi.runAllTimersAsync();
+
+    expect(ctx.notify).toHaveBeenCalledOnce();
+    expect(ctx.notify).toHaveBeenCalledWith(
+      "Pi Presets Plus could not complete the action. Status failed.",
+      "error",
+    );
+
+    ctx.handleInput("\r");
+    await vi.runAllTimersAsync();
+
+    expect(onActivate).toHaveBeenCalledOnce();
+    expect(onActivate).toHaveBeenCalledWith(selected);
+  });
+
+  it("reports a rejected reorder without refreshing the picker", async () => {
+    const reason =
+      "Pi Presets Plus did not change the user preset file at /tmp/presets.json. It could not load the complete file. Fix the file and try again.";
+    const notify = vi.fn();
+    const refreshPresets = vi.fn();
+    const next = { ...selected, name: "ship" };
+    const host = {
+      ctx: {},
+      finish: vi.fn(),
+      getAllPresets: () => [selected, next],
+      hotkeys: new HotkeyRegistry(),
+      onActivate: vi.fn(),
+      pi: undefined,
+      currentSelection: () => selected,
+      refreshPresets,
+      runWithHiddenOverlay: vi.fn(),
+      session: new ActivePresetSession(),
+      theme: {},
+      ui: { notify },
+    } as unknown as PickerCommandHost;
+
+    reorderWithinScope.mockResolvedValue({ ok: false, reason });
+
+    await new pickerCommandsClass(host).reorder(1);
+
+    expect(notify).toHaveBeenCalledWith(reason, "error");
+    expect(refreshPresets).not.toHaveBeenCalled();
   });
 });

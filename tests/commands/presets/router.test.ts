@@ -19,15 +19,13 @@ import {
 import { HotkeyRegistry } from "../../../src/hotkey-registry.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { applyMock, gateActivationMock, openPickerMock } = vi.hoisted(() => ({
-  applyMock: vi.fn(),
-  gateActivationMock: vi.fn(),
+const { openPickerMock, requestActivationMock } = vi.hoisted(() => ({
   openPickerMock: vi.fn(),
+  requestActivationMock: vi.fn(),
 }));
 
-vi.mock("../../../src/activation/apply.js", () => ({ apply: applyMock }));
-vi.mock("../../../src/activation/policy-gate.js", () => ({
-  gateActivation: gateActivationMock,
+vi.mock("../../../src/activation/request.js", () => ({
+  requestActivation: requestActivationMock,
 }));
 vi.mock("../../../src/ui/picker.js", () => ({ openPicker: openPickerMock }));
 
@@ -73,11 +71,9 @@ beforeEach(async () => {
   agentDir = await mkdtemp(join(tmpdir(), "pi-presets-router-agent-"));
   prevAgentDirEnv = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = agentDir;
-  applyMock.mockReset();
-  gateActivationMock.mockReset();
   openPickerMock.mockReset();
-  applyMock.mockResolvedValue({ ok: true });
-  gateActivationMock.mockResolvedValue(true);
+  requestActivationMock.mockReset();
+  requestActivationMock.mockResolvedValue({ ok: true });
 });
 
 afterEach(async () => {
@@ -249,7 +245,7 @@ describe("handlePresetsCommand", () => {
     },
   );
 
-  it("gates and applies an exact-name activation", async () => {
+  it("requests an exact-name activation", async () => {
     const { ctx } = makeStubCtx();
     const pi = { getActiveTools: () => [] } as unknown as NonNullable<
       Parameters<typeof handlePresetsCommand>[2]
@@ -269,12 +265,7 @@ describe("handlePresetsCommand", () => {
 
     await handlePresetsCommand("plan", ctx, pi, session, new HotkeyRegistry());
 
-    expect(gateActivationMock).toHaveBeenCalledWith(
-      expect.objectContaining(preset),
-      ctx,
-    );
-
-    expect(applyMock).toHaveBeenCalledWith(
+    expect(requestActivationMock).toHaveBeenCalledWith(
       expect.objectContaining(preset),
       ctx,
       pi,
@@ -282,7 +273,7 @@ describe("handlePresetsCommand", () => {
     );
   });
 
-  it("routes picker activation through the gate", async () => {
+  it("routes picker activation through the shared request", async () => {
     const { ctx } = makeStubCtx();
     const pi = { getActiveTools: () => [] } as unknown as NonNullable<
       Parameters<typeof handlePresetsCommand>[2]
@@ -306,14 +297,24 @@ describe("handlePresetsCommand", () => {
       onActivate: (preset: typeof selected) => Promise<unknown>;
     };
 
-    gateActivationMock.mockResolvedValueOnce(false);
+    requestActivationMock.mockResolvedValueOnce({
+      kind: "cancelled",
+      ok: false,
+      reason: "Activation cancelled.",
+    });
 
     await expect(options.onActivate(selected)).resolves.toEqual({
       kind: "cancelled",
       ok: false,
       reason: "Activation cancelled.",
     });
-    expect(applyMock).not.toHaveBeenCalled();
+
+    expect(requestActivationMock).toHaveBeenCalledWith(
+      selected,
+      ctx,
+      pi,
+      expect.any(ActivePresetSession),
+    );
   });
 
   it("dispatches `show-prompt` to runShowPrompt", async () => {

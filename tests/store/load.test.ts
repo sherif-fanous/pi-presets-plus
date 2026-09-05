@@ -10,6 +10,7 @@
  * - missing top-level fields → empty + warning
  * - mix of valid and invalid presets in one file → valid kept + warnings for invalid
  * - duplicate names within one file → first kept + warning for the rest
+ * - duplicate tools → first occurrence kept in memory, source left unchanged
  */
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -123,6 +124,41 @@ describe("loadFile", () => {
     expect(result.warnings).toHaveLength(2);
     expect(result.warnings.join("\n")).toContain('"ship"');
     expect(result.warnings.join("\n")).toContain('"review"');
+  });
+
+  it("normalizes duplicate tools without warning or rewriting the file", async () => {
+    const original = JSON.stringify({
+      version: 1,
+      presets: [
+        {
+          name: "plan",
+          provider: "anthropic",
+          model: "claude-opus-4.5",
+          tools: ["read", "read", "edit", "read", "bash", "edit"],
+        },
+        {
+          name: "empty",
+          provider: "anthropic",
+          model: "claude-opus-4.5",
+          tools: [],
+        },
+        {
+          name: "inherited",
+          provider: "anthropic",
+          model: "claude-opus-4.5",
+        },
+      ],
+    });
+    const path = await writeRaw(original);
+    const result = await loadFile(path);
+
+    expect(result.warnings).toEqual([]);
+    expect(result.presets.map((preset) => preset.tools)).toEqual([
+      ["read", "edit", "bash"],
+      [],
+      undefined,
+    ]);
+    expect(await readFile(path, "utf-8")).toBe(original);
   });
 
   it("keeps the first occurrence of a duplicate name and warns about the rest", async () => {

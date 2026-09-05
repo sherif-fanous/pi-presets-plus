@@ -10,8 +10,8 @@
  * commands can be tested without instantiating the live picker, and so
  * the picker file stays focused on view-state orchestration.
  */
-import type { ApplyResult } from "../activation/apply.js";
 import { clearReturning } from "../activation/clear.js";
+import type { ActivationResult } from "../activation/request.js";
 import type { ActivePresetSession } from "../activation/session.js";
 import { formatStatusBody } from "../commands/presets/status.js";
 import type { HotkeyRegistry } from "../hotkey-registry.js";
@@ -44,7 +44,7 @@ import type {
 export interface PickerAction {
   readonly key: string;
   readonly label: string;
-  run(commands: PickerCommands): void;
+  run(commands: PickerCommands): Promise<void>;
 }
 
 /**
@@ -68,25 +68,12 @@ export interface PickerCommandHost {
   /** Hide the picker overlay while a nested dialog runs. */
   runWithHiddenOverlay<T>(fn: () => Promise<T>): Promise<T>;
   /** Apply a preset (used by the editor's Test button as a passthrough). */
-  onActivate(preset: LoadedPreset): Promise<PickerActivationResult>;
+  onActivate(preset: LoadedPreset): Promise<ActivationResult>;
   /** Reload presets from disk and re-focus on `selectionKey`, if given. */
   refreshPresets(selectionKey?: string): Promise<void>;
   /** Close the picker; pass an `activated` payload when a preset was applied. */
   finish(result: { activated?: LoadedPreset } | undefined): void;
 }
-
-/**
- * One row in the picker's selection-targeted action registry.
- *
- * Pairs the single-character trigger key with its footer label and the
- * `PickerCommands` method that runs the action. The picker uses this
- * registry as the single source of truth for both keyboard dispatch and
- * the footer hint string — a new action lands here once and shows up in
- * both surfaces.
- */
-export type PickerActivationResult =
-  | ApplyResult
-  | { readonly kind: "cancelled"; readonly ok: false; readonly reason: string };
 
 /**
  * Ordered list of selection-targeted action keys.
@@ -99,32 +86,32 @@ export const PICKER_ACTIONS: readonly PickerAction[] = [
   {
     key: "n",
     label: NEW_LABEL,
-    run: (commands) => void commands.openEditorForNew(),
+    run: (commands) => commands.openEditorForNew(),
   },
   {
     key: "e",
     label: EDIT_LABEL,
-    run: (commands) => void commands.openEditorForSelection(),
+    run: (commands) => commands.openEditorForSelection(),
   },
   {
     key: "d",
     label: DUPLICATE_LABEL,
-    run: (commands) => void commands.duplicate(),
+    run: (commands) => commands.duplicate(),
   },
   {
     key: "x",
     label: DELETE_LABEL,
-    run: (commands) => void commands.delete(),
+    run: (commands) => commands.delete(),
   },
   {
     key: "c",
     label: CLEAR_LABEL,
-    run: (commands) => void commands.clearActive(),
+    run: (commands) => commands.clearActive(),
   },
   {
     key: "s",
     label: STATUS_ACTION_LABEL,
-    run: (commands) => void commands.showStatus(),
+    run: (commands) => commands.showStatus(),
   },
 ];
 
@@ -289,11 +276,19 @@ export class PickerCommands {
 
     ordered[index] = next;
     ordered[nextIndex] = current;
-    await reorderWithinScope(
+
+    const result = await reorderWithinScope(
       preset.scope,
       ordered.map((candidate) => candidate.name),
       this.host.ctx,
     );
+
+    if (!result.ok) {
+      this.host.ui.notify(result.reason, "error");
+
+      return;
+    }
+
     await this.host.refreshPresets(loadedPresetKey(preset));
   }
 

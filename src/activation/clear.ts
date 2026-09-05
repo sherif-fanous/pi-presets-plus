@@ -12,9 +12,7 @@ import {
   renderClearSummary,
 } from "../ui/clear-summary.js";
 import { styleReportText } from "../ui/command-report.js";
-import { classifyOverlayField } from "./classify-overlay-field.js";
-import { sameModel } from "./same-model.js";
-import { sameSet } from "./same-set.js";
+import { assessOverlay } from "./overlay-assessment.js";
 import type { ActivePresetSession } from "./session.js";
 import type {
   ExtensionAPI,
@@ -113,16 +111,23 @@ export async function clearReturning(
   const currentModel = ctx.model
     ? { provider: ctx.model.provider, id: ctx.model.id }
     : null;
+  // Keep the extension's existing level set until the dedicated thinking
+  // levels change adds support for newer Pi values.
+  const currentThinking = pi.getThinkingLevel() as ThinkingLevel;
   const decision = decideClear({
     active,
     allTools: pi.getAllTools().map((tool) => tool.name),
     currentModel,
-    // Keep the extension's existing level set until the dedicated thinking
-    // levels change adds support for newer Pi values.
-    currentThinking: pi.getThinkingLevel() as ThinkingLevel,
+    currentThinking,
     currentTools: pi.getActiveTools(),
   });
-  const finalParts = await executeClear(decision, ctx, pi, session);
+  const finalParts = await executeClear(
+    decision,
+    currentThinking,
+    ctx,
+    pi,
+    session,
+  );
 
   session.clear(ctx, pi);
 
@@ -133,8 +138,13 @@ export function decideClear(snapshot: ClearSnapshot): ClearDecision {
   const { active } = snapshot;
   const currentModelDisplay = formatModel(snapshot.currentModel);
   const currentToolsDisplay = formatTools(snapshot.currentTools);
+  const assessment = assessOverlay(active, {
+    model: snapshot.currentModel,
+    thinkingLevel: snapshot.currentThinking,
+    tools: snapshot.currentTools,
+  });
 
-  if (active.restore.kind === "unknown") {
+  if (assessment.kind === "unknown") {
     return {
       parts: [
         { action: "unknown", field: "model", value: currentModelDisplay },
@@ -153,16 +163,9 @@ export function decideClear(snapshot: ClearSnapshot): ClearDecision {
   const writes: {
     -readonly [K in keyof ClearWrites]: ClearWrites[K];
   } = {};
-  const { baseline, lastApplied, owned } = active.restore;
+  const { baseline } = assessment.restore;
 
-  const modelClass = classifyOverlayField(
-    snapshot.currentModel,
-    baseline.model,
-    lastApplied.model,
-    sameModel,
-  );
-
-  switch (modelClass) {
+  switch (assessment.model) {
     case "already-baseline":
       parts.push({
         action: "already-baseline",
@@ -201,14 +204,7 @@ export function decideClear(snapshot: ClearSnapshot): ClearDecision {
       break;
   }
 
-  const thinkingClass = classifyOverlayField(
-    snapshot.currentThinking,
-    baseline.thinkingLevel,
-    lastApplied.thinkingLevel,
-    samePrimitive,
-  );
-
-  switch (thinkingClass) {
+  switch (assessment.thinking) {
     case "already-baseline":
       parts.push({
         action: "already-baseline",
@@ -236,21 +232,14 @@ export function decideClear(snapshot: ClearSnapshot): ClearDecision {
       break;
   }
 
-  if (!owned.tools) {
+  if (assessment.tools === "not-owned") {
     parts.push({
       action: "not-owned",
       field: "tools",
       value: currentToolsDisplay,
     });
   } else {
-    const toolsClass = classifyOverlayField(
-      snapshot.currentTools,
-      baseline.tools,
-      lastApplied.tools ?? [],
-      sameSet,
-    );
-
-    switch (toolsClass) {
+    switch (assessment.tools) {
       case "already-baseline":
         parts.push({
           action: "already-baseline",
@@ -296,20 +285,32 @@ export function decideClear(snapshot: ClearSnapshot): ClearDecision {
 
 async function executeClear(
   decision: ClearDecision,
+  currentThinking: ThinkingLevel,
   ctx: Pick<ExtensionCommandContext, "modelRegistry">,
   pi: Pick<ExtensionAPI, "setActiveTools" | "setModel" | "setThinkingLevel">,
   session: ActivePresetSession,
 ): Promise<ClearPart[]> {
   const parts = decision.parts.map((part) => ({ ...part }));
+  let modelRestored = false;
 
   if (decision.writes.model) {
     const target = decision.writes.model;
     const model = ctx.modelRegistry.find(target.provider, target.id);
-    const ok = model
-      ? await session.withSelfTriggeredModelSet(() => pi.setModel(model))
-      : false;
+    let restored = false;
 
-    if (!ok) {
+    if (model) {
+      try {
+        restored = await session.withSelfTriggeredModelSet(() =>
+          pi.setModel(model),
+        );
+      } catch {
+        restored = false;
+      }
+    }
+
+    if (restored) {
+      modelRestored = true;
+    } else {
       const index = parts.findIndex((part) => part.field === "model");
 
       if (index >= 0) {
@@ -322,8 +323,12 @@ async function executeClear(
     }
   }
 
-  if (decision.writes.thinkingLevel !== undefined) {
-    pi.setThinkingLevel(decision.writes.thinkingLevel);
+  const targetThinking =
+    decision.writes.thinkingLevel ??
+    (modelRestored ? currentThinking : undefined);
+
+  if (targetThinking !== undefined) {
+    pi.setThinkingLevel(targetThinking);
   }
 
   if (decision.writes.tools !== undefined) {
@@ -331,8 +336,4 @@ async function executeClear(
   }
 
   return parts;
-}
-
-function samePrimitive<T>(left: T, right: T): boolean {
-  return left === right;
 }

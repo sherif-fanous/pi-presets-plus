@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const addPreset = vi.fn();
 const loadAll = vi.fn();
-const removePreset = vi.fn();
+const movePreset = vi.fn();
 const updatePreset = vi.fn();
 const openConfirm = vi.fn<() => Promise<boolean>>();
 const openInfoDialog =
@@ -38,7 +38,7 @@ vi.mock("../../src/store/api.js", async (importOriginal) => {
     ...actual,
     addPreset,
     loadAll,
-    removePreset,
+    movePreset,
     updatePreset,
   };
 });
@@ -224,7 +224,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   addPreset.mockResolvedValue({ ok: true });
   loadAll.mockResolvedValue({ presets: [preset()], warnings: [] });
-  removePreset.mockResolvedValue({ ok: true });
+  movePreset.mockResolvedValue({ ok: true });
   openConfirm.mockResolvedValue(true);
   openInfoDialog.mockResolvedValue(undefined);
   updatePreset.mockResolvedValue({ ok: true });
@@ -457,6 +457,26 @@ describe("preset editor input UX", () => {
     expect(openConfirm).not.toHaveBeenCalled();
   });
 
+  it("shows a thrown save error and accepts a later save", async () => {
+    updatePreset.mockRejectedValueOnce(new Error("Disk full"));
+
+    const { editor, result } = await openHarness({ initial: preset() });
+
+    editor.handleInput("\x13");
+
+    await waitForEditorUpdate(() => {
+      expect(renderText(editor)).toContain(
+        "Pi Presets Plus could not complete the action. Disk full.",
+      );
+    });
+
+    editor.handleInput("\x13");
+
+    await result;
+
+    expect(updatePreset).toHaveBeenCalledTimes(2);
+  });
+
   it("opens duplicate mode pre-populated and saves via addPreset", async () => {
     const source = preset({ hotkey: "ctrl+1", name: "plan" });
     const seed = { ...source, hotkey: undefined, name: "plan-copy" };
@@ -476,7 +496,7 @@ describe("preset editor input UX", () => {
 
     expect(addPreset).toHaveBeenCalledOnce();
     expect(updatePreset).not.toHaveBeenCalled();
-    expect(removePreset).not.toHaveBeenCalled();
+    expect(movePreset).not.toHaveBeenCalled();
   });
 
   it("cancels duplicate mode without creating a preset", async () => {

@@ -2,9 +2,8 @@
  * "Thinking" row factory + shared pure helpers.
  *
  * Owns thinking-level cycling (gated by the current model's valid set),
- * help payload, and render. Re-exports two pure helpers that the editor
- * also consumes (`snapThinkingSelection` for model/provider changes and
- * `renderThinkingRowsForState` for headless render coverage in tests).
+ * help payload, and render. It does NOT own provider/model repair; the draft
+ * module owns that coupled transition.
  */
 import { validThinkingLevels } from "../../../activation/thinking.js";
 import type { ThinkingLevel } from "../../../types.js";
@@ -112,21 +111,4 @@ export function renderThinkingRowsForState(
   }
 
   return lines;
-}
-
-/**
- * Pure helper: consume the returned form state directly after a
- * user-driven model/provider change. If the selected level is still
- * valid for the new model, return the same state object as the
- * explicit no-op signal; otherwise snap the selection to `"off"`.
- */
-export function snapThinkingSelection(
-  state: EditorFormState,
-  model: Model<Api> | undefined,
-): EditorFormState {
-  if (validThinkingLevels(model).includes(state.thinkingLevel)) {
-    return state;
-  }
-
-  return { ...state, thinkingLevel: "off" };
 }

@@ -39,26 +39,6 @@ function pi(thinkingLevel: string, tools: string[]) {
   };
 }
 
-/**
- * Minimal SessionContext stub for tests that exercise `formatStatus` (a
- * pure formatter) and need to seed an active preset via
- * `attach`. The setStatus call inside session is a no-op for
- * formatStatus's purposes; we just need the call to not throw.
- */
-function sessionCtxStub() {
-  return {
-    ui: {
-      setStatus: () => {
-        /* no-op for formatStatus tests */
-      },
-      theme: {
-        bold: (text: string) => text,
-        fg: (_color: string, text: string) => text,
-      },
-    },
-  } as never;
-}
-
 afterEach(() => {
   loadAll.mockReset();
 });
@@ -88,17 +68,6 @@ describe("runStatus", () => {
   });
 
   it("delivers the active-preset diagnostic via ctx.ui.notify", async () => {
-    const active: ActivePresetState = {
-      declared: {
-        model: "claude",
-        provider: "anthropic",
-        thinkingLevel: "high",
-      },
-      dirty: false,
-      name: "plan",
-      restore: { kind: "unknown" },
-      scope: "project",
-    };
     const notifications: Array<[string, string]> = [];
     const ctx = {
       model: model("anthropic", "claude"),
@@ -117,8 +86,15 @@ describe("runStatus", () => {
     };
 
     const session = new ActivePresetSession();
+    const branch = [
+      {
+        customType: "presets-plus:active",
+        data: { name: preset.name, scope: preset.scope },
+        type: "custom",
+      },
+    ] as never;
 
-    session.attach(active, ctx as never);
+    session.restoreFromBranch(branch, [preset], ctx as never);
     loadAll.mockResolvedValue({ presets: [preset], warnings: [] });
 
     await runStatus(ctx as never, pi("high", ["read"]) as never, session);
@@ -157,10 +133,6 @@ describe("formatStatus", () => {
         owned: { model: true, thinkingLevel: true, tools: true },
       },
     };
-
-    const session = new ActivePresetSession();
-
-    session.attach(active, sessionCtxStub());
 
     const out = formatStatus(
       active,
@@ -221,10 +193,6 @@ describe("formatStatus", () => {
       },
     };
 
-    const session = new ActivePresetSession();
-
-    session.attach(active, sessionCtxStub());
-
     const out = formatStatus(
       active,
       preset,
@@ -259,10 +227,6 @@ describe("formatStatus", () => {
       restore: { kind: "unknown" },
       scope: "project",
     };
-
-    const session = new ActivePresetSession();
-
-    session.attach(active, sessionCtxStub());
 
     const out = formatStatus(
       active,

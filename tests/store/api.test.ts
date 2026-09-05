@@ -12,24 +12,32 @@
  * outcomes, error paths, idempotency); lower layers are covered by their
  * own files.
  */
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import {
   addPreset,
   loadAll,
+  movePreset,
   removePreset,
   reorderWithinScope,
   saveScope,
   updatePreset,
 } from "../../src/store/api.js";
-import type { Preset } from "../../src/types.js";
+import type { Preset, PresetScope } from "../../src/types.js";
 import {
   makeStubModelRegistry,
   type RegistryStub,
 } from "../helpers/model-registry.js";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fullRegistry: RegistryStub = {
   models: {
@@ -57,6 +65,28 @@ function preset(name: string, extra: Partial<Preset> = {}): Preset {
     model: "claude-opus-4.5",
     ...extra,
   };
+}
+
+function presetPath(scope: PresetScope): string {
+  return scope === "user"
+    ? join(agentDir, "presets-plus", "presets.json")
+    : join(projectDir, ".pi", "presets-plus", "presets.json");
+}
+
+function unsafeMutationReason(scope: PresetScope, path: string): string {
+  return `Pi Presets Plus did not change the ${scope} preset file at ${path}. It could not load the complete file. Fix the file and try again.`;
+}
+
+async function writeRawScope(
+  scope: PresetScope,
+  contents: string,
+): Promise<string> {
+  const path = presetPath(scope);
+
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, contents, "utf-8");
+
+  return path;
 }
 
 beforeEach(async () => {
@@ -318,6 +348,202 @@ describe("updatePreset", () => {
   });
 });
 
+describe("movePreset", () => {
+  it("moves a user preset to the project scope", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+
+    await saveScope("user", [preset("keep"), preset("move")], ctx);
+    await saveScope("project", [preset("project")], ctx);
+
+    const result = await movePreset(
+      "move",
+      "user",
+      "project",
+      preset("moved"),
+      ctx,
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(
+      (await loadAll(ctx)).presets.map(
+        (entry) => `${entry.scope}:${entry.name}`,
+      ),
+    ).toEqual(["user:keep", "project:project", "project:moved"]);
+  });
+
+  it("moves a project preset to the user scope", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+
+    await saveScope("user", [preset("user")], ctx);
+    await saveScope("project", [preset("move"), preset("keep")], ctx);
+
+    const result = await movePreset(
+      "move",
+      "project",
+      "user",
+      preset("moved"),
+      ctx,
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(
+      (await loadAll(ctx)).presets.map(
+        (entry) => `${entry.scope}:${entry.name}`,
+      ),
+    ).toEqual(["user:user", "user:moved", "project:keep"]);
+  });
+
+  it("rejects matching source and destination scopes without writing", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const writeScope = vi.fn<typeof saveScope>();
+
+    const result = await movePreset(
+      "move",
+      "user",
+      "user",
+      preset("move"),
+      ctx,
+      writeScope,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "Source and destination scopes must be different.",
+    });
+    expect(writeScope).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing source without writing", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const writeScope = vi.fn<typeof saveScope>();
+
+    await saveScope("user", [preset("keep")], ctx);
+
+    const result = await movePreset(
+      "missing",
+      "user",
+      "project",
+      preset("missing"),
+      ctx,
+      writeScope,
+    );
+
+    expect(result.ok).toBe(false);
+    expect(writeScope).not.toHaveBeenCalled();
+  });
+
+  it("rejects a destination collision without writing", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const writeScope = vi.fn<typeof saveScope>();
+
+    await saveScope("user", [preset("move")], ctx);
+    await saveScope("project", [preset("taken")], ctx);
+
+    const result = await movePreset(
+      "move",
+      "user",
+      "project",
+      preset("taken"),
+      ctx,
+      writeScope,
+    );
+
+    expect(result.ok).toBe(false);
+    expect(writeScope).not.toHaveBeenCalled();
+  });
+
+  it("leaves both scopes unchanged when the destination write fails", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const writeError = new Error("destination write failed");
+    const writeScope = vi.fn<typeof saveScope>().mockRejectedValue(writeError);
+
+    await saveScope("user", [preset("move")], ctx);
+    await saveScope("project", [preset("keep")], ctx);
+
+    await expect(
+      movePreset("move", "user", "project", preset("move"), ctx, writeScope),
+    ).rejects.toBe(writeError);
+
+    expect(
+      (await loadAll(ctx)).presets.map(
+        (entry) => `${entry.scope}:${entry.name}`,
+      ),
+    ).toEqual(["user:move", "project:keep"]);
+  });
+
+  it("restores the destination when the source write fails", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const sourceError = new Error("source write failed");
+    const writeScope = vi.fn<typeof saveScope>(
+      async (scope, presets, context) => {
+        if (writeScope.mock.calls.length === 2) throw sourceError;
+        await saveScope(scope, presets, context);
+      },
+    );
+
+    await saveScope("user", [preset("move")], ctx);
+    await saveScope("project", [preset("keep")], ctx);
+
+    await expect(
+      movePreset("move", "user", "project", preset("move"), ctx, writeScope),
+    ).rejects.toBe(sourceError);
+    expect(writeScope).toHaveBeenCalledTimes(3);
+    expect(
+      (await loadAll(ctx)).presets.map(
+        (entry) => `${entry.scope}:${entry.name}`,
+      ),
+    ).toEqual(["user:move", "project:keep"]);
+  });
+
+  it("reports both errors when the source write and rollback fail", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const sourceError = new Error("source write failed");
+    const rollbackError = new Error("rollback failed");
+    const writeScope = vi.fn<typeof saveScope>(
+      async (scope, presets, context) => {
+        if (writeScope.mock.calls.length === 2) throw sourceError;
+        if (writeScope.mock.calls.length === 3) throw rollbackError;
+        await saveScope(scope, presets, context);
+      },
+    );
+
+    await saveScope("user", [preset("move")], ctx);
+    await saveScope("project", [preset("keep")], ctx);
+
+    let thrown: unknown;
+
+    try {
+      await movePreset(
+        "move",
+        "user",
+        "project",
+        preset("move"),
+        ctx,
+        writeScope,
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(AggregateError);
+
+    if (!(thrown instanceof AggregateError)) {
+      throw new Error("Expected movePreset to throw AggregateError.");
+    }
+
+    expect(thrown.errors).toEqual([sourceError, rollbackError]);
+    expect(thrown.message).toBe(
+      "The preset move failed, and Pi Presets Plus could not restore the destination scope.",
+    );
+
+    expect(
+      (await loadAll(ctx)).presets.map(
+        (entry) => `${entry.scope}:${entry.name}`,
+      ),
+    ).toEqual(["user:move", "project:keep", "project:move"]);
+  });
+});
+
 describe("removePreset", () => {
   it("removes a present entry", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
@@ -351,7 +577,10 @@ describe("reorderWithinScope", () => {
     const ctx = makeCtx(projectDir, fullRegistry);
 
     await saveScope("user", [preset("a"), preset("b"), preset("c")], ctx);
-    await reorderWithinScope("user", ["c", "a", "b"], ctx);
+
+    const result = await reorderWithinScope("user", ["c", "a", "b"], ctx);
+
+    expect(result).toEqual({ ok: true });
     expect((await loadAll(ctx)).presets.map((entry) => entry.name)).toEqual([
       "c",
       "a",
@@ -391,5 +620,138 @@ describe("reorderWithinScope", () => {
       "a",
       "b",
     ]);
+  });
+});
+
+describe("unsafe mutation protection", () => {
+  it("allows add when the scope file is missing", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+
+    expect(await addPreset(preset("plan"), "project", ctx)).toEqual({
+      ok: true,
+    });
+
+    expect((await loadAll(ctx)).presets.map((entry) => entry.name)).toEqual([
+      "plan",
+    ]);
+  });
+
+  it("rejects add when the scope path cannot be read as a file", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const path = presetPath("user");
+
+    await mkdir(path, { recursive: true });
+
+    const result = await addPreset(preset("plan"), "user", ctx);
+
+    expect(result).toEqual({
+      ok: false,
+      reason: unsafeMutationReason("user", path),
+    });
+    expect((await stat(path)).isDirectory()).toBe(true);
+  });
+
+  it("rejects update and preserves invalid JSON", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const original = "{ not json";
+    const path = await writeRawScope("user", original);
+
+    const result = await updatePreset("plan", "user", preset("plan"), ctx);
+
+    expect(result).toEqual({
+      ok: false,
+      reason: unsafeMutationReason("user", path),
+    });
+    expect(await readFile(path, "utf-8")).toBe(original);
+  });
+
+  it("rejects remove and preserves an unsupported version", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const original = JSON.stringify({ presets: [preset("plan")], version: 2 });
+    const path = await writeRawScope("project", original);
+
+    const result = await removePreset("plan", "project", ctx);
+
+    expect(result).toEqual({
+      ok: false,
+      reason: unsafeMutationReason("project", path),
+    });
+    expect(await readFile(path, "utf-8")).toBe(original);
+  });
+
+  it("rejects reorder and preserves invalid top-level structure", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const original = "[]";
+    const path = await writeRawScope("project", original);
+
+    const result = await reorderWithinScope("project", ["plan"], ctx);
+
+    expect(result).toEqual({
+      ok: false,
+      reason: unsafeMutationReason("project", path),
+    });
+    expect(await readFile(path, "utf-8")).toBe(original);
+  });
+
+  it("rejects move and preserves a source with an invalid entry", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const source = JSON.stringify({
+      presets: [preset("move"), { name: "broken", provider: "anthropic" }],
+      version: 1,
+    });
+    const sourcePath = await writeRawScope("user", source);
+
+    await saveScope("project", [preset("keep")], ctx);
+
+    const destinationPath = presetPath("project");
+    const destination = await readFile(destinationPath, "utf-8");
+    const writeScope = vi.fn<typeof saveScope>();
+    const result = await movePreset(
+      "move",
+      "user",
+      "project",
+      preset("move"),
+      ctx,
+      writeScope,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      reason: unsafeMutationReason("user", sourcePath),
+    });
+    expect(writeScope).not.toHaveBeenCalled();
+    expect(await readFile(sourcePath, "utf-8")).toBe(source);
+    expect(await readFile(destinationPath, "utf-8")).toBe(destination);
+  });
+
+  it("rejects move and preserves a destination with duplicate names", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+
+    await saveScope("user", [preset("move")], ctx);
+
+    const sourcePath = presetPath("user");
+    const source = await readFile(sourcePath, "utf-8");
+    const destination = JSON.stringify({
+      presets: [preset("keep"), preset("keep")],
+      version: 1,
+    });
+    const destinationPath = await writeRawScope("project", destination);
+    const writeScope = vi.fn<typeof saveScope>();
+    const result = await movePreset(
+      "move",
+      "user",
+      "project",
+      preset("move"),
+      ctx,
+      writeScope,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      reason: unsafeMutationReason("project", destinationPath),
+    });
+    expect(writeScope).not.toHaveBeenCalled();
+    expect(await readFile(sourcePath, "utf-8")).toBe(source);
+    expect(await readFile(destinationPath, "utf-8")).toBe(destination);
   });
 });

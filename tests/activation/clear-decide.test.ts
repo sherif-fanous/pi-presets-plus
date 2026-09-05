@@ -101,6 +101,35 @@ describe("decideClear", () => {
     );
   });
 
+  it("does not let duplicate current tools hide a user override", () => {
+    const active: ActivePresetState = {
+      ...baselineActive,
+      restore: {
+        applyCount: 1,
+        baseline: {
+          model: { provider: "anthropic", id: "old" },
+          thinkingLevel: "medium",
+          tools: ["grep"],
+        },
+        kind: "baseline",
+        lastApplied: {
+          model: { provider: "anthropic", id: "claude" },
+          thinkingLevel: "high",
+          tools: ["read", "bash"],
+        },
+        owned: { model: true, thinkingLevel: true, tools: true },
+      },
+    };
+    const decision = decideClear(
+      snapshot({ active, currentTools: ["read", "read"] }),
+    );
+
+    expect(decision.writes.tools).toBeUndefined();
+    expect(decision.parts.find((part) => part.field === "tools")?.action).toBe(
+      "user-override",
+    );
+  });
+
   it("marks already-baseline fields without queuing writes", () => {
     const decision = decideClear(
       snapshot({

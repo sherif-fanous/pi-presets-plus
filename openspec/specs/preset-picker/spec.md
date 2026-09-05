@@ -320,61 +320,56 @@ The `/presets` command (with no arguments) SHALL open the picker. `/presets list
 - **THEN** the package SHALL NOT activate the preset named `plan`
 - **AND** the package SHALL report `plan` as an unknown or unsupported subcommand
 
-### Requirement: Picker keeps the selected card visible regardless of card-height variation
+### Requirement: Picker lays out variable-height cards around the selection
 
-The picker SHALL guarantee that the currently-selected preset's card is included in the rendered output on every frame, regardless of card-height variation across the visible window. Card height varies based on which optional rows the preset triggers (presence of an `instructions` Prompt row; presence of `clampWarning`, `hotkeyConflict`, `hotkeyShadowsBuiltin`, availability status, `Drift:` for an active+dirty preset, or `Shadowing:` for a shadowed preset in scope=all view).
+The picker SHALL guarantee that the currently selected preset's card is included in the rendered output on every frame, regardless of card-height variation across the visible list. Card height varies with optional preset rows and status annotations.
 
-When the picker's greedy line-budget packer cannot include the selected card in the packed range starting at the current `scrollOffset` (because the new mix of card heights in view fits fewer cards than the previous render's `renderedPageSize` had implied), the picker SHALL re-anchor `scrollOffset` to `selectedIndex - packedCount + 1` (clamped to `[0, visibleCount - packedCount]`), re-pack once with the corrected offset, and propagate the corrected offset back into picker state before the next user keystroke.
+The picker SHALL calculate each viewport from the item count, selected index, current scroll offset, available line budget, and measured card heights. It SHALL pack consecutive cards and their separator lines without exceeding the line budget, except that it SHALL render one selected card even when that card alone exceeds the budget.
 
-The correction SHALL be the responsibility of the render layer, not the state-transition layer. `moveSelection` and `cycleScope` SHALL continue to use the existing `ensureSelectionVisible` math (which is correct when `pageSize` matches reality), and the render layer SHALL detect and correct any disagreement between that math and the actual packed count.
+If the selection is above the current viewport, the picker SHALL anchor the viewport at the selected card. If the selection is below the packed range, the picker SHALL move the viewport backward from the selected card to include as many preceding cards as the line budget permits. The resulting scroll offset and measured page size SHALL update picker state before the next user input.
 
-Upward navigation paths (`↑` arrow and `PgUp`) SHALL NOT trigger a correction in practice: their existing `ensureSelectionVisible` math anchors `scrollOffset` to `selectedIndex` itself, which is by construction the first card the packer renders. The contract above does not depend on this property — the correction is still safe to apply to upward paths — but tests SHALL pin the property as a regression guard.
+Card heights SHALL be measured only as needed to determine the visible range. An empty preset list SHALL produce an empty viewport without measuring any card.
 
-The picker's exported state helper SHALL include a pure `clampScrollToFit(state, packedCount, visibleCount)` function that, given the just-measured packed count, returns a state with `scrollOffset` adjusted (or unchanged) so that `selectedIndex` falls within `[scrollOffset, scrollOffset + packedCount - 1]`. The function SHALL be idempotent: applying it to its own output SHALL return the same state.
+#### Scenario: Mixed card heights fit within the line budget
 
-#### Scenario: Selected card stays visible after a Down press into a region of taller cards
+- **WHEN** the visible list contains cards with different measured heights
+- **THEN** the picker SHALL include consecutive cards and separator lines while they fit within the available line budget
+- **AND** the measured page size SHALL equal the number of included cards
 
-- **WHEN** the picker is rendered with `scrollOffset = N`, the greedy packer fits `M` cards starting at `N`, and the user presses `↓` from a selection where `state.selectedIndex = N + M - 1`
-- **AND** after `moveSelection(1)` the state has `selectedIndex = N + M`, and `ensureSelectionVisible` advances `scrollOffset` to `state.selectedIndex - oldPageSize + 1`
-- **AND** the next render's greedy pack (with the new top card being one line taller, e.g. a Prompt row appearing) fits only `M - 1` cards starting at the new offset
-- **THEN** the picker SHALL re-anchor `scrollOffset` to `selectedIndex - (M - 1) + 1` and re-pack
-- **AND** the rendered output SHALL include the preset at `state.selectedIndex`
-- **AND** the corrected `scrollOffset` SHALL be propagated back into `state` before the next user keystroke is processed
+#### Scenario: Selection moves below the current viewport
 
-#### Scenario: Selected card stays visible after a PgDn into a region of taller cards
+- **WHEN** the selected index is below the range that fits from the current scroll offset
+- **THEN** the picker SHALL choose a new scroll offset whose packed range includes the selected card
+- **AND** the rendered output SHALL include the selected card
 
-- **WHEN** the user presses `PgDn` from any position
-- **AND** the new selection would otherwise fall outside the greedy pack's range at the post-`moveSelection` `scrollOffset`
-- **THEN** the picker SHALL re-anchor `scrollOffset` and re-pack so the selected card is rendered
+#### Scenario: Selection moves above the current viewport
 
-#### Scenario: Upward paths do not trigger a render-time correction
+- **WHEN** the selected index is above the current scroll offset
+- **THEN** the picker SHALL set the selected card as the first visible card
+- **AND** the rendered output SHALL include the selected card
 
-- **WHEN** the user presses `↑` or `PgUp` from any position
-- **THEN** the greedy pack starting at the new `scrollOffset` SHALL always include `state.selectedIndex` as the first packed card
-- **AND** no scroll-offset correction SHALL fire
+#### Scenario: Selected card exceeds the line budget
 
-#### Scenario: `clampScrollToFit` is idempotent
+- **WHEN** the selected card's measured height exceeds the available line budget
+- **THEN** the picker SHALL still include that card as the sole visible card
 
-- **WHEN** `clampScrollToFit(state, packedCount, visibleCount)` returns `state'`
-- **AND** `clampScrollToFit(state', packedCount, visibleCount)` is called
-- **THEN** the result SHALL equal `state'`
+#### Scenario: Empty list requires no card measurements
 
-#### Scenario: Reproduces the user-reported pattern of 18 presets, 9 visible, 12 consecutive Down presses
+- **WHEN** the visible preset list is empty
+- **THEN** the picker SHALL return an empty viewport with a page size of zero
+- **AND** it SHALL NOT request any card-height measurement
 
-- **WHEN** the picker is opened with 18 presets across user and project scopes, the first render packs 9 cards, and the user presses `↓` 12 times in sequence
-- **THEN** at every step the rendered output SHALL include the preset at `state.selectedIndex`
-- **AND** no preset SHALL be skipped (i.e. for `k = 1..12`, after the `k`-th press, `state.selectedIndex` SHALL equal `k` and the visible-presets entry at index `k` SHALL appear in the rendered output)
+#### Scenario: Page navigation uses the measured page size
 
-#### Scenario: `renderList` returns a corrected offset when the packer disagreed with the state
+- **WHEN** a rendered viewport has measured the number of cards that fit
+- **THEN** subsequent Page Up and Page Down navigation SHALL use that measured page size
+- **AND** the next rendered viewport SHALL include the new selection
 
-- **WHEN** `renderList(width)` is called with a state whose `selectedIndex` would not be included in the greedy pack starting at `scrollOffset`
-- **THEN** the return value SHALL be `{ lines: <re-packed lines>, correctedScrollOffset: <corrected offset> }`
-- **AND** the re-packed lines SHALL include the card at `state.selectedIndex`
+#### Scenario: Repeated downward navigation does not skip presets
 
-#### Scenario: `renderList` omits `correctedScrollOffset` when no correction was needed
-
-- **WHEN** `renderList(width)` is called with a state whose `selectedIndex` falls within the greedy pack's range
-- **THEN** the return value SHALL be `{ lines }` (no `correctedScrollOffset` field)
+- **WHEN** the picker contains 18 presets with variable card heights and the user presses Down 12 times from the first preset
+- **THEN** each press SHALL advance the selected index by one
+- **AND** every rendered viewport SHALL include the selected preset
 
 ### Requirement: Picker displays a permanent active-preset status row
 

@@ -7,13 +7,17 @@
  * checks pin the invariants the picker and storage layer rely on.
  */
 import type { LoadedPreset } from "../../src/types.js";
+import { formatHotkeyReloadNotice } from "../../src/ui/editor.js";
 import {
   buildPreset,
-  formatHotkeyReloadNotice,
   initialState,
-  renderThinkingRowsForState,
+  selectModel,
+  selectProvider,
+  selectToolsMode,
   snapThinkingSelection,
-} from "../../src/ui/editor.js";
+  toggleSelectedTool,
+} from "../../src/ui/editor/draft.js";
+import { renderThinkingRowsForState } from "../../src/ui/editor/rows/thinking.js";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { describe, expect, it } from "vitest";
 
@@ -24,22 +28,24 @@ interface ModelItem {
   readonly provider: string;
 }
 
+const reasoningModelItem: ModelItem = {
+  available: true,
+  id: "claude-opus-4.5",
+  // The editor only reads `provider` / `id` off ModelItem and consults
+  // `model.reasoning` when re-evaluating thinking levels; a partial cast
+  // is enough for the pure helpers under test.
+  model: { reasoning: true } as unknown as Model<Api>,
+  provider: "anthropic",
+};
+const nonReasoningModelItem: ModelItem = {
+  available: true,
+  id: "gpt-5",
+  model: { reasoning: false } as unknown as Model<Api>,
+  provider: "openai",
+};
 const fakeModels: readonly ModelItem[] = [
-  {
-    available: true,
-    id: "claude-opus-4.5",
-    // The editor only reads `provider` / `id` off ModelItem and consults
-    // `model.reasoning` when re-evaluating thinking levels; a partial cast
-    // is enough for the pure helpers under test.
-    model: { reasoning: true } as unknown as Model<Api>,
-    provider: "anthropic",
-  },
-  {
-    available: true,
-    id: "gpt-5",
-    model: { reasoning: false } as unknown as Model<Api>,
-    provider: "openai",
-  },
+  reasoningModelItem,
+  nonReasoningModelItem,
 ];
 
 const passthroughTheme = {
@@ -162,6 +168,78 @@ describe("initialState", () => {
     );
 
     expect(state.thinkingLevel).toBe("high");
+  });
+});
+
+describe("draft model transitions", () => {
+  it.each([
+    {
+      change: (state: ReturnType<typeof initialState>) =>
+        selectProvider(state, "openai", fakeModels),
+      expectedModel: "gpt-5",
+      expectedProvider: "openai",
+      name: "provider selection",
+    },
+    {
+      change: (state: ReturnType<typeof initialState>) =>
+        selectModel({ ...state, provider: "openai" }, nonReasoningModelItem),
+      expectedModel: "gpt-5",
+      expectedProvider: "openai",
+      name: "model selection",
+    },
+  ])(
+    "$name selects the model and repairs unsupported thinking",
+    ({ change, expectedModel, expectedProvider }) => {
+      const next = change(initialState(existingPreset, fakeModels));
+
+      expect(next.model).toBe(expectedModel);
+      expect(next.provider).toBe(expectedProvider);
+      expect(next.thinkingLevel).toBe("off");
+    },
+  );
+
+  it("preserves thinking when the selected model supports it", () => {
+    const state = initialState(existingPreset, fakeModels);
+
+    const next = selectModel(state, reasoningModelItem);
+
+    expect(next.thinkingLevel).toBe("high");
+  });
+});
+
+describe("draft tool transitions", () => {
+  it.each([
+    { current: [], expected: ["read", "bash"], name: "an empty selection" },
+    { current: ["grep"], expected: ["grep"], name: "an existing selection" },
+  ])("uses $name when entering preset mode", ({ current, expected }) => {
+    const state = {
+      ...initialState(existingPreset, fakeModels),
+      selectedTools: current,
+      toolsMode: "session" as const,
+    };
+
+    const next = selectToolsMode(state, "preset", ["read", "bash"]);
+
+    expect(next.toolsMode).toBe("preset");
+    expect(next.selectedTools).toEqual(expected);
+  });
+
+  it("leaves the selection intact when returning to session mode", () => {
+    const state = initialState(existingPreset, fakeModels);
+
+    const next = selectToolsMode(state, "session", ["bash"]);
+
+    expect(next.toolsMode).toBe("session");
+    expect(next.selectedTools).toEqual(["read", "grep"]);
+  });
+
+  it("adds and removes tools without reordering the remaining selection", () => {
+    const state = initialState(existingPreset, fakeModels);
+    const removed = toggleSelectedTool(state, "read");
+    const added = toggleSelectedTool(removed, "bash");
+
+    expect(removed.selectedTools).toEqual(["grep"]);
+    expect(added.selectedTools).toEqual(["grep", "bash"]);
   });
 });
 

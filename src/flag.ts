@@ -4,8 +4,7 @@
  * Owns the `--preset` CLI flag entry point and startup lookup messages. It
  * does NOT own session restore, preset storage, or the apply implementation.
  */
-import { apply } from "./activation/apply.js";
-import { gateActivation } from "./activation/policy-gate.js";
+import { requestActivation } from "./activation/request.js";
 import type { ActivePresetSession } from "./activation/session.js";
 import type { LoadedPreset } from "./types.js";
 import { notifyApplyResult } from "./ui/apply-result.js";
@@ -41,9 +40,9 @@ export async function applyPresetFlag(
     return false;
   }
 
-  if (!(await gateActivation(preset, ctx))) return false;
+  const result = await requestActivation(preset, ctx, pi, session);
 
-  const result = await apply(preset, ctx, pi, session);
+  if (!result.ok && result.kind === "cancelled") return false;
 
   notifyApplyResult(ctx, preset, result);
 

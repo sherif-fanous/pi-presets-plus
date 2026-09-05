@@ -16,17 +16,10 @@ import type {
 import type { KeyId } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { applyMock, gateActivationMock } = vi.hoisted(() => ({
-  applyMock: vi.fn(),
-  gateActivationMock: vi.fn(),
-}));
+const requestActivationMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../src/activation/apply.js", () => ({
-  apply: applyMock,
-}));
-
-vi.mock("../src/activation/policy-gate.js", () => ({
-  gateActivation: gateActivationMock,
+vi.mock("../src/activation/request.js", () => ({
+  requestActivation: requestActivationMock,
 }));
 
 interface RegisteredShortcut {
@@ -100,10 +93,8 @@ function preset(
 }
 
 beforeEach(() => {
-  applyMock.mockReset();
-  gateActivationMock.mockReset();
-  applyMock.mockResolvedValue({ ok: true });
-  gateActivationMock.mockResolvedValue(true);
+  requestActivationMock.mockReset();
+  requestActivationMock.mockResolvedValue({ ok: true });
 });
 
 describe("hotkeyChanged", () => {
@@ -311,23 +302,39 @@ describe("HotkeyRegistry.bindForSession", () => {
     await shortcuts.get("ctrl+shift+1")?.handler(ctx as ExtensionContext);
 
     expect(loadCurrentPresets).toHaveBeenCalledWith(ctx);
-    expect(applyMock).toHaveBeenCalledWith(current, ctx, pi, session);
+    expect(requestActivationMock).toHaveBeenCalledWith(
+      current,
+      ctx,
+      pi,
+      session,
+    );
   });
 
-  it("does not apply when the hotkey policy gate is cancelled", async () => {
+  it("does not notify when hotkey activation is cancelled", async () => {
     const registry = new HotkeyRegistry();
     const current = preset("plan", "ctrl+shift+1");
 
-    gateActivationMock.mockResolvedValueOnce(false);
+    requestActivationMock.mockResolvedValueOnce({
+      kind: "cancelled",
+      ok: false,
+      reason: "Activation cancelled.",
+    });
 
-    const { ctx, shortcuts } = bind(registry, [current], () =>
-      Promise.resolve([current]),
+    const { ctx, notify, pi, session, shortcuts } = bind(
+      registry,
+      [current],
+      () => Promise.resolve([current]),
     );
 
     await shortcuts.get("ctrl+shift+1")?.handler(ctx as ExtensionContext);
 
-    expect(gateActivationMock).toHaveBeenCalledWith(current, ctx);
-    expect(applyMock).not.toHaveBeenCalled();
+    expect(requestActivationMock).toHaveBeenCalledWith(
+      current,
+      ctx,
+      pi,
+      session,
+    );
+    expect(notify).not.toHaveBeenCalled();
   });
 
   it("notifies once when hotkey activation is refused", async () => {
@@ -337,7 +344,7 @@ describe("HotkeyRegistry.bindForSession", () => {
       unavailable: "no-key",
     });
 
-    applyMock.mockResolvedValueOnce({
+    requestActivationMock.mockResolvedValueOnce({
       kind: "no-key",
       ok: false,
       reason:
@@ -352,7 +359,12 @@ describe("HotkeyRegistry.bindForSession", () => {
 
     await shortcuts.get("ctrl+shift+1")?.handler(ctx as ExtensionContext);
 
-    expect(applyMock).toHaveBeenCalledWith(current, ctx, pi, session);
+    expect(requestActivationMock).toHaveBeenCalledWith(
+      current,
+      ctx,
+      pi,
+      session,
+    );
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify).toHaveBeenCalledWith(
       'Preset "plan" is unavailable: missing API key. Activation skipped.',
@@ -364,7 +376,7 @@ describe("HotkeyRegistry.bindForSession", () => {
     const registry = new HotkeyRegistry();
     const current = preset("plan", "ctrl+shift+1");
 
-    applyMock.mockRejectedValue(new Error("boom"));
+    requestActivationMock.mockRejectedValue(new Error("boom"));
 
     const { ctx, notify, shortcuts } = bind(registry, [current], () =>
       Promise.resolve([current]),
@@ -388,7 +400,7 @@ describe("HotkeyRegistry.bindForSession", () => {
 
     await shortcuts.get("ctrl+shift+1")?.handler(ctx as ExtensionContext);
 
-    expect(applyMock).not.toHaveBeenCalled();
+    expect(requestActivationMock).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith(
       'Preset "plan" no longer exists.',
       "warning",

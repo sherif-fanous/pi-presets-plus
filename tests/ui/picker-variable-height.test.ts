@@ -11,7 +11,6 @@ import type { openPicker as openPickerType } from "../../src/ui/picker.js";
 import { Key, type Component } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const clampScrollToFit = vi.hoisted(() => vi.fn());
 const loadAll = vi.fn();
 /**
  * Raw terminal byte sequences for the special keys these tests drive.
@@ -42,19 +41,7 @@ vi.mock("../../src/store/api.js", async (importOriginal) => {
     addPreset: vi.fn(),
     loadAll,
     removePreset: vi.fn(),
-    reorderWithinScope: vi.fn(),
-  };
-});
-
-vi.mock("../../src/ui/picker-state.js", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("../../src/ui/picker-state.js")>();
-
-  clampScrollToFit.mockImplementation(actual.clampScrollToFit);
-
-  return {
-    ...actual,
-    clampScrollToFit,
+    reorderWithinScope: vi.fn().mockResolvedValue({ ok: true }),
   };
 });
 
@@ -202,7 +189,7 @@ describe("picker variable-height navigation", () => {
     expect(component.render(120).join("\n")).toContain(presetName(17));
   });
 
-  it("does not need render-time correction for upward navigation", async () => {
+  it("keeps the selected card rendered during upward navigation", async () => {
     const component = await mountPicker(makePresets(18));
 
     component.render(120);
@@ -212,16 +199,12 @@ describe("picker variable-height navigation", () => {
     }
 
     component.render(120);
-    clampScrollToFit.mockClear();
     component.handleInput?.(KEY_BYTES[Key.up]);
 
     expect(component.render(120).join("\n")).toContain(presetName(7));
-    expect(clampScrollToFit).not.toHaveBeenCalled();
 
-    clampScrollToFit.mockClear();
     component.handleInput?.(KEY_BYTES[Key.pageUp]);
 
     expect(component.render(120).join("\n")).toContain(presetName(0));
-    expect(clampScrollToFit).not.toHaveBeenCalled();
   });
 });

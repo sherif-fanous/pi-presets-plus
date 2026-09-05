@@ -4,8 +4,6 @@
  * Covers the preset-specific wrapper around Pi's built-in multi-line editor.
  */
 import {
-  cancelPromptEditor,
-  confirmPromptEditorText,
   openPromptEditor,
   promptEditorTitle,
 } from "../../src/ui/prompt-editor.js";
@@ -18,17 +16,6 @@ describe("prompt editor helpers", () => {
 
   it("builds an unnamed prompt title", () => {
     expect(promptEditorTitle({ presetName: undefined })).toBe("Edit prompt");
-  });
-
-  it("returns the confirmed result shape", () => {
-    expect(confirmPromptEditorText("# Prompt")).toEqual({
-      confirmed: true,
-      text: "# Prompt",
-    });
-  });
-
-  it("returns the cancelled result shape", () => {
-    expect(cancelPromptEditor()).toEqual({ confirmed: false });
   });
 
   it("delegates to Pi's built-in editor with title and initial text", async () => {

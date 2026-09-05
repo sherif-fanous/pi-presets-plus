@@ -20,7 +20,7 @@ vi.mock("../../src/store/api.js", async (importOriginal) => {
     addPreset: vi.fn(),
     loadAll,
     removePreset,
-    reorderWithinScope: vi.fn(),
+    reorderWithinScope: vi.fn().mockResolvedValue({ ok: true }),
   };
 });
 

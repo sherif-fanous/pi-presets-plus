@@ -5,14 +5,13 @@
  * storage, activation, picker, and clear semantics live in their dedicated
  * modules.
  */
-import { apply } from "../../activation/apply.js";
-import { gateActivation } from "../../activation/policy-gate.js";
+import { clear } from "../../activation/clear.js";
+import { requestActivation } from "../../activation/request.js";
 import type { ActivePresetSession } from "../../activation/session.js";
 import type { HotkeyRegistry } from "../../hotkey-registry.js";
 import { loadAll } from "../../store/api.js";
 import { notifyApplyResult } from "../../ui/apply-result.js";
 import { openPicker } from "../../ui/picker.js";
-import { runClear } from "./clear.js";
 import { surfaceWarnings } from "./notify.js";
 import { runPolicy } from "./policy.js";
 import { runReload } from "./reload.js";
@@ -146,9 +145,10 @@ async function activateNamedPreset(
   );
 
   if (!preset) return false;
-  if (!(await gateActivation(preset, ctx))) return true;
 
-  const result = await apply(preset, ctx, pi, session);
+  const result = await requestActivation(preset, ctx, pi, session);
+
+  if (!result.ok && result.kind === "cancelled") return true;
 
   notifyApplyResult(ctx, preset, result);
 
@@ -175,7 +175,7 @@ async function runClearWrapper(
 ): Promise<void> {
   void hotkeys;
   if (!pi) return;
-  await runClear(ctx, pi, session);
+  await clear(ctx, pi, session);
 }
 
 async function runPicker(
@@ -197,15 +197,7 @@ async function runPicker(
     hotkeys,
     inheritedTools: pi.getActiveTools(),
     onActivate: async (preset) => {
-      if (!(await gateActivation(preset, ctx))) {
-        return {
-          kind: "cancelled",
-          ok: false,
-          reason: "Activation cancelled.",
-        };
-      }
-
-      const result = await apply(preset, ctx, pi, session);
+      const result = await requestActivation(preset, ctx, pi, session);
 
       if (result.ok) notifyApplyResult(ctx, preset, result);
 

@@ -13,20 +13,18 @@
 /**
  * Compare two string arrays as unordered sets.
  *
- * Returns `true` when both sides contain exactly the same set of
- * distinct values, ignoring order. Duplicate entries within either
- * array are tolerated because the length-first guard rejects any case
- * where duplicates would matter for set-equality purposes: if both
- * sides have the same length and every element of `left` appears in
- * `right`, the sets are equal.
+ * Returns `true` when both sides contain the same distinct values.
+ * Order and duplicate entries do not affect the result.
  */
 export function sameSet(
   left: readonly string[],
   right: readonly string[],
 ): boolean {
-  if (left.length !== right.length) return false;
-
+  const leftSet = new Set(left);
   const rightSet = new Set(right);
 
-  return left.every((value) => rightSet.has(value));
+  return (
+    leftSet.size === rightSet.size &&
+    [...leftSet].every((value) => rightSet.has(value))
+  );
 }

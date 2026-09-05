@@ -9,14 +9,9 @@
 import type { ActivePresetSession } from "../activation/session.js";
 import type { HotkeyRegistry } from "../hotkey-registry.js";
 import { findPreset, samePresetIdentity } from "../preset-identity.js";
-import {
-  addPreset,
-  loadAll,
-  removePreset,
-  toPersistedPreset,
-  updatePreset,
-} from "../store/api.js";
+import { addPreset, loadAll, movePreset, updatePreset } from "../store/api.js";
 import type { LoadedPreset, Preset } from "../types.js";
+import { formatActionError } from "./action-error.js";
 import { openConfirm } from "./confirm.js";
 import {
   EDITOR_ROWS,
@@ -25,6 +20,7 @@ import {
   type FieldDiagnostic,
   type ModelItem,
 } from "./editor-types.js";
+import { buildPreset, initialState } from "./editor/draft.js";
 import { wrapIndex } from "./editor/row-render.js";
 import type { EditorRow, EditorRowHost } from "./editor/row.js";
 import { makeButtonsRow } from "./editor/rows/buttons.js";
@@ -37,7 +33,6 @@ import { makeScopeRow } from "./editor/rows/scope.js";
 import {
   makeThinkingRow,
   renderThinkingRowsForState,
-  snapThinkingSelection,
 } from "./editor/rows/thinking.js";
 import { makeToolsRow } from "./editor/rows/tools.js";
 import { centerText, frameLine, frameSegment, padToWidth } from "./frame.js";
@@ -68,7 +63,7 @@ import {
   type OverlayHandle,
 } from "@earendil-works/pi-tui";
 
-export { EDITOR_ROWS, renderThinkingRowsForState, snapThinkingSelection };
+export { EDITOR_ROWS, renderThinkingRowsForState };
 export type { EditorFormState };
 
 export interface EditorOptions {
@@ -338,16 +333,6 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
   }
 
   /**
-   * Triggered after a user-driven model/provider change. If the chosen
-   * level is still valid for the new model, no-op; otherwise snap to
-   * `"off"`. Never called from the constructor — opening must not
-   * silently mutate the form.
-   */
-  snapThinkingIfInvalid(): void {
-    this.state = snapThinkingSelection(this.state, this.currentModel());
-  }
-
-  /**
    * Hide the editor overlay, open the multi-line prompt editor, and
    * commit the result into the form state when the user confirms.
    */
@@ -489,6 +474,8 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
 
     try {
       await fn();
+    } catch (error) {
+      this.flowError = formatActionError(error);
     } finally {
       this.actionInFlight = false;
       this.requestRender();
@@ -566,13 +553,13 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
 
     if (!confirmed) return { ok: false, reason: "Move cancelled." };
 
-    const added = await addPreset(next, this.state.scope, this.ctx);
-
-    if (!added.ok) return added;
-
-    await removePreset(target.name, target.scope, this.ctx);
-
-    return { ok: true };
+    return movePreset(
+      target.name,
+      target.scope,
+      this.state.scope,
+      next,
+      this.ctx,
+    );
   }
 
   private async testPreset(): Promise<void> {
@@ -761,32 +748,6 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
   }
 }
 
-/**
- * Pure helper: assemble a `Preset` from the form state, omitting fields
- * that should not appear in the on-disk shape (e.g. empty instructions,
- * empty hotkey, `session`-mode tools, `off` thinking).
- *
- * Routes the assembled fields through `toPersistedPreset` so the
- * editor, picker copy, and `saveScope` all share one drop-undefined +
- * defensive-tools-copy contract. Exposed for tests; the editor
- * instance calls this internally.
- */
-export function buildPreset(state: EditorFormState): Preset {
-  const instructions = state.instructions.trim();
-  const hotkey = state.hotkey.trim();
-
-  return toPersistedPreset({
-    model: state.model,
-    name: state.name.trim(),
-    provider: state.provider,
-    thinkingLevel:
-      state.thinkingLevel !== "off" ? state.thinkingLevel : undefined,
-    tools: state.toolsMode === "preset" ? state.selectedTools : undefined,
-    instructions: instructions.length > 0 ? instructions : undefined,
-    hotkey: hotkey.length > 0 ? hotkey : undefined,
-  });
-}
-
 export function formatHotkeyReloadNotice(
   previousValue: string,
   nextValue: string,
@@ -814,42 +775,6 @@ export function formatHotkeyReloadNotice(
     `    Hotkey changed: ${previous} → ${next}.`,
     "    Run /reload to activate the change. The previous binding is still active.",
   ];
-}
-
-/**
- * Pure helper: derive the editor's initial form state from an existing
- * preset (edit mode) or sensible defaults (new mode). For new presets
- * the thinking level defaults to `"off"` per the spec's "Open editor for
- * a new preset" scenario; the editor never reads the live session's
- * thinking level into a new preset's form because that would silently
- * couple a brand-new preset to whatever the user happened to be doing.
- *
- * `activeTools` seeds the tools row's pre-selection when the preset has
- * no `tools` field yet, per the spec's
- * "pre-checked from ... `pi.getActiveTools()` if the preset has no tools
- * yet" clause. This is purely a UI pre-check: while the user stays in
- * `session` mode the tools field is still omitted from the persisted
- * preset; the pre-fill only materializes if they toggle to `preset` mode
- * and save.
- */
-export function initialState(
-  preset: LoadedPreset | undefined,
-  models: readonly ModelItem[],
-  activeTools: readonly string[] = [],
-): EditorFormState {
-  const firstModel = models[0];
-
-  return {
-    hotkey: preset?.hotkey ?? "",
-    instructions: preset?.instructions ?? "",
-    model: preset?.model ?? firstModel?.id ?? "",
-    name: preset?.name ?? "",
-    provider: preset?.provider ?? firstModel?.provider ?? "",
-    scope: preset?.scope ?? "user",
-    selectedTools: preset?.tools ? [...preset.tools] : [...activeTools],
-    thinkingLevel: preset?.thinkingLevel ?? "off",
-    toolsMode: preset?.tools ? "preset" : "session",
-  };
 }
 
 export async function openEditor(

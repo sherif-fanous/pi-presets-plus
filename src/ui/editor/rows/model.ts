@@ -6,6 +6,7 @@
  * or provider switching; those live on the host.
  */
 import { MODEL_LABEL } from "../../labels.js";
+import { selectModel } from "../draft.js";
 import {
   renderValueRow,
   withFieldDiagnostic,
@@ -42,9 +43,8 @@ export function makeModelRow(host: EditorRowHost): EditorRow {
 
       if (!next) return;
 
-      host.setState({ ...state, model: next.id });
+      host.setState(selectModel(state, next));
       host.clearFieldDiagnosticsFor("model");
-      host.snapThinkingIfInvalid();
     },
     renderLines() {
       return withFieldDiagnostic(

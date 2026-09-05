@@ -5,12 +5,8 @@
  * user-facing report; it does NOT update the footer indicator or mutate
  * the active attachment.
  */
-import {
-  classifyOverlayField,
-  type OverlayFieldClassification,
-} from "../../activation/classify-overlay-field.js";
-import { sameModel } from "../../activation/same-model.js";
-import { sameSet } from "../../activation/same-set.js";
+import type { OverlayFieldClassification } from "../../activation/classify-overlay-field.js";
+import { assessOverlay } from "../../activation/overlay-assessment.js";
 import type { ActivePresetSession } from "../../activation/session.js";
 import { findPreset } from "../../preset-identity.js";
 import { loadAll } from "../../store/api.js";
@@ -82,9 +78,15 @@ export function formatStatus(
   const currentModel = ctx.model
     ? { provider: ctx.model.provider, id: ctx.model.id }
     : null;
+  const currentThinking = pi.getThinkingLevel();
   const currentTools = pi.getActiveTools();
+  const assessment = assessOverlay(active, {
+    model: currentModel,
+    thinkingLevel: currentThinking,
+    tools: currentTools,
+  });
 
-  if (active.restore.kind === "unknown") {
+  if (assessment.kind === "unknown") {
     return [
       styler.bold(styler.fg("accent", STATUS_DIALOG_TITLE)),
       row(`${PRESET_LABEL}:`, active.name, styler),
@@ -95,38 +97,18 @@ export function formatStatus(
         styler,
       ),
       row(`${CURRENT_MODEL_LABEL}:`, formatModel(currentModel), styler),
-      row(`${CURRENT_THINKING_LABEL}:`, pi.getThinkingLevel(), styler),
+      row(`${CURRENT_THINKING_LABEL}:`, currentThinking, styler),
       row(`${CURRENT_TOOLS_LABEL}:`, formatTools(currentTools), styler),
     ].join("\n");
   }
 
-  const { baseline, lastApplied, owned } = active.restore;
-  const modelClass = statusLabel(
-    classifyOverlayField(
-      currentModel,
-      baseline.model,
-      lastApplied.model,
-      sameModel,
-    ),
-  );
-  const thinkingClass = statusLabel(
-    classifyOverlayField(
-      pi.getThinkingLevel(),
-      baseline.thinkingLevel,
-      lastApplied.thinkingLevel,
-      samePrimitive,
-    ),
-  );
-  const toolsClass = owned.tools
-    ? statusLabel(
-        classifyOverlayField(
-          currentTools,
-          baseline.tools,
-          lastApplied.tools ?? [],
-          sameSet,
-        ),
-      )
-    : "Not managed by active preset";
+  const { baseline, lastApplied } = assessment.restore;
+  const modelClass = statusLabel(assessment.model);
+  const thinkingClass = statusLabel(assessment.thinking);
+  const toolsClass =
+    assessment.tools === "not-owned"
+      ? "Not managed by active preset"
+      : statusLabel(assessment.tools);
 
   return [
     styler.bold(styler.fg("accent", STATUS_DIALOG_TITLE)),
@@ -149,7 +131,7 @@ export function formatStatus(
     ),
     row(
       `${CURRENT_THINKING_LABEL}:`,
-      `${pi.getThinkingLevel()} (${thinkingClass})`,
+      `${currentThinking} (${thinkingClass})`,
       styler,
     ),
     row(
@@ -233,10 +215,6 @@ function row(
   const padding = " ".repeat(STATUS_LABEL_WIDTH - label.length);
 
   return `  ${styler.fg("muted", label)}${padding} ${value}`;
-}
-
-function samePrimitive<T>(left: T, right: T): boolean {
-  return left === right;
 }
 
 function statusLabel(classification: OverlayFieldClassification): string {

@@ -3,7 +3,7 @@
  *
  * Owns the operations the rest of the extension calls to read and mutate
  * presets across both scopes: `loadAll`, `saveScope`, and the CRUD
- * primitives (`addPreset`, `updatePreset`, `removePreset`,
+ * primitives (`addPreset`, `updatePreset`, `removePreset`, `movePreset`,
  * `reorderWithinScope`). Storage is cache-free — every call re-reads
  * from disk — and mutations that would violate file invariants return an
  * `Err` result rather than throwing.
@@ -30,8 +30,16 @@ interface LoadAllResult {
 }
 /** Result type for mutating operations: success carries no payload. */
 type SaveResult = { ok: true } | { ok: false; reason: string };
+type ScopeReadResult =
+  | { ok: true; presets: Preset[] }
+  | { ok: false; reason: string };
 /** Subset of `ExtensionContext` the storage API actually needs. */
 type StorageContext = Pick<ExtensionContext, "cwd" | "modelRegistry">;
+type WriteScope = (
+  scope: PresetScope,
+  presets: readonly Preset[],
+  ctx: StorageContext,
+) => Promise<void>;
 
 /**
  * Append a preset to the named scope.
@@ -45,7 +53,11 @@ export async function addPreset(
   presetScope: PresetScope,
   ctx: StorageContext,
 ): Promise<SaveResult> {
-  const current = await readScope(presetScope, ctx);
+  const loaded = await readScope(presetScope, ctx);
+
+  if (!loaded.ok) return loaded;
+
+  const current = loaded.presets;
 
   if (current.some((existing) => existing.name === preset.name)) {
     return {
@@ -65,10 +77,7 @@ export async function addPreset(
  * Read both scope files and return the merged, ordered, scope-tagged
  * preset list with availability computed.
  */
-export async function loadAll(
-  ctx: StorageContext,
-  analyze: (presets: LoadedPreset[]) => HotkeyAnalysis = analyzeHotkeys,
-): Promise<LoadAllResult> {
+export async function loadAll(ctx: StorageContext): Promise<LoadAllResult> {
   const [user, project] = await Promise.all([
     loadFile(getGlobalPresetsPath()),
     loadFile(getProjectPresetsPath(ctx.cwd)),
@@ -83,13 +92,82 @@ export async function loadAll(
       : {}),
   }));
 
-  const hotkeyAnalysis = analyze(presets);
+  const hotkeyAnalysis = analyzeHotkeys(presets);
 
   return {
     hotkeyAnalysis,
     presets,
     warnings: [...user.warnings, ...project.warnings],
   };
+}
+
+/**
+ * Move a preset between scopes, preserving the source until the destination
+ * write succeeds. If the source write fails, restore the previous destination
+ * contents before rethrowing the source error.
+ */
+export async function movePreset(
+  oldName: string,
+  sourceScope: PresetScope,
+  destinationScope: PresetScope,
+  next: Preset,
+  ctx: StorageContext,
+  writeScope: WriteScope = saveScope,
+): Promise<SaveResult> {
+  if (sourceScope === destinationScope) {
+    return {
+      ok: false,
+      reason: "Source and destination scopes must be different.",
+    };
+  }
+
+  const [loadedSource, loadedDestination] = await Promise.all([
+    readScope(sourceScope, ctx),
+    readScope(destinationScope, ctx),
+  ]);
+
+  if (!loadedSource.ok) return loadedSource;
+  if (!loadedDestination.ok) return loadedDestination;
+
+  const source = loadedSource.presets;
+  const destination = loadedDestination.presets;
+  const sourceIndex = source.findIndex((preset) => preset.name === oldName);
+
+  if (sourceIndex === -1) {
+    return {
+      ok: false,
+      reason: `No preset named "${oldName}" exists in scope "${sourceScope}".`,
+    };
+  }
+
+  if (destination.some((preset) => preset.name === next.name)) {
+    return {
+      ok: false,
+      reason: `A preset named "${next.name}" already exists in scope "${destinationScope}".`,
+    };
+  }
+
+  const nextSource = source.filter((_preset, index) => index !== sourceIndex);
+
+  await writeScope(destinationScope, [...destination, next], ctx);
+
+  try {
+    await writeScope(sourceScope, nextSource, ctx);
+  } catch (sourceError) {
+    try {
+      await writeScope(destinationScope, destination, ctx);
+    } catch (rollbackError) {
+      throw new AggregateError(
+        [sourceError, rollbackError],
+        "The preset move failed, and Pi Presets Plus could not restore the destination scope.",
+        { cause: rollbackError },
+      );
+    }
+
+    throw sourceError;
+  }
+
+  return { ok: true };
 }
 
 /**
@@ -102,7 +180,11 @@ export async function removePreset(
   scope: PresetScope,
   ctx: StorageContext,
 ): Promise<SaveResult> {
-  const current = await readScope(scope, ctx);
+  const loaded = await readScope(scope, ctx);
+
+  if (!loaded.ok) return loaded;
+
+  const current = loaded.presets;
   const next = current.filter((existing) => existing.name !== name);
 
   if (next.length === current.length) return { ok: true };
@@ -125,8 +207,12 @@ export async function reorderWithinScope(
   scope: PresetScope,
   orderedNames: readonly string[],
   ctx: StorageContext,
-): Promise<void> {
-  const current = await readScope(scope, ctx);
+): Promise<SaveResult> {
+  const loaded = await readScope(scope, ctx);
+
+  if (!loaded.ok) return loaded;
+
+  const current = loaded.presets;
   const byName = new Map(
     current.map((preset) => [preset.name, preset] as const),
   );
@@ -148,6 +234,8 @@ export async function reorderWithinScope(
   }
 
   await saveScope(scope, ordered, ctx);
+
+  return { ok: true };
 }
 
 /**
@@ -217,7 +305,11 @@ export async function updatePreset(
   next: Preset,
   ctx: StorageContext,
 ): Promise<SaveResult> {
-  const current = await readScope(scope, ctx);
+  const loaded = await readScope(scope, ctx);
+
+  if (!loaded.ok) return loaded;
+
+  const current = loaded.presets;
   const index = current.findIndex((existing) => existing.name === oldName);
 
   if (index === -1) {
@@ -254,18 +346,20 @@ function pathForScope(presetScope: PresetScope, ctx: StorageContext): string {
     : getProjectPresetsPath(ctx.cwd);
 }
 
-/**
- * Read a single scope file, ignoring warnings. Used by the CRUD helpers
- * which don't have a UI to surface warnings to. The next `loadAll` call
- * (and therefore the next `/presets list` / `/presets reload`) will see
- * any persistent warnings.
- */
+/** Read a scope only when every entry can survive a later rewrite. */
 async function readScope(
   presetScope: PresetScope,
   ctx: StorageContext,
-): Promise<Preset[]> {
+): Promise<ScopeReadResult> {
   const path = pathForScope(presetScope, ctx);
   const result = await loadFile(path);
 
-  return result.presets;
+  if (result.warnings.length > 0) {
+    return {
+      ok: false,
+      reason: `Pi Presets Plus did not change the ${presetScope} preset file at ${path}. It could not load the complete file. Fix the file and try again.`,
+    };
+  }
+
+  return { ok: true, presets: result.presets };
 }

@@ -85,8 +85,6 @@ export interface EditorRowHost {
   openPromptEditor(): Promise<void>;
   /** Recompute the hotkey-row diagnostic after user-typed input. */
   recomputeHotkeyDiagnostic(): void;
-  /** Snap the thinking selection if the model change made it invalid. */
-  snapThinkingIfInvalid(): void;
 
   /** Subset of the pi API the tools row consumes; undefined in headless tests. */
   readonly pi: Pick<ExtensionAPI, "getActiveTools"> | undefined;

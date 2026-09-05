@@ -62,6 +62,33 @@ function harness() {
   return { ctx, entries, pi, session: new ActivePresetSession(), status };
 }
 
+function restoreUnknown(
+  session: ActivePresetSession,
+  ctx: ReturnType<typeof harness>["ctx"],
+): void {
+  const branch = [
+    {
+      customType: "presets-plus:active",
+      data: { name: "plan", scope: "project" },
+      type: "custom",
+    },
+  ] as ReturnType<ExtensionContext["sessionManager"]["getBranch"]>;
+
+  session.restoreFromBranch(branch, [loadedPreset], ctx);
+}
+
+function startBaseline(
+  session: ActivePresetSession,
+  ctx: ReturnType<typeof harness>["ctx"],
+  pi: ReturnType<typeof harness>["pi"],
+): void {
+  const restore = baselineActive.restore;
+
+  if (restore.kind !== "baseline") throw new Error("Expected a baseline.");
+
+  session.start({ ...restore, preset: loadedPreset }, ctx, pi);
+}
+
 describe("ActivePresetSession", () => {
   it("no-ops dirty transitions when no preset is active", () => {
     const { ctx, session } = harness();
@@ -108,9 +135,9 @@ describe("ActivePresetSession", () => {
   });
 
   it("marks baseline state dirty while preserving restore", () => {
-    const { ctx, session } = harness();
+    const { ctx, pi, session } = harness();
 
-    session.attach(baselineActive, ctx);
+    startBaseline(session, ctx, pi);
     session.markDirty(ctx);
 
     expect(session.current()).toEqual({ ...baselineActive, dirty: true });
@@ -120,20 +147,8 @@ describe("ActivePresetSession", () => {
   it("marks unknown state clean while preserving restore", () => {
     const { ctx, session } = harness();
 
-    session.attach(
-      {
-        declared: {
-          model: "claude",
-          provider: "anthropic",
-          thinkingLevel: "high",
-        },
-        dirty: true,
-        name: "plan",
-        restore: { kind: "unknown" },
-        scope: "project",
-      },
-      ctx,
-    );
+    restoreUnknown(session, ctx);
+    session.markDirty(ctx);
     session.markClean(ctx);
 
     expect(session.current()).toEqual({

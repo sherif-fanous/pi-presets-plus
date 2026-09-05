@@ -16,14 +16,6 @@ export type PromptEditorResult =
   | { confirmed: true; text: string }
   | { confirmed: false };
 
-export function cancelPromptEditor(): PromptEditorResult {
-  return { confirmed: false };
-}
-
-export function confirmPromptEditorText(text: string): PromptEditorResult {
-  return { confirmed: true, text };
-}
-
 export async function openPromptEditor(
   ctx: Pick<ExtensionCommandContext, "ui">,
   options: PromptEditorOptions,
@@ -33,9 +25,7 @@ export async function openPromptEditor(
     options.initialText,
   );
 
-  return text === undefined
-    ? cancelPromptEditor()
-    : confirmPromptEditorText(text);
+  return text === undefined ? { confirmed: false } : { confirmed: true, text };
 }
 
 export function promptEditorTitle(

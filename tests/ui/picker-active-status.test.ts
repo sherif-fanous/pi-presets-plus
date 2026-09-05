@@ -27,7 +27,7 @@ vi.mock("../../src/store/api.js", async (importOriginal) => {
     addPreset: vi.fn(),
     loadAll,
     removePreset: vi.fn(),
-    reorderWithinScope: vi.fn(),
+    reorderWithinScope: vi.fn().mockResolvedValue({ ok: true }),
   };
 });
 
@@ -127,7 +127,27 @@ async function mountPickerWithTheme(
   loadAll.mockResolvedValue({ presets: options.presets ?? [], warnings: [] });
 
   if (options.active) {
-    session.attach(options.active, ctx);
+    const preset = options.presets?.find(
+      (candidate) =>
+        candidate.name === options.active?.name &&
+        candidate.scope === options.active.scope,
+    );
+
+    if (!preset) throw new Error("Expected the active preset to be loaded.");
+
+    session.restoreFromBranch(
+      [
+        {
+          customType: "presets-plus:active",
+          data: { name: preset.name, scope: preset.scope },
+          type: "custom",
+        },
+      ] as never,
+      [preset],
+      ctx,
+    );
+
+    if (options.active.dirty) session.markDirty(ctx);
   }
 
   await openPicker(ctx, {
@@ -292,6 +312,18 @@ describe("picker active-preset status row", () => {
 
     expect(rendered).toContain("Active: ifanous-anth…de-opus-4-8 (User)");
     expect(rendered).toContain("●");
+  });
+
+  it("keeps whole wide graphemes in the active-name suffix", async () => {
+    const preset = makeLoadedPreset("abcdefghijklmnop-👨‍👩‍👧‍👦-東京-end");
+    const component = await mountPicker({
+      active: activeState(preset),
+      presets: [preset],
+    });
+
+    const rendered = stripAnsi(renderText(component, 42));
+
+    expect(rendered).toContain("Active: abcdefghijkl…👨‍👩‍👧‍👦-東京-end (User)");
   });
 
   it("computes width from visible columns when the theme adds ANSI", async () => {

@@ -6,9 +6,14 @@
  * exercise the interactive TUI. Future drift-detection tests should add
  * model_select cases separately.
  */
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { apply } from "../../src/activation/apply.js";
 import { clear } from "../../src/activation/clear.js";
 import { ActivePresetSession } from "../../src/activation/session.js";
+import { loadFile } from "../../src/store/load.js";
 import type { LoadedPreset, ThinkingLevel } from "../../src/types.js";
 import { makeStubModelRegistry } from "../helpers/model-registry.js";
 import type { Api, Model, ThinkingLevelMap } from "@earendil-works/pi-ai";
@@ -37,6 +42,18 @@ const basePreset: LoadedPreset = {
   scope: "project",
   thinkingLevel: "high",
 };
+
+function restoreUnknown(harness: FakeHarness): void {
+  const branch = [
+    {
+      customType: "presets-plus:active",
+      data: { name: basePreset.name, scope: basePreset.scope },
+      type: "custom",
+    },
+  ] as ReturnType<ExtensionCommandContext["sessionManager"]["getBranch"]>;
+
+  harness.session.restoreFromBranch(branch, [basePreset], harness.ctx);
+}
 
 describe("apply", () => {
   it("first activation captures a baseline and applies model/thinking", async () => {
@@ -77,6 +94,48 @@ describe("apply", () => {
       applied: false,
       ok: true,
     });
+  });
+
+  it("applies normalized tools from a loaded preset", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "pi-presets-apply-"));
+    const path = join(directory, "presets.json");
+
+    try {
+      await writeFile(
+        path,
+        JSON.stringify({
+          presets: [
+            {
+              ...basePreset,
+              scope: undefined,
+              tools: ["read", "read", "bash", "read"],
+            },
+          ],
+          version: 1,
+        }),
+        "utf-8",
+      );
+
+      const loaded = (await loadFile(path)).presets[0];
+
+      if (!loaded) throw new Error("Expected a loaded preset.");
+
+      const harness = makeHarness();
+
+      await apply(
+        { ...loaded, scope: "project" },
+        harness.ctx,
+        harness.pi,
+        harness.session,
+      );
+
+      expect(harness.setToolsCalls).toEqual([["read", "bash"]]);
+      expect(harness.session.current()).toMatchObject({
+        restore: { lastApplied: { tools: ["read", "bash"] } },
+      });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
   });
 
   it("applies tools after filtering unknown names with a warning", async () => {
@@ -173,20 +232,7 @@ describe("apply", () => {
   it("captures a fresh baseline after priorUnknown", async () => {
     const harness = makeHarness();
 
-    harness.session.attach(
-      {
-        declared: {
-          model: "claude",
-          provider: "anthropic",
-          thinkingLevel: "high",
-        },
-        dirty: false,
-        name: "plan",
-        restore: { kind: "unknown" },
-        scope: "project",
-      },
-      harness.ctx,
-    );
+    restoreUnknown(harness);
     await apply(basePreset, harness.ctx, harness.pi, harness.session);
 
     expect(harness.session.current()).toMatchObject({
@@ -289,11 +335,7 @@ describe("apply", () => {
 
     await apply(basePreset, harness.ctx, harness.pi, harness.session);
 
-    const active = harness.session.current();
-
-    if (!active) throw new Error("expected active preset");
-
-    harness.session.attach({ ...active, dirty: true }, harness.ctx);
+    harness.session.markDirty(harness.ctx);
 
     harness.messages.length = 0;
     harness.setModelCalls.length = 0;
@@ -491,6 +533,25 @@ describe("clear", () => {
     );
   });
 
+  it("preserves a thinking override when restoring the model resets it", async () => {
+    const harness = makeHarness(true, { thinkingAfterModelSet: "medium" });
+
+    await apply(
+      { ...basePreset, thinkingLevel: "low" },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
+    harness.pi.setThinkingLevel("high");
+    await clear(harness.ctx, harness.pi, harness.session);
+
+    expect(harness.setModelCalls.at(-1)).toBe("anthropic/old");
+    expect(harness.pi.getThinkingLevel()).toBe("high");
+    expect(harness.notifications.at(-1)).toContain(
+      "Thinking level: high (Left as-is because you changed it after activation)",
+    );
+  });
+
   it("respects a user tools override", async () => {
     const harness = makeHarness();
 
@@ -525,6 +586,25 @@ describe("clear", () => {
       "Model:          Pi could not switch back to anthropic/old.",
     );
     expect(harness.pi.getThinkingLevel()).toBe("medium");
+  });
+
+  it("continues restoring fields when model restoration rejects", async () => {
+    const harness = makeHarness(true, { rejectModel: "old" });
+
+    await apply(
+      { ...basePreset, tools: ["read"] },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
+    await clear(harness.ctx, harness.pi, harness.session);
+
+    expect(harness.session.current()).toBeUndefined();
+    expect(harness.pi.getThinkingLevel()).toBe("medium");
+    expect(harness.setToolsCalls.at(-1)).toEqual(["bash"]);
+    expect(harness.notifications.at(-1)).toContain(
+      "Model:          Pi could not switch back to anthropic/old.",
+    );
   });
 
   it("filters unavailable baseline tools on restore", async () => {
@@ -568,20 +648,7 @@ describe("clear", () => {
   it("soft-clears priorUnknown attachments without mutating pi fields", async () => {
     const harness = makeHarness();
 
-    harness.session.attach(
-      {
-        declared: {
-          model: "claude",
-          provider: "anthropic",
-          thinkingLevel: "high",
-        },
-        dirty: false,
-        name: "plan",
-        restore: { kind: "unknown" },
-        scope: "project",
-      },
-      harness.ctx,
-    );
+    restoreUnknown(harness);
     await clear(harness.ctx, harness.pi, harness.session);
 
     expect(harness.setModelCalls).toEqual([]);
@@ -606,6 +673,8 @@ function makeHarness(
   options: {
     allTools?: string[];
     failModel?: string;
+    rejectModel?: string;
+    thinkingAfterModelSet?: ThinkingLevel;
     thinkingLevelMap?: ThinkingLevelMap;
   } = {},
 ): FakeHarness {
@@ -669,7 +738,12 @@ function makeHarness(
 
       if (nextModel.id === options.failModel) return Promise.resolve(false);
 
+      if (nextModel.id === options.rejectModel) {
+        return Promise.reject(new Error("Model restoration failed."));
+      }
+
       ctx.model = nextModel;
+      thinkingLevel = options.thinkingAfterModelSet ?? thinkingLevel;
 
       return Promise.resolve(true);
     },

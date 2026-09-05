@@ -7,6 +7,7 @@
  * row instead of leaking onto the editor class.
  */
 import { TOOLS_LABEL } from "../../labels.js";
+import { selectToolsMode, toggleSelectedTool } from "../draft.js";
 import { renderValueRow } from "../row-render.js";
 import type { EditorRow, EditorRowHost } from "../row.js";
 import { Key, matchesKey } from "@earendil-works/pi-tui";
@@ -15,17 +16,9 @@ export function makeToolsRow(host: EditorRowHost): EditorRow {
   let toolIndex = 0;
 
   function enterPresetToolsMode(): void {
-    const state = host.getState();
-    const selectedTools =
-      state.selectedTools.length > 0
-        ? state.selectedTools
-        : host.initialActiveTools;
-
-    host.setState({
-      ...state,
-      selectedTools: [...selectedTools],
-      toolsMode: "preset",
-    });
+    host.setState(
+      selectToolsMode(host.getState(), "preset", host.initialActiveTools),
+    );
     toolIndex = 0;
   }
 
@@ -44,7 +37,9 @@ export function makeToolsRow(host: EditorRowHost): EditorRow {
 
       if (matchesKey(input, Key.left)) {
         if (state.toolsMode === "preset" && toolIndex === 0) {
-          host.setState({ ...state, toolsMode: "session" });
+          host.setState(
+            selectToolsMode(state, "session", host.initialActiveTools),
+          );
         } else {
           toolIndex = Math.max(0, toolIndex - 1);
         }
@@ -61,22 +56,16 @@ export function makeToolsRow(host: EditorRowHost): EditorRow {
         if (state.toolsMode === "session") {
           enterPresetToolsMode();
         } else {
-          host.setState({ ...state, toolsMode: "session" });
+          host.setState(
+            selectToolsMode(state, "session", host.initialActiveTools),
+          );
         }
       } else if (matchesKey(input, Key.enter) && state.toolsMode === "preset") {
         const tool = host.allTools[toolIndex];
 
         if (!tool) return;
 
-        const selected = new Set(state.selectedTools);
-
-        if (selected.has(tool)) {
-          selected.delete(tool);
-        } else {
-          selected.add(tool);
-        }
-
-        host.setState({ ...state, selectedTools: [...selected] });
+        host.setState(toggleSelectedTool(state, tool));
       }
     },
     renderLines() {
