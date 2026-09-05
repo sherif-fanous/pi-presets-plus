@@ -2,6 +2,17 @@
 
 This changelog follows [Common Changelog](https://common-changelog.org/).
 
+## [0.6.1] - 2026-09-05
+
+### Fixed
+
+- Preset files that cannot be loaded completely are no longer overwritten by edits, removals, reordering, or scope changes. The failed operation reports the problem and leaves the file unchanged.
+- Moving a preset between user and project scopes now checks both files before saving. If removing the source fails, the extension attempts to restore the destination file.
+- Clearing an active preset now restores its remaining baseline settings and detaches it even when Pi cannot restore the previous model. The clear summary reports the model failure.
+- The picker and editor now report unexpected action failures instead of leaving the failed operation without an explanation.
+- Picker navigation keeps the selected preset visible when cards have different heights, including after Page Up and Page Down.
+- Repeated tool names in a preset no longer cause false drift or prevent clear from recognizing the active tool set.
+
 ## [0.6.0] - 2026-09-03
 
 ### Changed
@@ -87,6 +98,7 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 _Initial release._
 
+[0.6.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.6.1
 [0.6.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.6.0
 [0.5.2]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.5.2
 [0.5.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.5.1
