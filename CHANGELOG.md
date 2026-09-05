@@ -2,6 +2,16 @@
 
 This changelog follows [Common Changelog](https://common-changelog.org/).
 
+## [0.7.0] - 2026-09-05
+
+### Added
+
+- Add Pi's `max` thinking level to preset storage, activation, editing, and picker display; using `max` requires Pi 0.80.6 or newer, while existing levels remain supported on Pi 0.80.5 ([#20](https://github.com/sherif-fanous/pi-presets-plus/pull/20)) (Tiago Luchini)
+
+### Fixed
+
+- Keep preset status and clearing aligned with Pi when a model supports neither the requested thinking level nor `off` ([#20](https://github.com/sherif-fanous/pi-presets-plus/pull/20)) (Sherif Fanous)
+
 ## [0.6.1] - 2026-09-05
 
 ### Fixed
@@ -98,6 +108,7 @@ This changelog follows [Common Changelog](https://common-changelog.org/).
 
 _Initial release._
 
+[0.7.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.7.0
 [0.6.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.6.1
 [0.6.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.6.0
 [0.5.2]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.5.2
