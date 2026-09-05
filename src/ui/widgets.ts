@@ -76,13 +76,7 @@ class PresetCardComponent implements Component {
     );
 
     lines.push(
-      this.renderField(
-        `${THINKING_LABEL}:`,
-        this.theme.fg(
-          thinkingColor(this.loadedPreset.thinkingLevel ?? "off"),
-          formatThinkingLevel(this.loadedPreset.thinkingLevel ?? "off"),
-        ),
-      ),
+      this.renderField(`${THINKING_LABEL}:`, this.thinkingLevelValue()),
     );
 
     lines.push(
@@ -175,6 +169,32 @@ class PresetCardComponent implements Component {
 
     return `  ${this.theme.fg("muted", label)}${padding} ${value}`;
   }
+
+  /**
+   * Render the thinking level with its theme color. The `thinkingMax`
+   * theme color only exists in Pi >= 0.80.6; older Pi bundles throw
+   * `Unknown theme color` from `fg()`, which would crash the picker render
+   * path. Mirror Pi's own fallback and render `"max"` with the
+   * `thinkingXhigh` color there.
+   */
+  private thinkingLevelValue(): string {
+    const level = this.loadedPreset.thinkingLevel ?? "off";
+    const text = formatThinkingLevel(level);
+
+    try {
+      return this.theme.fg(thinkingColor(level), text);
+    } catch (error) {
+      if (
+        level === "max" &&
+        error instanceof Error &&
+        error.message.includes("Unknown theme color")
+      ) {
+        return this.theme.fg("thinkingXhigh", text);
+      }
+
+      throw error;
+    }
+  }
 }
 
 export function formatAvailabilityStatus(loadedPreset: LoadedPreset): string {
@@ -228,6 +248,8 @@ export function formatThinkingLevel(
       return "High";
     case "xhigh":
       return "X-High";
+    case "max":
+      return "Max";
     case "off":
       return "Off";
   }
@@ -272,6 +294,8 @@ function thinkingColor(
       return "thinkingHigh";
     case "xhigh":
       return "thinkingXhigh";
+    case "max":
+      return "thinkingMax";
     case "off":
       return "thinkingOff";
   }

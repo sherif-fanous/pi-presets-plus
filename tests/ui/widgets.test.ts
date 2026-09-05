@@ -66,6 +66,7 @@ describe("preset widget formatting", () => {
     expect(formatThinkingLevel("off")).toBe("Off");
     expect(formatThinkingLevel("high")).toBe("High");
     expect(formatThinkingLevel("xhigh")).toBe("X-High");
+    expect(formatThinkingLevel("max")).toBe("Max");
   });
 
   it("formats tools as session or preset controlled", () => {
@@ -110,6 +111,58 @@ describe("preset widget formatting", () => {
     expect(lines.join("\n")).not.toContain(
       "<muted>anthropic / claude-opus-4.5</muted>",
     );
+  });
+
+  it("colors max with thinkingMax when the theme knows it", () => {
+    const colorTheme: Pick<Theme, "fg" | "bold"> = {
+      bold: (text) => text,
+      fg: (color, text) => `<${color}>${text}</${color}>`,
+    };
+
+    const lines = presetCard(
+      { ...basePreset, thinkingLevel: "max" },
+      colorTheme,
+      { active: false, selected: false },
+    ).render(120);
+
+    expect(lines.join("\n")).toContain("<thinkingMax>Max</thinkingMax>");
+  });
+
+  it("falls back to thinkingXhigh on Pi versions without thinkingMax", () => {
+    const legacyTheme: Pick<Theme, "fg" | "bold"> = {
+      bold: (text) => text,
+      fg: (color, text) => {
+        if (color === "thinkingMax") {
+          throw new Error(`Unknown theme color: ${color}`);
+        }
+
+        return `<${color}>${text}</${color}>`;
+      },
+    };
+
+    const lines = presetCard(
+      { ...basePreset, thinkingLevel: "max" },
+      legacyTheme,
+      { active: false, selected: false },
+    ).render(120);
+
+    expect(lines.join("\n")).toContain("<thinkingXhigh>Max</thinkingXhigh>");
+  });
+
+  it("does not hide unrelated max color errors", () => {
+    const brokenTheme: Pick<Theme, "fg" | "bold"> = {
+      bold: (text) => text,
+      fg: () => {
+        throw new Error("Theme renderer failed.");
+      },
+    };
+
+    expect(() =>
+      presetCard({ ...basePreset, thinkingLevel: "max" }, brokenTheme, {
+        active: false,
+        selected: false,
+      }).render(120),
+    ).toThrow("Theme renderer failed.");
   });
 
   it("renders readable key/value card combinations for visual smoke coverage", () => {

@@ -52,7 +52,7 @@ When a project preset and a global preset share the same `name`, the project pre
 
 ### Requirement: Preset shape validation at load time
 
-Each preset SHALL contain at minimum a non-empty string `name`, a string `provider`, and a string `model`. It MAY additionally contain `thinkingLevel` (one of `"off" | "minimal" | "low" | "medium" | "high" | "xhigh"`), `tools` (string array), `instructions` (string), `hotkey` (string), and `order` (number). Invalid presets SHALL be skipped with a warning; the rest of the file SHALL still load.
+Each preset SHALL contain at minimum a non-empty string `name`, a string `provider`, and a string `model`. It MAY additionally contain `thinkingLevel` (one of `"off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"`), `tools` (string array), `instructions` (string), `hotkey` (string), and `order` (number). Invalid presets SHALL be skipped with a warning; the rest of the file SHALL still load.
 
 #### Scenario: Minimal valid preset
 
@@ -74,6 +74,11 @@ Each preset SHALL contain at minimum a non-empty string `name`, a string `provid
 
 - **WHEN** a preset declares a `thinkingLevel` not in the allowed set
 - **THEN** the preset SHALL be skipped with a warning
+
+#### Scenario: Max thinking level accepted
+
+- **WHEN** a preset declares `thinkingLevel: "max"`
+- **THEN** the preset SHALL load successfully with `"max"` as its declared thinking level
 
 ### Requirement: Availability computed at load time
 

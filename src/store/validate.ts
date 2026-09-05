@@ -5,7 +5,8 @@
  * within a list, and runtime availability checks against pi's model
  * registry. None of these helpers throw or perform file-system I/O.
  */
-import type { Preset, ThinkingLevel } from "../types.js";
+import { validThinkingLevels } from "../activation/thinking.js";
+import { THINKING_LEVELS, type Preset, type ThinkingLevel } from "../types.js";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 /** Result of a single-preset shape check. */
@@ -14,16 +15,6 @@ interface ValidationResult {
   /** Human-readable reason the preset failed validation; absent on success. */
   reason?: string;
 }
-
-/** Allowed values for `Preset.thinkingLevel`. */
-const THINKING_LEVELS: readonly ThinkingLevel[] = [
-  "off",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-] as const;
 
 /**
  * Compute the availability of a preset against the live model registry.
@@ -61,7 +52,7 @@ export function computeClampWarning(
 
   if (!model) return false;
 
-  return model.reasoning === false;
+  return !validThinkingLevels(model).includes(preset.thinkingLevel);
 }
 
 /**

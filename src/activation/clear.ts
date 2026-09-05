@@ -111,9 +111,7 @@ export async function clearReturning(
   const currentModel = ctx.model
     ? { provider: ctx.model.provider, id: ctx.model.id }
     : null;
-  // Keep the extension's existing level set until the dedicated thinking
-  // levels change adds support for newer Pi values.
-  const currentThinking = pi.getThinkingLevel() as ThinkingLevel;
+  const currentThinking = pi.getThinkingLevel();
   const decision = decideClear({
     active,
     allTools: pi.getAllTools().map((tool) => tool.name),

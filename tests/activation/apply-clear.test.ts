@@ -445,6 +445,73 @@ describe("apply", () => {
     });
     expect(harness.notifications).toEqual([]);
   });
+
+  it("applies max when thinkingLevelMap explicitly maps it", async () => {
+    const harness = makeHarness(true, { thinkingLevelMap: { max: "max" } });
+
+    const result = await apply(
+      { ...basePreset, thinkingLevel: "max" },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
+
+    expect(harness.pi.getThinkingLevel()).toBe("max");
+    expect(result).toMatchObject({ notices: [] });
+  });
+
+  it("tracks Pi's fallback when both max and off are unavailable", async () => {
+    const harness = makeHarness(true, {
+      thinkingLevelMap: { max: null, off: null },
+    });
+
+    const result = await apply(
+      { ...basePreset, thinkingLevel: "max" },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
+
+    expect(harness.pi.getThinkingLevel()).toBe("minimal");
+    expect(harness.session.current()).toMatchObject({
+      restore: { lastApplied: { thinkingLevel: "minimal" } },
+    });
+
+    expect(result).toMatchObject({
+      notices: [
+        {
+          message:
+            'Thinking level changed from max to minimal for preset "plan".',
+          severity: "info",
+        },
+      ],
+    });
+
+    await clear(harness.ctx, harness.pi, harness.session);
+
+    expect(harness.pi.getThinkingLevel()).toBe("medium");
+  });
+
+  it("clamps max unless thinkingLevelMap explicitly maps it", async () => {
+    const harness = makeHarness(true);
+
+    const result = await apply(
+      { ...basePreset, thinkingLevel: "max" },
+      harness.ctx,
+      harness.pi,
+      harness.session,
+    );
+
+    expect(harness.pi.getThinkingLevel()).toBe("off");
+    expect(result).toMatchObject({
+      notices: [
+        {
+          message: 'Thinking level changed from max to off for preset "plan".',
+          severity: "info",
+        },
+      ],
+    });
+  });
 });
 
 describe("clear", () => {

@@ -253,6 +253,25 @@ describe("snapThinkingSelection", () => {
     expect(next).toBe(state);
   });
 
+  it("snaps an unmapped max selection to off", () => {
+    const state = initialState(
+      { ...existingPreset, thinkingLevel: "max" },
+      fakeModels,
+    );
+    const nextModel = {
+      id: "claude-sonnet-4.5",
+      provider: "anthropic",
+      reasoning: true,
+    } as Model<Api>;
+
+    const next = snapThinkingSelection(
+      { ...state, model: "claude-sonnet-4.5" },
+      nextModel,
+    );
+
+    expect(next.thinkingLevel).toBe("off");
+  });
+
   it("snaps to off when a user-selected model nulls the selected level", () => {
     const state = initialState(
       { ...existingPreset, thinkingLevel: "low" },
@@ -321,6 +340,36 @@ describe("renderThinkingRowsForState", () => {
 
     expect(rendered).toContain("Dimmed levels are unavailable for this model.");
     expect(rendered).not.toContain("This model does not support thinking.");
+  });
+
+  it("renders max as available only when the model maps it", () => {
+    const state = initialState(
+      { ...existingPreset, thinkingLevel: "max" },
+      fakeModels,
+    );
+    const maxModel = {
+      id: "claude-sonnet-4.5",
+      provider: "anthropic",
+      reasoning: true,
+      thinkingLevelMap: { max: "max", xhigh: "xhigh" },
+    } as Model<Api>;
+
+    const mapped = renderThinkingRowsForState(
+      passthroughTheme,
+      state,
+      maxModel,
+      false,
+    ).join("\n");
+    const unmapped = renderThinkingRowsForState(
+      passthroughTheme,
+      state,
+      { ...maxModel, thinkingLevelMap: {} },
+      false,
+    ).join("\n");
+
+    expect(mapped).toContain("● max");
+    expect(mapped).not.toContain("Dimmed levels are unavailable");
+    expect(unmapped).toContain("Dimmed levels are unavailable");
   });
 
   it("renders the dimmed-levels hint for a reasoning model with partial support", () => {

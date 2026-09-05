@@ -83,6 +83,23 @@ describe("decideClear", () => {
     );
   });
 
+  it("restores a max thinking baseline", () => {
+    const active: ActivePresetState = {
+      ...baselineActive,
+      restore: {
+        ...baselineActive.restore,
+        baseline: {
+          ...baselineActive.restore.baseline,
+          thinkingLevel: "max",
+        },
+      },
+    };
+
+    const decision = decideClear(snapshot({ active }));
+
+    expect(decision.writes.thinkingLevel).toBe("max");
+  });
+
   it("treats user thinking override as left-unchanged", () => {
     const decision = decideClear(snapshot({ currentThinking: "low" }));
 

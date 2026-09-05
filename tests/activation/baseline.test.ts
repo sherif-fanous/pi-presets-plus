@@ -31,6 +31,14 @@ describe("captureBaseline", () => {
     );
   });
 
+  it("captures max so clear can restore it", () => {
+    expect(captureBaseline(pi("max", ["read"]), { model: model() })).toEqual({
+      model: { id: "claude", provider: "anthropic" },
+      thinkingLevel: "max",
+      tools: ["read"],
+    });
+  });
+
   it("records null when no current model exists", () => {
     expect(captureBaseline(pi("low", ["bash"]), { model: undefined })).toEqual({
       model: null,

@@ -6,7 +6,7 @@
  * module owns that coupled transition.
  */
 import { validThinkingLevels } from "../../../activation/thinking.js";
-import type { ThinkingLevel } from "../../../types.js";
+import { THINKING_LEVELS } from "../../../types.js";
 import type { EditorFormState } from "../../editor-types.js";
 import { THINKING_LABEL } from "../../labels.js";
 import { renderValueRow } from "../row-render.js";
@@ -14,15 +14,6 @@ import type { EditorRow, EditorRowHost } from "../row.js";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey } from "@earendil-works/pi-tui";
-
-const THINKING_LEVELS = [
-  "off",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-] as const satisfies readonly ThinkingLevel[];
 
 export function makeThinkingRow(host: EditorRowHost): EditorRow {
   return {

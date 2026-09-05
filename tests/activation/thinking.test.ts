@@ -86,6 +86,23 @@ describe("thinking helpers", () => {
     ]);
   });
 
+  it("keeps max when explicitly mapped", () => {
+    expect(validThinkingLevels(model(true, { max: "max" }))).toEqual([
+      "off",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "max",
+    ]);
+  });
+
+  it("keeps all levels when xhigh and max are explicitly mapped", () => {
+    expect(
+      validThinkingLevels(model(true, { max: "max", xhigh: "xhigh" })),
+    ).toEqual(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+  });
+
   it("removes explicitly nulled levels and requires xhigh to be mapped", () => {
     expect(validThinkingLevels(model(true, { low: null }))).toEqual([
       "off",
@@ -108,6 +125,15 @@ describe("thinking helpers", () => {
         }),
       ),
     ).toEqual([]);
+  });
+
+  it("predicts Pi's clamp when off is unavailable", () => {
+    expect(
+      effectiveThinkingLevel(
+        { ...basePreset, thinkingLevel: "max" },
+        model(true, { max: null, off: null }),
+      ),
+    ).toBe("minimal");
   });
 
   it("keeps omitted thinking level off for non-reasoning models", () => {

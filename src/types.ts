@@ -143,16 +143,20 @@ export type PresetScope = "user" | "project";
  *
  * Mirrors pi-coding-agent's `getThinkingLevel()` / `setThinkingLevel()` API,
  * which extends `pi-ai`'s `ThinkingLevel` with the explicit `"off"` value.
- * Storage accepts the literal set verbatim; per-model clamping happens at
- * activation time in a later change.
+ * Storage accepts the literal set verbatim; activation applies per-model
+ * capability checks before writing a level to Pi.
  */
-export type ThinkingLevel =
-  | "off"
-  | "minimal"
-  | "low"
-  | "medium"
-  | "high"
-  | "xhigh";
+export const THINKING_LEVELS = [
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
+
+export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
 /** Last values written by presets-plus inside the active overlay. */
 interface LastAppliedPresetEffects {

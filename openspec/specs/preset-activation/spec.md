@@ -109,47 +109,74 @@ Ownership rules:
 
 ### Requirement: Apply uses effective thinking level and surfaces clamping
 
-During apply, the package SHALL compute the effective thinking level from the preset and the resolved model using the same rule pi-ai's `getSupportedThinkingLevels` applies. If the model has `reasoning: false` (or falsy), the only valid level SHALL be `"off"`. Otherwise, for each level other than `"xhigh"` the level is valid unless `thinkingLevelMap?.[level]` is exactly `null`; `"xhigh"` is valid only when `thinkingLevelMap?.["xhigh"]` is defined and not `null`. The effective level SHALL be the preset's declared level (or `"off"` if absent) when valid for the resolved model, otherwise `"off"`. The package SHALL call `pi.setThinkingLevel` with the effective level. If the effective level differs from the preset's declared level, the package SHALL emit an info notification naming the preset, the requested level, the model, and the level actually applied.
+During apply, the package SHALL compute the effective thinking level from the preset and resolved model using the same rule as pi-ai's `getSupportedThinkingLevels`. If the model has falsy `reasoning`, only `"off"` SHALL be valid. Otherwise, a level SHALL be invalid when `thinkingLevelMap?.[level]` is exactly `null`. The extended `"xhigh"` and `"max"` levels SHALL also be invalid unless `thinkingLevelMap` defines a non-null value for them.
 
-The validity check SHALL access `thinkingLevelMap` defensively (optional-chained read) so that pi-ai versions predating the field's introduction degrade to the same rule applied to an undefined map (levels through `"high"` remain valid; `"xhigh"` drops off).
+The effective level SHALL be the preset's declared level, or `"off"` when absent, when that level is valid. For an invalid declared level, the package SHALL start with `"off"` and use pi-ai's clamp rule to select the nearest level the model supports. The package SHALL call `pi.setThinkingLevel` with that effective level so its adjustment notice, drift snapshot, and overlay state match Pi's resulting state.
+
+The apply operation SHALL return successful accompaniments for user-facing adjustments or warnings, including a thinking-level adjustment and dropped unknown tools. It SHALL NOT emit a separate success or accompaniment notification. The caller SHALL choose the delivery surface and SHALL be able to combine every accompaniment with the activation result.
+
+The validity check SHALL read `thinkingLevelMap` defensively. An absent map SHALL leave levels through `"high"` valid and SHALL disable `"xhigh"` and `"max"`.
 
 #### Scenario: Reasoning model with no thinkingLevelMap honors declared level through high
 
-- **WHEN** apply runs for a preset with `thinkingLevel: "high"` and the resolved model has `reasoning: true` and no `thinkingLevelMap` field
-- **THEN** `pi.setThinkingLevel("high")` SHALL be called and no clamp notification SHALL be emitted
+- **WHEN** apply runs for a reasoning model with no `thinkingLevelMap` and the preset requests `"high"`
+- **THEN** `pi.setThinkingLevel("high")` SHALL be called
+- **AND** the apply result SHALL contain no thinking-level accompaniment
 
 #### Scenario: Reasoning model with no thinkingLevelMap clamps xhigh to off
 
-- **WHEN** apply runs for a preset with `thinkingLevel: "xhigh"` and the resolved model has `reasoning: true` and no `thinkingLevelMap` field
+- **WHEN** apply runs for a reasoning model with no `thinkingLevelMap` and the preset requests `"xhigh"`
 - **THEN** `pi.setThinkingLevel("off")` SHALL be called
-- **AND** an info notification SHALL be emitted naming the preset, the requested level (`xhigh`), and the actual level (`off`)
+- **AND** the apply result SHALL contain an info accompaniment naming the preset, requested level, and actual level
 
 #### Scenario: Reasoning model with thinkingLevelMap missing the requested non-xhigh key honors declared level
 
-- **WHEN** apply runs for a preset with `thinkingLevel: "low"` and the resolved model has `reasoning: true` and `thinkingLevelMap: { "xhigh": "max" }` (the requested `"low"` key is absent)
-- **THEN** `pi.setThinkingLevel("low")` SHALL be called and no clamp notification SHALL be emitted (missing keys fall back to provider defaults)
+- **WHEN** apply runs for a reasoning model with `thinkingLevelMap: { "xhigh": "max" }` and the preset requests `"low"`
+- **THEN** `pi.setThinkingLevel("low")` SHALL be called
+- **AND** the apply result SHALL contain no thinking-level accompaniment
 
 #### Scenario: Reasoning model with thinkingLevelMap mapping xhigh to a non-null value honors declared level
 
-- **WHEN** apply runs for a preset with `thinkingLevel: "xhigh"` and the resolved model has `thinkingLevelMap: { "xhigh": "max" }`
-- **THEN** `pi.setThinkingLevel("xhigh")` SHALL be called and no clamp notification SHALL be emitted
+- **WHEN** apply runs for a reasoning model with `thinkingLevelMap: { "xhigh": "max" }` and the preset requests `"xhigh"`
+- **THEN** `pi.setThinkingLevel("xhigh")` SHALL be called
+- **AND** the apply result SHALL contain no thinking-level accompaniment
+
+#### Scenario: Reasoning model with no thinkingLevelMap clamps max to off
+
+- **WHEN** apply runs for a reasoning model with no `thinkingLevelMap` and the preset requests `"max"`
+- **THEN** `pi.setThinkingLevel("off")` SHALL be called
+- **AND** the apply result SHALL contain an info accompaniment naming the preset, requested level, and actual level
+
+#### Scenario: Reasoning model with thinkingLevelMap mapping max to a non-null value honors declared level
+
+- **WHEN** apply runs for a reasoning model with `thinkingLevelMap: { "max": "max" }` and the preset requests `"max"`
+- **THEN** `pi.setThinkingLevel("max")` SHALL be called
+- **AND** the apply result SHALL contain no thinking-level accompaniment
 
 #### Scenario: Reasoning model clamps when thinkingLevelMap explicitly nulls the requested level
 
-- **WHEN** apply runs for a preset with `thinkingLevel: "low"` and the resolved model has `reasoning: true` and `thinkingLevelMap: { "low": null }`
+- **WHEN** apply runs for a reasoning model whose map sets the requested level to `null`
 - **THEN** `pi.setThinkingLevel("off")` SHALL be called
-- **AND** an info notification SHALL be emitted naming the preset, the requested level (`low`), and the actual level (`off`)
+- **AND** the apply result SHALL contain an info accompaniment naming the preset, requested level, and actual level
 
 #### Scenario: Non-reasoning model clamps to off with notification
 
-- **WHEN** apply runs for a preset with `thinkingLevel: "high"` and the resolved model has `reasoning: false`
+- **WHEN** apply runs for a non-reasoning model and the preset requests a non-off level
 - **THEN** `pi.setThinkingLevel("off")` SHALL be called
-- **AND** an info notification SHALL be emitted naming the preset, the requested level (`high`), and the actual level (`off`)
+- **AND** the apply result SHALL contain an info accompaniment naming the preset, requested level, and actual level
+
+#### Scenario: Off is unavailable during fallback
+
+- **WHEN** a preset requests `"max"` and the reasoning model maps both `"max"` and `"off"` to `null`
+- **THEN** the effective level SHALL be the nearest supported level above `"off"`
+- **AND** `pi.setThinkingLevel` SHALL be called with that level
+- **AND** the apply result and overlay state SHALL record that same level
 
 #### Scenario: Preset omits thinking level
 
-- **WHEN** apply runs for a preset that has no `thinkingLevel` field
-- **THEN** `pi.setThinkingLevel("off")` SHALL be called and no clamp notification SHALL be emitted
+- **WHEN** a preset has no `thinkingLevel`
+- **THEN** `pi.setThinkingLevel("off")` SHALL be called
+- **AND** the apply result SHALL contain no thinking-level accompaniment
 
 ### Requirement: Clear restores the overlay baseline with user-override protection
 
@@ -534,3 +561,13 @@ policy default, Pi baseline.
 
 - **WHEN** a preset is applied, cleared, or restored through any existing path
 - **THEN** the baseline-overlay, user-override, instruction-injection, audit-trail, and footer behaviors SHALL behave exactly as specified before this change
+
+### Requirement: Clear restores a max thinking baseline
+
+The package SHALL capture `"max"` when it is Pi's current thinking level before preset activation. If clear later determines that the thinking level remains owned by the preset overlay, it SHALL restore that max baseline through the existing per-field clear rules.
+
+#### Scenario: Max baseline is restored
+
+- **WHEN** Pi is using `"max"` before a preset applies another thinking level
+- **AND** clear determines that the preset still owns the thinking-level field
+- **THEN** clear SHALL call `pi.setThinkingLevel("max")`
