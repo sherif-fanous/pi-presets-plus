@@ -1,10 +1,7 @@
 /**
- * Custom TUI editor for creating, editing, and testing one preset.
- *
- * Owns form state, row-level keyboard handling, validation, and persistence
- * orchestration for a single preset; it does NOT own picker list state,
- * storage file parsing, or activation internals beyond the injected test
- * callback.
+ * Custom TUI editor for creating, editing, and testing one preset. Holds
+ * the form state, routes keyboard input to the rows, validates the draft,
+ * and drives saving it to disk.
  */
 import type { ActivePresetSession } from "../activation/session.js";
 import type { HotkeyRegistry } from "../hotkey-registry.js";
@@ -66,48 +63,43 @@ import {
 export { EDITOR_ROWS, renderThinkingRowsForState };
 export type { EditorFormState };
 
+/** Collaborators and callbacks the editor needs while it is open. */
 export interface EditorOptions {
   pi?: Pick<
     ExtensionAPI,
     "appendEntry" | "getActiveTools" | "getAllTools" | "getThinkingLevel"
   >;
-  /**
-   * Optional pre-loaded preset list. When provided the editor uses it
-   * verbatim for collision/conflict checks and skips the initial `loadAll`
-   * round-trip; callers that already keep a fresh in-memory list (the
-   * picker) avoid a redundant disk read. Standalone callers omit this and
-   * the editor falls back to `loadAll(ctx)`.
-   */
   hotkeys?: HotkeyRegistry;
+  /**
+   * Preset list used for name collision and hotkey conflict checks.
+   * Callers that already hold a fresh in-memory list pass it here to skip
+   * the initial disk read; otherwise the editor calls `loadAll(ctx)`.
+   */
   presets?: readonly LoadedPreset[];
   session: ActivePresetSession;
   onReloadRequested?(): void;
   onTest?(preset: LoadedPreset): Promise<{ ok: boolean }>;
 }
 
+/** What the editor hands back to its caller when it closes. */
 export interface EditorResult {
   reloadRequested?: boolean;
   saved?: LoadedPreset;
   /**
-   * The synthetic candidate preset assembled from the form when the user
-   * pressed the Test button and activation succeeded. Carries enough
-   * identity for the picker's outer notification surface to name the
-   * right preset; never persisted to disk.
+   * The candidate preset assembled from the form when the user pressed
+   * Test and activation succeeded. It carries enough identity for the
+   * caller to name the preset in a notification and is never written to
+   * disk.
    */
   tested?: LoadedPreset;
 }
 
 /**
- * Editor entry options keyed by `mode`, deliberately separating the form
- * `seed` (values that pre-populate the rows) from the edit-`target`
- * identity (the on-disk preset a Save mutates):
- *
- * - `new`       — no seed, no target; Save appends a fresh preset.
- * - `edit`      — `seed` and `target` are the same existing preset; Save
- *                 updates (or moves) `target`.
- * - `duplicate` — `seed` is the renamed/hotkey-cleared copy; `source` is
- *                 the original, carried solely so the title can name it.
- *                 No `target`, so Save appends rather than overwriting.
+ * Entry options for one editor session, keyed by `mode`. The `seed`
+ * pre-populates the rows and `target` names the on-disk preset a Save
+ * mutates: `new` has neither, `edit` sets both to the same preset, and
+ * `duplicate` seeds a renamed copy with no target, alongside the `source`
+ * preset the window title names.
  */
 export type EditorOpenOptions =
   | { mode: "new"; seed?: undefined; target?: undefined }
@@ -119,6 +111,7 @@ export type EditorOpenOptions =
       target?: undefined;
     };
 
+/** One validation pass: per-row diagnostics plus an optional flow error. */
 type ValidationResult =
   | { fieldDiagnostics: ReadonlyMap<EditorRowId, FieldDiagnostic>; ok: true }
   | {
@@ -127,6 +120,7 @@ type ValidationResult =
       ok: false;
     };
 
+/** Interactive overlay component that edits a single preset. */
 class PresetEditorComponent implements Component, Focusable, EditorRowHost {
   private actionInFlight = false;
   private fieldDiagnostics: Map<EditorRowId, FieldDiagnostic> = new Map();
@@ -137,16 +131,15 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
   readonly hotkeyInput = new Input();
   private resolved = false;
   /**
-   * Source-of-truth row registry. Built once in the constructor; consumed
-   * by `handleInput`, `openHelpForFocusedRow`, and `renderRows`. Iteration
-   * order comes from `EDITOR_ROWS`; the map is for id-keyed lookup.
+   * Row implementations keyed by id, built once in the constructor.
+   * Rendering and focus follow the order in `EDITOR_ROWS`; this map serves
+   * id-keyed lookup.
    */
   private readonly rowsById: ReadonlyMap<EditorRowId, EditorRow>;
   /**
-   * Direct alias for `options.session`. Pinned to a class field so dead-code
-   * analysis (fallow) can trace method calls without losing the edge through
-   * the `EditorOptions` interface boundary; mirrors how `PresetPickerComponent`
-   * stores its session.
+   * Alias for `options.session`. It lives on a class field so dead-code
+   * analysis can follow the method calls across the `EditorOptions`
+   * boundary.
    */
   readonly session: ActivePresetSession;
   readonly canTest: boolean;
@@ -182,10 +175,10 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
     setInputValueCursorAtEnd(this.nameInput, this.state.name);
     setInputValueCursorAtEnd(this.hotkeyInput, this.state.hotkey);
     this.rowsById = this.buildRowsRegistry();
-    // Note: we deliberately do NOT auto-snap thinking level on open. A
-    // preset whose declared level will clamp at apply time stays selected
-    // here so save-without-edit round-trips the original value; only
-    // user-driven model/provider changes mutate the selected level.
+    // Opening the editor leaves the declared thinking level alone even when
+    // the model would clamp it at apply time, so saving without edits
+    // round-trips the original value. Only user-driven model or provider
+    // changes move the selection.
     this.syncFocus();
   }
 
@@ -207,9 +200,8 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
       return;
     }
 
-    // Audited pi-tui Input.handleInput, this editor's textarea handler, and
-    // the shortcut chain below: none bind F1, Ctrl+S, or Ctrl+T, so intercept
-    // before row delegation. Re-audit if pi-tui's Input changes its key map.
+    // No row handler binds F1, Ctrl+S, or Ctrl+T, so these shortcuts are
+    // safe to claim before input reaches the focused row.
     if (isHelpKey(input)) {
       void this.runAsync(() => this.openHelpForFocusedRow());
 
@@ -279,14 +271,15 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
     return this.runWithHiddenOverlay(() => confirmReload(this.ctx));
   }
 
+  /**
+   * Show the help dialog for the focused row, appending the edit-only
+   * paragraphs when the editor was opened on an existing preset.
+   */
   private async openHelpForFocusedRow(): Promise<void> {
     const entry = this.rowsById.get(this.currentRow())?.help;
 
     if (!entry) return;
 
-    // Edit-mode addenda surface consequences that only apply to existing
-    // presets (rename migrates the file, scope-change moves the file)
-    // without cluttering the new-preset experience.
     const isEdit = this.openOptions.mode === "edit";
     const paragraphs = [
       ...entry.body,
@@ -333,8 +326,8 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
   }
 
   /**
-   * Hide the editor overlay, open the multi-line prompt editor, and
-   * commit the result into the form state when the user confirms.
+   * Hide the editor overlay, open the multi-line prompt editor, and write
+   * the result into the form state when the user confirms.
    */
   async openPromptEditor(): Promise<void> {
     const result = await this.runWithHiddenOverlay(() =>
@@ -412,9 +405,8 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
     const rows: string[] = [];
 
     for (const id of EDITOR_ROWS) {
-      // Hotkey-reload notice + flow error land between the last value row
-      // (hotkey) and the buttons row. They are not row-owned content so
-      // they live outside the registry.
+      // The hotkey reload notice and the flow error belong to the form as a
+      // whole, so they render between the last value row and the buttons.
       if (id === "buttons") rows.push(...this.renderMessages());
 
       const row = this.rowsById.get(id);
@@ -425,13 +417,7 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
     return rows.map((line) => padToWidth(line, width));
   }
 
-  /**
-   * Build the per-instance row registry.
-   *
-   * Each factory builds an `EditorRow` against `this` as the host. The
-   * editor implements `EditorRowHost`; row modules consume only the
-   * methods and fields they declare on that interface.
-   */
+  /** Build this instance's rows, each bound to the editor as its host. */
   private buildRowsRegistry(): ReadonlyMap<EditorRowId, EditorRow> {
     const entries: readonly EditorRow[] = [
       makeNameRow(this),
@@ -583,10 +569,8 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
   }
 
   /**
-   * Keep the in-memory active-preset reference correct after a Save that
-   * either renamed the active preset, moved it across scopes, or both.
-   * Re-appending `presets-plus:active` is what makes the picker / status
-   * surface refresh against the new identity on the next render.
+   * Point the active-preset session at the new identity after a Save that
+   * renamed the active preset, moved it to another scope, or both.
    */
   private updateActiveAfterMoveOrRename(next: Preset): void {
     if (this.openOptions.mode !== "edit" || !this.options.pi) return;
@@ -646,8 +630,6 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
         : undefined,
     );
 
-    // v1 intentionally keeps first-match behavior for combined warning
-    // conditions; see this change's design Risks / Trade-offs section.
     if (conflict) {
       fieldDiagnostics.set("hotkey", {
         message: hotkeyConflictWarning(parsed.parsed.normalized, conflict.name),
@@ -718,9 +700,8 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
   }
 
   /**
-   * Apply row-level diagnostics from validation without clearing unrelated
-   * flow-state errors. Validation currently does not produce flow errors, but
-   * the union retains the field for future non-row failure paths.
+   * Replace the row diagnostics with the ones validation produced, leaving
+   * a flow error raised elsewhere in place.
    */
   private applyValidationDiagnostics(result: ValidationResult): void {
     this.fieldDiagnostics = new Map(result.fieldDiagnostics);
@@ -748,6 +729,11 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
   }
 }
 
+/**
+ * Build the notice lines that tell the user a hotkey change takes effect
+ * only after `/reload`. Returns an empty array when the hotkey is
+ * unchanged.
+ */
 export function formatHotkeyReloadNotice(
   previousValue: string,
   nextValue: string,
@@ -777,17 +763,18 @@ export function formatHotkeyReloadNotice(
   ];
 }
 
+/**
+ * Open the preset editor overlay and resolve once it closes, with
+ * `undefined` when the user cancels.
+ */
 export async function openEditor(
   ctx: ExtensionCommandContext,
   openOptions: EditorOpenOptions,
   options: EditorOptions,
 ): Promise<EditorResult | undefined> {
   const presets = options.presets ?? (await loadAll(ctx)).presets;
-  // Source all models (not just keyed ones) so a preset whose provider
-  // lost its API key still appears in the dropdown; the Model row renders
-  // unavailable entries dimmed with a `(no key)` suffix. The picker card
-  // already surfaces per-preset `unavailable: "no-key"` at load time; the
-  // editor matches that vocabulary rather than hiding models outright.
+  // Include models without configured auth so a preset whose provider lost
+  // its API key still appears in the list, dimmed with a `(no key)` suffix.
   const models = ctx.modelRegistry.getAll();
   const modelItems = models.map((model) => ({
     available: ctx.modelRegistry.hasConfiguredAuth(model),
@@ -831,8 +818,8 @@ export async function openEditor(
 }
 
 /**
- * Derive the editor window title from the entry mode: a plain label for a
- * new preset, or the source/target preset's name for edit and duplicate.
+ * Build the window title from the entry mode: a plain label for a new
+ * preset, or the preset's name for edit and duplicate.
  */
 function editorTitle(openOptions: EditorOpenOptions): string {
   switch (openOptions.mode) {
@@ -851,35 +838,21 @@ function editorTitle(openOptions: EditorOpenOptions): string {
   }
 }
 
-/**
- * Canonical Hotkey-conflict warning used by proactive recompute and the
- * Save-time validation backstop; keep wording aligned with the spec scenario.
- */
+/** Warning shown when another preset already binds this hotkey. */
 function hotkeyConflictWarning(normalized: string, presetName: string): string {
   return `⚠ ${normalized} is already used by preset "${presetName}". Pi will skip this preset's binding.`;
 }
 
-/**
- * Canonical Pi built-in shadow warning used by proactive recompute and the
- * Save-time validation backstop; keep wording aligned with the spec scenario.
- */
+/** Warning shown when the hotkey shadows a Pi built-in binding. */
 function hotkeyShadowsBuiltinWarning(normalized: string): string {
   return `⚠ ${normalized} shadows a Pi built-in. Saving will replace Pi's behavior for this key.`;
 }
 
 /**
- * Seed a single-line `Input` with a pre-populated value while placing the
- * caret at the end of that text. Input.setValue() alone leaves the caret
- * at position 0 (it only clamps the existing caret), so opening the
- * editor for an existing preset would otherwise show the cursor stuck at
- * the start of the name / hotkey — an odd UX.
- *
- * Feeding the Input a legacy `End` sequence after setValue triggers
- * Input's own `tui.editor.cursorLineEnd` handler, which moves the caret
- * after the last grapheme without us needing to reach into private
- * state. `\x1b[F` is one of the sequences Input recognizes as End and
- * is unaffected by user keybinding overrides (the match path fires
- * before user-bindings resolution).
+ * Fill a single-line `Input` with a value and leave the caret after the
+ * last character. `Input.setValue` only clamps the existing caret, so the
+ * `\x1b[F` End sequence fed afterwards is what moves it; Input matches
+ * that sequence before user keybindings resolve.
  */
 function setInputValueCursorAtEnd(input: Input, value: string): void {
   input.setValue(value);

@@ -1,9 +1,7 @@
 /**
- * Runtime hotkey registry for pi-presets-plus.
- *
- * Owns hotkey conflict analysis, session shortcut binding, and reload-prompt
- * baseline state. It does NOT own preset storage, editor UI, or activation
- * decision logic beyond invoking the shared activation flow for shortcuts.
+ * Analyzes the hotkeys declared by loaded presets, registers the usable
+ * ones as session shortcuts, and tracks which bindings are live so the
+ * editor can tell when a preset change needs a reload to take effect.
  */
 import { requestActivation } from "./activation/request.js";
 import type { ActivePresetSession } from "./activation/session.js";
@@ -23,27 +21,34 @@ import type { KeyId } from "@earendil-works/pi-tui";
 
 export type { PresetIdentity } from "./preset-identity.js";
 
+/** Conflicts, invalid entries, and parsed hotkeys from one analysis pass. */
 export interface HotkeyAnalysis {
   readonly conflicts: HotkeyConflict[];
   readonly invalid: HotkeyDiagnostic[];
   readonly parsed: ReadonlyMap<LoadedPreset, ParsedHotkey>;
 }
 
+/** A preset whose hotkey was already claimed by another preset. */
 export interface HotkeyConflict {
   readonly loser: LoadedPreset & { hotkey: string };
   readonly winner: PresetIdentity;
 }
 
+/** A preset whose hotkey could not be parsed, with the parser's reason. */
 export interface HotkeyDiagnostic {
   readonly preset: LoadedPreset & { hotkey: string };
   readonly reason: string;
 }
 
+/** Re-reads the presets from disk when a shortcut fires. */
 export type CurrentPresetsLoader = (
   ctx: ExtensionContext,
 ) => Promise<LoadedPreset[]>;
 
-/** Owns runtime hotkey-binding state and reload-prompt baseline tracking. */
+/**
+ * Tracks the hotkeys bound in the running session and the pending hotkey
+ * changes the user already declined to reload for.
+ */
 export class HotkeyRegistry {
   private readonly acknowledgedPendingHotkeys = new Map<
     string,
@@ -60,9 +65,6 @@ export class HotkeyRegistry {
     loadCurrentPresets: CurrentPresetsLoader,
     session: ActivePresetSession,
   ): void {
-    // Defensive clear: bindForSession is called once per presetsPlus(pi)
-    // invocation today, but a future re-bind flow (e.g. reload-without-
-    // restart) would need this to start from a clean baseline.
     this.setRuntimeHotkeyBaseline(presets);
 
     for (const conflict of hotkeyAnalysis.conflicts) {
@@ -216,20 +218,11 @@ export class HotkeyRegistry {
 }
 
 /**
- * Annotate presets with hotkey conflict markers and return parsed hotkey data.
+ * Report the hotkey conflicts, unparseable hotkeys, and parsed hotkeys
+ * across a loaded preset list.
  *
- * Free function because the analysis does not read or write any registry
- * instance state. Keeping it free lets storage layers (`loadAll`) call it
- * without taking a `HotkeyRegistry` import edge purely to allocate a
- * throwaway instance, and makes the no-state property compile-checkable.
- *
- * The function mutates each preset's `hotkeyConflict` and
- * `hotkeyShadowsBuiltin` annotations. mergeScopes currently produces
- * fresh objects on every load so prior annotations cannot leak in via
- * shared references, but we still clear-then-recompute defensively to
- * honor the documented contract: this annotation is the single source
- * of truth, callers may not rely on prior values surviving across
- * analyzeHotkeys invocations.
+ * Rewrites the `hotkeyConflict` and `hotkeyShadowsBuiltin` annotations on
+ * every preset passed in, so values from an earlier call never survive.
  */
 export function analyzeHotkeys(presets: LoadedPreset[]): HotkeyAnalysis {
   const claimed = new Map<string, PresetIdentity>();
@@ -309,6 +302,7 @@ function identityChanged(
   return prev.name !== next.name || prev.scope !== next.scope;
 }
 
+/** Normalize a hotkey for comparison, falling back to the trimmed text. */
 function normalizeHotkeyForChange(hotkey: string | undefined): string {
   const trimmed = hotkey?.trim() ?? "";
 

@@ -1,10 +1,7 @@
 /**
- * pi-presets-plus extension entry point.
- *
- * Owns lifecycle wiring with the pi host: command registration, custom
- * message renderers, session-start pre-warming and restore, instruction
- * injection, and self-call guards. It does NOT own storage, activation,
- * or UI internals — those live in their dedicated modules.
+ * Entry point for the pi-presets-plus extension. Registers the `/presets`
+ * command, the `--preset` flag, and the host event handlers that keep the
+ * active preset applied and tracked across a session.
  */
 
 import {
@@ -28,6 +25,7 @@ import { loadAll } from "./store/api.js";
 import { registerCommandReportRenderer } from "./ui/command-report.js";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
+/** Register every pi-presets-plus command, flag, and event handler. */
 export default function presetsPlus(pi: ExtensionAPI) {
   const session = new ActivePresetSession();
   const hotkeys = new HotkeyRegistry();
@@ -123,9 +121,9 @@ export default function presetsPlus(pi: ExtensionAPI) {
 
     if (!active) return undefined;
 
-    // Don't re-surface warnings here. They were already shown at
-    // session_start and on /presets reload; emitting them on every
-    // agent turn would be noisy when a preset file has issues.
+    // This load drops its warnings on purpose. Session start and
+    // `/presets reload` already report them, and repeating them on every
+    // agent turn would bury the rest of the conversation.
     const { presets } = await loadAll(ctx);
     const preset = findPreset(presets, active);
 

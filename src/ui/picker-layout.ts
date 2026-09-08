@@ -1,17 +1,18 @@
 /**
- * Pure viewport layout for variable-height picker cards.
- *
- * Owns terminal-height budgeting, card packing, and scroll correction; it
- * does NOT own preset data, card rendering, themes, or picker state changes.
+ * Budgets terminal height for variable-height picker cards, packing the
+ * visible range and correcting the scroll offset around the selection.
  */
 
 /** Average card height used until the picker has measured a rendered page. */
 const FALLBACK_AVERAGE_CARD_LINES = 7;
 /** Lines used by borders, status, filter, rules, and footer. */
 const PICKER_CHROME_LINES = 7;
+/** Smallest page the picker reports, so navigation always has a step. */
 const MINIMUM_PAGE_SIZE = 1;
+/** Blank line drawn between two cards. */
 const SEPARATOR_LINES = 1;
 
+/** Visible card range and the scroll offset that produced it. */
 export type PickerViewportLayout = {
   readonly endIndex: number;
   readonly pageSize: number;
@@ -22,7 +23,7 @@ export type PickerViewportLayout = {
 /**
  * Pack a variable-height viewport and re-anchor it when selection is outside.
  *
- * Card heights are read lazily because rendering every preset merely to find
+ * Card heights are read lazily, because rendering every preset just to find
  * the visible range would make each picker render scale with the full list.
  */
 export function layoutPickerViewport(

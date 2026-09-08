@@ -1,10 +1,8 @@
 /**
- * Tests for the preset editor's pure helpers.
- *
- * Covers `initialState` (defaults for new vs. existing preset) and
- * `buildPreset` (form-state-to-on-disk-shape projection). The TUI
- * component itself remains exercised through manual QA; these unit
- * checks pin the invariants the picker and storage layer rely on.
+ * Covers the pure helpers behind the preset editor: the form state an
+ * editor opens with, the draft transitions for provider, model, thinking,
+ * and tools, the thinking rows rendered for a state, and the preset shape
+ * written back to disk.
  */
 import type { LoadedPreset } from "../../src/types.js";
 import { formatHotkeyReloadNotice } from "../../src/ui/editor.js";
@@ -31,9 +29,9 @@ interface ModelItem {
 const reasoningModelItem: ModelItem = {
   available: true,
   id: "claude-opus-4.5",
-  // The editor only reads `provider` / `id` off ModelItem and consults
-  // `model.reasoning` when re-evaluating thinking levels; a partial cast
-  // is enough for the pure helpers under test.
+  // The helpers read `provider` and `id` off the item and consult
+  // `model.reasoning` when re-evaluating thinking levels, so a partial
+  // model covers them.
   model: { reasoning: true } as unknown as Model<Api>,
   provider: "anthropic",
 };
@@ -48,9 +46,8 @@ const fakeModels: readonly ModelItem[] = [
   nonReasoningModelItem,
 ];
 
+/** Theme that returns text unchanged so assertions can match plain text. */
 const passthroughTheme = {
-  // Passthrough so assertions can match plain text; replace if a test
-  // needs to check colors.
   fg: (_color: string, text: string) => text,
 };
 
@@ -116,10 +113,8 @@ describe("initialState", () => {
   });
 
   it("pre-selects activeTools for a preset without a tools field", () => {
-    // Spec: when the preset has no `tools` yet, the multi-toggle SHALL
-    // be pre-checked from `pi.getActiveTools()`. Stays in `session` mode
-    // so the persisted preset still omits `tools` until the user toggles
-    // to `preset` mode.
+    // The form stays in `session` mode so the saved preset keeps omitting
+    // `tools` until the user switches to `preset` mode.
     const state = initialState(
       { ...existingPreset, tools: undefined },
       fakeModels,
@@ -154,9 +149,9 @@ describe("initialState", () => {
   });
 
   it("preserves the original thinkingLevel even when the model would clamp", () => {
-    // `gpt-5` has `reasoning: false` in the fake registry, but the editor
-    // must NOT silently rewrite the form on open. The user-driven snap
-    // path is the only mutation point.
+    // `gpt-5` has `reasoning: false` in the fake registry, and opening the
+    // editor leaves the level alone. Only the user-driven snap path
+    // rewrites it.
     const state = initialState(
       {
         ...existingPreset,

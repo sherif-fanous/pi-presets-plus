@@ -1,8 +1,6 @@
 /**
- * Regression tests for picker navigation across variable-height cards.
- *
- * Owns end-to-end picker rendering checks for heterogeneous card heights; it
- * does NOT own pure selection math or individual card formatting details.
+ * Covers picker navigation over cards of different heights: the selected
+ * card stays rendered through repeated Down, Up, PgDn, and PgUp presses.
  */
 import { ActivePresetSession } from "../../src/activation/session.js";
 import { HotkeyRegistry } from "../../src/hotkey-registry.js";
@@ -15,12 +13,10 @@ const loadAll = vi.fn();
 /**
  * Raw terminal byte sequences for the special keys these tests drive.
  *
- * pi-tui exposes `Key.*` as KeyId symbols (`"down"`, `"up"`, ...) for use with
- * `matchesKey`, but it does NOT export an encoder from KeyId back to terminal
- * input bytes — its input pipeline only goes the other direction (bytes →
- * KeyId). Tests that drive a component via `handleInput(rawBytes)` therefore
- * have to maintain their own translation table. Keyed by `Key.*` so a typo on
- * either side is a compile error.
+ * pi-tui decodes input bytes into `Key.*` ids for `matchesKey` and exports
+ * no encoder for the other direction, so a component driven through
+ * `handleInput(rawBytes)` needs this table. Keying it by `Key.*` turns a
+ * typo on either side into a compile error.
  */
 const KEY_BYTES = {
   [Key.down]: "\u001B[B",
@@ -56,6 +52,7 @@ interface PresetFixtureOptions {
   readonly shadowed?: true;
 }
 
+/** Builds a preset whose name carries the index and whose scope alternates. */
 function makeLoadedPreset(
   index: number,
   options: PresetFixtureOptions = {},
@@ -83,6 +80,7 @@ function makeLoadedPreset(
   };
 }
 
+/** Builds the preset at an index, spreading badges and prompts down it. */
 function makePreset(index: number): LoadedPreset {
   return makeLoadedPreset(index, {
     ...(index % 3 === 0 ? { instructions: `Prompt for preset ${index}` } : {}),
@@ -98,6 +96,7 @@ function makePresets(count: number): LoadedPreset[] {
   return Array.from({ length: count }, (_unused, index) => makePreset(index));
 }
 
+/** Opens the picker over the given presets and returns its component. */
 async function mountPicker(
   presets: readonly LoadedPreset[],
 ): Promise<Component> {
@@ -148,6 +147,7 @@ async function mountPicker(
   return component;
 }
 
+/** Names the preset at an index with a zero-padded suffix. */
 function presetName(index: number): string {
   return `preset-${index.toString().padStart(2, "0")}`;
 }

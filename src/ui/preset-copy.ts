@@ -1,8 +1,5 @@
 /**
- * Preset-copy helpers shared by picker and editor duplicate flows.
- *
- * Owns duplicate seed construction; it does NOT own picker dispatch,
- * editor persistence, or storage writes.
+ * Builds the name and the form seed for a duplicated preset.
  */
 import { toPersistedPreset } from "../store/api.js";
 import type { LoadedPreset, Preset } from "../types.js";
@@ -10,15 +7,15 @@ import type { LoadedPreset, Preset } from "../types.js";
 /**
  * Build the form seed for a duplicated preset.
  *
- * Deliberately drops `hotkey`: the copy lands in the same scope as its
- * source, and reusing the source's hotkey would immediately register as
- * a conflict. Every other optional field is preserved verbatim through
- * the canonical `toPersistedPreset` funnel.
+ * The copy drops `hotkey`, because it lands in the same scope as its
+ * source and would otherwise register as a conflict straight away. Every
+ * other optional field survives through `toPersistedPreset`.
  */
 export function serializeForCopy(preset: LoadedPreset, name: string): Preset {
   return toPersistedPreset({ ...preset, name, hotkey: undefined });
 }
 
+/** Derive a `<name>-copy` name that no preset in the scope already uses. */
 export function uniqueCopyName(
   name: string,
   existingNames: readonly string[],

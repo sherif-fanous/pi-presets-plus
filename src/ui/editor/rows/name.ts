@@ -1,12 +1,11 @@
 /**
- * "Name" row factory.
- *
- * Owns the name text-input behavior, help payload, and render. It does
- * NOT own validation, persistence, or the focus chain.
+ * The editor's name row, which takes the typed preset name and clears the
+ * row's diagnostic as the user edits it.
  */
 import { renderTextInputRow } from "../row-render.js";
 import type { EditorRow, EditorRowHost } from "../row.js";
 
+/** Build the name row. */
 export function makeNameRow(host: EditorRowHost): EditorRow {
   return {
     id: "name",

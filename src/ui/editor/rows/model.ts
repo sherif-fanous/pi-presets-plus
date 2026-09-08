@@ -1,9 +1,6 @@
 /**
- * "Model" row factory.
- *
- * Owns model cycling within the current provider, help payload, and
- * render (with availability hinting). It does NOT own auth resolution
- * or provider switching; those live on the host.
+ * The editor's model row, which cycles through the models of the selected
+ * provider and marks the ones that have no API key.
  */
 import { MODEL_LABEL } from "../../labels.js";
 import { selectModel } from "../draft.js";
@@ -15,6 +12,7 @@ import {
 import type { EditorRow, EditorRowHost } from "../row.js";
 import { Key, matchesKey } from "@earendil-works/pi-tui";
 
+/** Build the model row. */
 export function makeModelRow(host: EditorRowHost): EditorRow {
   return {
     id: "model",
@@ -61,11 +59,7 @@ export function makeModelRow(host: EditorRowHost): EditorRow {
   };
 }
 
-/**
- * Render the right-hand value with an availability hint appended for
- * unavailable entries. Mirrors the picker card's `unavailable` status
- * row in intent but stays inline to keep the row compact.
- */
+/** Render the selected model, hinting when it has no key or no match. */
 function renderModelValue(host: EditorRowHost): string {
   const state = host.getState();
 
@@ -77,9 +71,6 @@ function renderModelValue(host: EditorRowHost): string {
   );
 
   if (!item) {
-    // Model id didn't resolve at all (e.g. the preset references a
-    // provider not present in the registry). Mark it so the user isn't
-    // left staring at a seemingly-fine value.
     return `${state.model} ${host.theme.fg("dim", "(unknown)")}`;
   }
 

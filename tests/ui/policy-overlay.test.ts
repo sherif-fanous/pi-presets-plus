@@ -1,5 +1,6 @@
 /**
- * Tests for policy override confirmation copy and labels.
+ * Covers the policy override confirmation: the title, the body naming the
+ * preset, and the button labels the user chooses between.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

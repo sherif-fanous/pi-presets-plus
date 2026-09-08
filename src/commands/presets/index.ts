@@ -1,8 +1,6 @@
 /**
- * Public entry points for the `/presets` command.
- *
- * Owns the barrel that the extension entry point imports from; it does
- * NOT own subcommand routing or implementation details.
+ * Re-exports the `/presets` command handlers the extension entry point
+ * registers with Pi.
  */
 
 export { getArgumentCompletions, handlePresetsCommand } from "./router.js";

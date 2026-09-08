@@ -1,8 +1,6 @@
 /**
- * Pure-function tests for the clear decision table.
- *
- * Covers the per-field decision matrix without driving `pi` or `ctx.ui`.
- * The integration runner is exercised separately in `apply-clear.test.ts`.
+ * Covers the per-field decision table that clear uses to choose what to
+ * restore, calling the pure helper without driving `pi` or `ctx.ui`.
  */
 import { decideClear, type ClearSnapshot } from "../../src/activation/clear.js";
 import type { ActivePresetState } from "../../src/types.js";

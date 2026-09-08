@@ -1,8 +1,6 @@
 /**
- * Shared preset identity helpers for pi-presets-plus.
- *
- * Owns name-and-scope identity comparison and lookup helpers. Does not own
- * preset storage, loading, activation, or hotkey behavior.
+ * Identifies a preset by its name and scope, and compares or looks up
+ * presets on that pair.
  */
 import type { PresetScope } from "./types.js";
 

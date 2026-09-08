@@ -1,8 +1,6 @@
 /**
- * Unexpected UI action error formatting shared by editor and picker flows.
- *
- * Owns conversion of thrown values into one user-facing sentence; it does
- * NOT report errors or decide where the UI displays them.
+ * Turns a value thrown by an editor or picker action into one
+ * user-facing sentence.
  */
 
 /** Format an unexpected action failure with stable terminal punctuation. */

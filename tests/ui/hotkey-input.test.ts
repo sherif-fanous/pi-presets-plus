@@ -1,8 +1,7 @@
 /**
- * Tests for preset editor hotkey helpers.
- *
- * Covers parsing, pi built-in detection, and loaded-preset conflict lookup
- * without registering actual shortcuts.
+ * Covers the hotkey helpers behind the preset editor: parsing and
+ * normalizing a typed combination, recognizing Pi built-ins, and finding a
+ * saved preset that already uses the same binding.
  */
 import type { LoadedPreset } from "../../src/types.js";
 import {

@@ -1,9 +1,6 @@
 /**
- * Small terminal-frame layout helpers shared by custom TUI surfaces.
- *
- * Owns width-safe border, padding, and centering primitives reused by
- * preset dialogs; it does NOT own picker state, activation, or any
- * specific dialog content.
+ * Width-safe border, padding, and centering primitives shared by the
+ * custom TUI dialogs.
  */
 import {
   truncateToWidth,
@@ -11,6 +8,7 @@ import {
   wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 
+/** Content of a bordered dialog: title, body lines, footer, and width. */
 export interface DialogFrameOptions {
   readonly bodyLines: readonly string[];
   readonly footer: string;
@@ -18,6 +16,7 @@ export interface DialogFrameOptions {
   readonly width: number;
 }
 
+/** Center `text` within `width` visible columns, truncating if it overflows. */
 export function centerText(text: string, width: number): string {
   const textWidth = visibleWidth(text);
 
@@ -30,9 +29,9 @@ export function centerText(text: string, width: number): string {
 }
 
 /**
- * Wrap content in a left/right border and pad/truncate it to the requested
- * width. Width is visual-column based, so ANSI escape sequences do not push
- * the right border out of alignment.
+ * Wrap content in a left and right border, padding or truncating it to the
+ * requested width. Width counts visible columns, so ANSI escape sequences
+ * do not push the right border out of alignment.
  */
 export function frameLine(content: string, width: number): string {
   if (width <= 2) return truncateToWidth("││", width, "");
@@ -41,9 +40,9 @@ export function frameLine(content: string, width: number): string {
 }
 
 /**
- * Render a `left + fill + right` border segment, e.g. `┌────┐`. Falls back
- * to a truncated `leftright` pair when the requested width is too narrow
- * for any fill characters.
+ * Render a `left + fill + right` border segment, for example `┌────┐`.
+ * A width too narrow for any fill falls back to a truncated `leftright`
+ * pair.
  */
 export function frameSegment(
   left: string,
@@ -56,6 +55,7 @@ export function frameSegment(
   return `${left}${fill.repeat(width - 2)}${right}`;
 }
 
+/** Truncate `text` to `width` visible columns, then pad it back out. */
 export function padToWidth(
   text: string,
   width: number,
@@ -68,6 +68,7 @@ export function padToWidth(
   return `${truncated}${fill.repeat(paddingWidth)}`;
 }
 
+/** Render a bordered dialog with a centered title, body, and footer. */
 export function renderDialogFrame(options: DialogFrameOptions): string[] {
   const frameWidth = Math.max(2, options.width);
   const bodyWidth = Math.max(1, frameWidth - 2);
@@ -83,6 +84,7 @@ export function renderDialogFrame(options: DialogFrameOptions): string[] {
   return lines.map((line) => truncateToWidth(line, frameWidth, ""));
 }
 
+/** Wrap dialog body text to `width` columns, preserving ANSI sequences. */
 export function wrapBody(text: string, width: number): string[] {
   return wrapTextWithAnsi(text, Math.max(1, width));
 }

@@ -1,13 +1,12 @@
 /**
- * "Scope" row factory.
- *
- * Owns the user/project toggle behavior, help payload (including the
- * edit-mode addendum about cross-scope moves), and render.
+ * The editor's scope row, which toggles a preset between the user scope
+ * and the project scope.
  */
 import { renderChoiceRow, withFieldDiagnostic } from "../row-render.js";
 import type { EditorRow, EditorRowHost } from "../row.js";
 import { Key, matchesKey } from "@earendil-works/pi-tui";
 
+/** Build the scope row. */
 export function makeScopeRow(host: EditorRowHost): EditorRow {
   return {
     id: "scope",

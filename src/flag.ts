@@ -1,8 +1,6 @@
 /**
- * Startup preset flag registration and handling.
- *
- * Owns the `--preset` CLI flag entry point and startup lookup messages. It
- * does NOT own session restore, preset storage, or the apply implementation.
+ * Registers the `--preset` command-line flag and activates the preset it
+ * names when the session starts.
  */
 import { requestActivation } from "./activation/request.js";
 import type { ActivePresetSession } from "./activation/session.js";
@@ -13,8 +11,14 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
+/** Name of the command-line flag, without the leading dashes. */
 const PRESET_FLAG = "preset";
 
+/**
+ * Activate the preset named by `--preset` and report whether it took
+ * effect. Returns `false` when the flag is absent, names a preset that
+ * does not exist, or the user cancels the activation prompt.
+ */
 export async function applyPresetFlag(
   pi: ExtensionAPI,
   ctx: ExtensionContext,
@@ -49,6 +53,7 @@ export async function applyPresetFlag(
   return result.ok;
 }
 
+/** Declare the `--preset` flag so Pi accepts and parses it. */
 export function registerPresetFlag(
   pi: Pick<ExtensionAPI, "registerFlag">,
 ): void {
@@ -58,10 +63,10 @@ export function registerPresetFlag(
   });
 }
 
-// Intentionally bespoke: the project-then-user fallback with shadowed
-// filter is unique to flag activation and is not modelled by the shared
-// findPreset helper. Don't "consolidate" without preserving the
-// scope-precedence and shadowed semantics.
+/**
+ * Find the preset a flag value names, preferring the project scope over
+ * the user scope and skipping shadowed entries.
+ */
 function findPresetForFlag(
   presets: readonly LoadedPreset[],
   name: string,
@@ -78,6 +83,7 @@ function findPresetForFlag(
   );
 }
 
+/** List one entry per preset name for the unknown-preset warning. */
 function formatAvailableNames(presets: readonly LoadedPreset[]): string {
   const byName = new Map<string, LoadedPreset>();
 

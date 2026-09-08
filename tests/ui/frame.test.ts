@@ -1,8 +1,7 @@
 /**
- * Tests for reusable terminal-frame helpers.
- *
- * These helpers keep custom TUI surfaces width-safe around ANSI styling,
- * truncation, and borders.
+ * Covers the terminal frame helpers: padding and truncating to a visible
+ * width, drawing borders and segments, centering, and wrapping body text
+ * while ANSI styling and wide characters stay intact.
  */
 import {
   centerText,

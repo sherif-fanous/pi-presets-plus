@@ -1,9 +1,7 @@
 /**
- * Tests for the pure preset-picker state controller.
- *
- * These cover navigation, focus, scope, and selection-preservation invariants
- * from OpenSpec change `add-preset-picker` without needing a terminal or
- * custom TUI component.
+ * Covers the picker state controller: moving the selection by line and by
+ * page, switching focus between the list and the filter, cycling the scope
+ * filter, and which preset stays selected as the visible list changes.
  */
 import type { LoadedPreset } from "../../src/types.js";
 import {
@@ -30,6 +28,7 @@ function makePreset(
   };
 }
 
+/** Lists presets as `scope:name` so assertions can tell scopes apart. */
 function scopedNames(presets: readonly LoadedPreset[]): string[] {
   return presets.map((preset) => `${preset.scope}:${preset.name}`);
 }

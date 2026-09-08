@@ -1,5 +1,7 @@
 /**
- * Tests for fresh-session policy-default activation and precedence.
+ * Covers activating the policy's default preset on a fresh session,
+ * including the cases where the startup flag or a restored preset takes
+ * precedence and where the default cannot be applied.
  */
 import { ActivePresetSession } from "../../src/activation/session.js";
 import type { LoadedPreset } from "../../src/types.js";

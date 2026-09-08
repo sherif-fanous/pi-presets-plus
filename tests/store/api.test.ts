@@ -1,16 +1,9 @@
 /**
- * Tests for `src/store/api.ts`.
- *
- * Each test sets up a fresh tmp dir and points both scopes at it via:
- *   - `PI_CODING_AGENT_DIR` env var → controls `getAgentDir()`, and thus
- *     the global path returned by `getGlobalPresetsPath()`.
- *   - `ctx.cwd` → controls the project path returned by
- *     `getProjectPresetsPath(cwd)`.
- *
- * A minimal `modelRegistry` stub keeps availability classification
- * predictable. The tests focus on the API layer's contracts (CRUD
- * outcomes, error paths, idempotency); lower layers are covered by their
- * own files.
+ * Covers the storage API against a real filesystem: loading both scopes
+ * together, saving one scope, and adding, updating, moving, removing, and
+ * reordering presets, along with the refusals and warnings each returns.
+ * Every test points `PI_CODING_AGENT_DIR` and `ctx.cwd` at a fresh tmp dir
+ * so both scopes live under it.
  */
 import {
   mkdir,
@@ -119,7 +112,6 @@ describe("loadAll", () => {
   });
 
   it("merges both scopes and surfaces warnings from each", async () => {
-    // Write a malformed global file (warning) and a valid project file.
     await mkdir(join(agentDir, "presets-plus"), { recursive: true });
     await writeFile(
       join(agentDir, "presets-plus", "presets.json"),
@@ -177,10 +169,8 @@ describe("loadAll", () => {
   });
 
   it("observes external file edits between calls (no in-memory cache)", async () => {
-    // Models the spec's `ctx.reload()` requirement: no caches survive.
-    // Two consecutive calls to `loadAll` against the same context must
-    // reflect the on-disk state at call time, not a snapshot from the
-    // first call.
+    // `ctx.reload()` works only because every `loadAll` re-reads the file,
+    // so two calls on the same context can return different presets.
     const ctx = makeCtx(projectDir, fullRegistry);
 
     await saveScope("user", [preset("a")], ctx);
@@ -189,7 +179,6 @@ describe("loadAll", () => {
 
     expect(first.presets.map((loaded) => loaded.name)).toEqual(["a"]);
 
-    // External edit: bypass the API and write directly.
     await mkdir(join(agentDir, "presets-plus"), { recursive: true });
     await writeFile(
       join(agentDir, "presets-plus", "presets.json"),
@@ -241,8 +230,6 @@ describe("saveScope", () => {
 
     const loaded = (await loadAll(ctx)).presets;
 
-    // Re-save the loaded list and verify the on-disk JSON has no
-    // `scope`/`shadowed`/`unavailable` fields.
     await saveScope("user", loaded, ctx);
 
     const raw = await readFile(

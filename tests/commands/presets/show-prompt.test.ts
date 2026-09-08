@@ -1,8 +1,6 @@
 /**
- * Behavior matrix tests for `/presets show-prompt`.
- *
- * Asserts on pure classification and formatting so prompt inspection stays
- * covered without a real Pi notification surface.
+ * Covers `/presets show-prompt`: how it picks the preset to inspect from
+ * the active state or a given name, and how it formats each outcome.
  */
 import {
   findPresetForShowPrompt,

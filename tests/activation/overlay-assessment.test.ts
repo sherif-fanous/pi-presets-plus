@@ -1,8 +1,7 @@
 /**
- * Tests canonical active-preset overlay classification.
- *
- * Owns current, baseline, last-applied, and ownership comparisons; it does NOT
- * test restoration writes, status text, or session mutation.
+ * Covers how the overlay assessment classifies each field by comparing the
+ * current state against the baseline, the last applied values, and what the
+ * overlay owns.
  */
 import { assessOverlay } from "../../src/activation/overlay-assessment.js";
 import type { ActivePresetState } from "../../src/types.js";

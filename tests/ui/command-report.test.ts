@@ -1,8 +1,6 @@
 /**
- * Tests for durable TUI-only command reports.
- *
- * Owns coverage for report delivery and rendering; it does NOT test status or
- * policy formatting.
+ * Covers command reports: delivery as a transcript entry in TUI mode, the
+ * notification fallback elsewhere, and rendering of the entry.
  */
 import {
   COMMAND_REPORT_ENTRY_TYPE,

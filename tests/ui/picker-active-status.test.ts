@@ -1,8 +1,7 @@
 /**
- * Active-preset status row tests for the preset picker.
- *
- * Owns end-to-end rendering checks for the picker's always-visible active
- * status row; it does NOT own pure picker-state transitions or card details.
+ * Covers the always-visible active row of the preset picker: the name and
+ * scope it shows, its place above the filter, and how it truncates long
+ * names while the filter, scope, and focus change around it.
  */
 import { ActivePresetSession } from "../../src/activation/session.js";
 import { HotkeyRegistry } from "../../src/hotkey-registry.js";
@@ -13,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const loadAll = vi.fn();
 
+/** Raw terminal byte sequences for the arrow keys these tests drive. */
 const KEY_BYTES = {
   [Key.left]: "\u001B[D",
   [Key.right]: "\u001B[C",
@@ -43,18 +43,22 @@ type FakeTheme = {
   fg(name: string, value: string): string;
 };
 
+/** Theme that returns text unchanged so assertions can match plain text. */
 const plainTheme: FakeTheme = {
   bold: (value: string) => value,
   fg: (_name: string, value: string) => value,
 };
 
-// Wraps every styled fragment in a real SGR sequence so the width math is
-// exercised against ANSI escapes, the way a production theme renders.
+/**
+ * Theme that wraps every fragment in a real SGR sequence, so width math
+ * runs against the escapes a production theme emits.
+ */
 const ansiTheme: FakeTheme = {
   bold: (value: string) => `\u001B[1m${value}\u001B[22m`,
   fg: (_name: string, value: string) => `\u001B[38;5;42m${value}\u001B[39m`,
 };
 
+/** Builds the state of an active preset, clean or dirty. */
 function activeState(
   preset: LoadedPreset,
   options: { readonly dirty?: true } = {},
@@ -80,14 +84,20 @@ function makeLoadedPreset(
   };
 }
 
+/** Mounts the picker with the ANSI theme. */
 async function mountAnsiPicker(options: MountOptions = {}): Promise<Component> {
   return mountPickerWithTheme(ansiTheme, options);
 }
 
+/** Mounts the picker with the plain theme. */
 async function mountPicker(options: MountOptions = {}): Promise<Component> {
   return mountPickerWithTheme(plainTheme, options);
 }
 
+/**
+ * Opens the picker over fake presets and returns the mounted component,
+ * restoring the session to the requested active preset first.
+ */
 async function mountPickerWithTheme(
   theme: FakeTheme,
   options: MountOptions = {},
@@ -335,9 +345,8 @@ describe("picker active-preset status row", () => {
 
     const rendered = stripAnsi(renderText(component, 42));
 
-    // Identical to the plain-theme expectation: the ANSI escapes the theme
-    // injects must not be counted as visible columns, so the ellipsis lands
-    // in the same place regardless of styling.
+    // The escapes the theme injects do not count as visible columns, so
+    // the ellipsis lands where the plain theme puts it.
     expect(rendered).toContain("Active: ifanous-anth…de-opus-4-8 (User)");
   });
 });

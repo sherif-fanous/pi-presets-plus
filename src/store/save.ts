@@ -1,17 +1,16 @@
 /**
- * Atomic file writes for preset storage.
- *
- * Owns the durable write primitive (`mkdir -p` → tmp file → `fsync` →
- * `rename`) used everywhere presets-plus persists user-visible state, so
- * the destination is never observed in a partially-written form.
+ * Writes a file durably by creating the parent directory, filling a
+ * temporary file, syncing it, and renaming it over the destination. Every
+ * user-visible file presets-plus persists goes through this path, so no
+ * reader sees a half-written file.
  */
 import { mkdir, open, rename, unlink } from "node:fs/promises";
 import { dirname } from "node:path";
 
 /**
- * Subset of `node:fs/promises` we depend on. Exposed so tests can inject
- * a stub that simulates rename failures (Node's ESM exports of native
- * modules are not spy-able via vitest).
+ * The `node:fs/promises` calls this module makes. Tests inject a stub to
+ * simulate rename failures, which vitest cannot spy on because Node's
+ * native modules export frozen ESM bindings.
  */
 interface AtomicWriteFs {
   mkdir: typeof mkdir;
@@ -20,16 +19,15 @@ interface AtomicWriteFs {
   unlink: typeof unlink;
 }
 
+/** Real filesystem calls, used unless a caller injects a stub. */
 const defaultFs: AtomicWriteFs = { mkdir, open, rename, unlink };
 
 /**
  * Atomically write `contents` to `target`.
  *
- * Throws on I/O failure; the destination is never partially written. The
- * caller is responsible for serializing concurrent writes within the
- * same process if it wants stricter ordering than last-write-wins.
- *
- * @param fs Override the underlying `node:fs/promises` calls (for tests).
+ * Throws on I/O failure, leaving the destination untouched. A caller that
+ * wants stricter ordering than last write wins has to serialize its own
+ * concurrent writes.
  */
 export async function atomicWrite(
   target: string,
@@ -63,12 +61,11 @@ export async function atomicWrite(
 }
 
 /**
- * Build a tmp file path co-located with `target` so the rename is on the
- * same filesystem and therefore guaranteed atomic.
+ * Build a temporary file path next to `target` so the later rename stays
+ * on one filesystem and therefore stays atomic.
  *
- * Uses `process.pid` and a high-resolution timestamp to avoid collisions
- * between concurrent writers; `process.hrtime.bigint()` is monotonic
- * within a single process so the suffix never repeats per call.
+ * The process id and the monotonic `process.hrtime.bigint()` reading keep
+ * concurrent writers from picking the same path.
  */
 export function makeTmpPath(target: string): string {
   return `${target}.tmp.${process.pid}.${process.hrtime.bigint().toString(36)}`;

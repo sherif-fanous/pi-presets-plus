@@ -1,11 +1,7 @@
 /**
- * Tests for `src/commands/presets/router.ts`.
- *
- * Focused on the router layer: argument completion filtering, interactive
- * mode guardrails, unsupported `list` handling, unknown subcommand fallback,
- * and dispatch to non-picker subcommands. The handlers themselves
- * (`runReload`) are covered by their own test files plus the storage API
- * integration tests — here we stub out `ctx` entirely.
+ * Covers the `/presets` router: argument completion, the interactive-mode
+ * guardrail for the bare picker, unknown and unsupported subcommands, and
+ * dispatch to each subcommand handler over a stubbed `ctx`.
  */
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -33,17 +29,11 @@ let agentDir: string;
 let prevAgentDirEnv: string | undefined;
 
 /**
- * Build a fake `ExtensionCommandContext` with a spy-able `ui.notify` and
- * enough surface for `loadAll` to succeed when dispatching to commands that
- * still read storage.
- *
- * Notes on isolation:
- * - `cwd` is a non-existent path → project-scope file is missing.
- * - `PI_CODING_AGENT_DIR` is overridden in `beforeEach` to a fresh tmp
- *   dir so the global-scope file is also missing. Without that, `loadAll`
- *   would read the developer's real `~/.pi/agent/presets-plus/presets.json`.
- * - `ui.theme` provides identity stubs for `fg`/`bold` so styled formatters
- *   produce plain text suitable for substring assertions.
+ * Builds a fake `ExtensionCommandContext` whose `ui.notify` is a spy and
+ * whose `ui.theme` leaves text unstyled for substring assertions. The
+ * `cwd` points at a path that does not exist and `beforeEach` repoints
+ * `PI_CODING_AGENT_DIR` at a fresh tmp dir, so `loadAll` sees an empty
+ * store in both scopes instead of the developer's own presets file.
  */
 function makeStubCtx() {
   const notify = vi.fn<(message: string, type?: string) => void>();

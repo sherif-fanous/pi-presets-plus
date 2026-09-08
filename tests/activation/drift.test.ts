@@ -1,8 +1,7 @@
 /**
- * Tests for active-preset drift detection.
- *
- * Owns coverage for the pure per-field comparison helper; it does NOT test
- * event-handler registration, status rendering side effects, or disk I/O.
+ * Covers the pure comparison that reports which declared fields of the
+ * active preset have drifted from the current model, thinking level, and
+ * tools.
  */
 import {
   detectDriftReasons,

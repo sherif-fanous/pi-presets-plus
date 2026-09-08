@@ -1,10 +1,7 @@
 /**
- * Tests event-handler logic for preset drift tracking.
- *
- * Owns coverage for model/thinking/tool drift event decisions and for the
- * in-memory contract that the handlers never read the on-disk preset
- * files. It does NOT test Pi's event registration surface or terminal
- * rendering.
+ * Covers the handlers that flip the active preset between clean and dirty
+ * when the model, thinking level, or tool set changes, including their
+ * contract of reading only in-memory state.
  */
 import {
   handleModelSelectDrift,
@@ -91,8 +88,6 @@ describe("handleModelSelectDrift", () => {
   });
 
   it("keeps dirty when the model matches but thinking is still drifted", async () => {
-    // Regression for the M1 bug: re-selecting the preset's model while the
-    // thinking level is still off-spec must NOT flip the badge clean.
     const harness = makeHarness({ piThinking: "low" });
 
     restoreActive(harness, { dirty: true });
@@ -162,7 +157,6 @@ describe("syncDirtyFromCurrentState", () => {
 
     await syncDirtyFromCurrentState(harness.ctx, harness.pi, harness.session);
 
-    // Structural equality proves that the clean state did not change.
     expect(harness.session.current()).toEqual(before);
   });
 });

@@ -1,14 +1,6 @@
 /**
- * Picker action-key commands.
- *
- * Owns the user-facing CRUD and dialog flows triggered from the picker
- * (delete, duplicate, reorder, clear, status, new, edit). It does NOT
- * own picker state, rendering, scroll/selection invariants, or hotkey
- * activation — those stay in the picker component.
- *
- * Each command runs against a `PickerCommandHost` interface so the
- * commands can be tested without instantiating the live picker, and so
- * the picker file stays focused on view-state orchestration.
+ * Runs the dialog flows behind the picker's action keys: new, edit,
+ * duplicate, delete, reorder, clear, and status.
  */
 import { clearReturning } from "../activation/clear.js";
 import type { ActivationResult } from "../activation/request.js";
@@ -41,6 +33,7 @@ import type {
   Theme,
 } from "@earendil-works/pi-coding-agent";
 
+/** One action key, its footer label, and the command it runs. */
 export interface PickerAction {
   readonly key: string;
   readonly label: string;
@@ -50,9 +43,8 @@ export interface PickerAction {
 /**
  * Surface the picker exposes to its action-key commands.
  *
- * Each member is something a command genuinely needs; the host
- * implementation (the picker component) decides how those map back onto
- * its private state.
+ * Commands run against this interface, so a test can drive them without
+ * instantiating the live picker component.
  */
 export interface PickerCommandHost {
   readonly ctx: ExtensionCommandContext;
@@ -76,11 +68,10 @@ export interface PickerCommandHost {
 }
 
 /**
- * Ordered list of selection-targeted action keys.
+ * Action keys that operate on the selected preset, in footer order.
  *
- * Order is the footer-display order. Excludes universal hints like
- * Enter / Esc / Ctrl+↑↓ / `/` because those are wired directly in the
- * picker's render and dispatch — they are not selection-targeted CRUD.
+ * The picker wires Enter, Esc, Ctrl+↑↓, and `/` directly into its own
+ * dispatch and footer, so they do not appear here.
  */
 export const PICKER_ACTIONS: readonly PickerAction[] = [
   {
@@ -115,9 +106,11 @@ export const PICKER_ACTIONS: readonly PickerAction[] = [
   },
 ];
 
+/** Action-key commands bound to one picker host. */
 export class PickerCommands {
   constructor(private readonly host: PickerCommandHost) {}
 
+  /** Confirm, then clear the active preset and show the restore summary. */
   async clearActive(): Promise<void> {
     const { ctx, pi, session, theme } = this.host;
 
@@ -132,7 +125,8 @@ export class PickerCommands {
         openInfoDialog(ctx, {
           body: "No preset is active.",
           title: "Clear Unavailable",
-          // No active preset is a normal empty state, unlike missing Pi API.
+          // Informational tone because having no active preset is a normal
+          // state rather than a failure.
           tone: "info",
         }),
       );
@@ -174,6 +168,7 @@ export class PickerCommands {
     await this.host.refreshPresets();
   }
 
+  /** Confirm, then remove the selected preset, offering a reload if needed. */
   async delete(): Promise<void> {
     await this.confirmAndActOnSelection(
       (preset) => ({
@@ -213,6 +208,7 @@ export class PickerCommands {
     );
   }
 
+  /** Open the editor on a copy of the selected preset. */
   async duplicate(): Promise<void> {
     const preset = this.host.currentSelection();
 
@@ -224,10 +220,9 @@ export class PickerCommands {
       .map((candidate) => candidate.name);
     const copyName = uniqueCopyName(preset.name, scopedNames);
     const copy = serializeForCopy(preset, copyName);
-    // The seed carries only the source scope; load-time metadata
-    // (`shadowed`, `unavailable`) is deliberately dropped so the editor
-    // recomputes availability for the copy rather than inheriting stale
-    // flags from the source.
+    // The seed carries only the source scope. Load-time metadata
+    // (`shadowed`, `unavailable`) is dropped so the editor recomputes
+    // availability for the copy instead of inheriting stale flags.
     const seed: LoadedPreset = { ...copy, scope: preset.scope };
 
     await this.openEditorAndDispatch({
@@ -237,10 +232,12 @@ export class PickerCommands {
     });
   }
 
+  /** Open the editor on a blank preset form. */
   async openEditorForNew(): Promise<void> {
     await this.openEditorAndDispatch({ mode: "new" });
   }
 
+  /** Open the editor on the selected preset. */
   async openEditorForSelection(): Promise<void> {
     const preset = this.host.currentSelection();
 
@@ -253,6 +250,7 @@ export class PickerCommands {
     });
   }
 
+  /** Move the selected preset one slot within its own scope. */
   async reorder(direction: -1 | 1): Promise<void> {
     const preset = this.host.currentSelection();
 
@@ -292,6 +290,7 @@ export class PickerCommands {
     await this.host.refreshPresets(loadedPresetKey(preset));
   }
 
+  /** Show the status report for the active preset in an overlay. */
   async showStatus(): Promise<void> {
     const { ctx, pi, session } = this.host;
 
@@ -316,11 +315,9 @@ export class PickerCommands {
   }
 
   /**
-   * Confirm-then-act wrapper for CRUD commands that operate on the
-   * currently-selected preset. Resolves the selection, opens the confirm
-   * dialog with caller-supplied copy, and invokes `action(preset)` on
-   * yes. A no-op on empty selection or cancelled confirm so each call
-   * site stays flat.
+   * Resolve the selection, confirm with caller-supplied copy, and run
+   * `action` on yes. An empty selection or a cancelled confirm does
+   * nothing, which keeps each call site flat.
    */
   private async confirmAndActOnSelection(
     messages: (preset: LoadedPreset) => { title: string; message: string },
@@ -341,13 +338,11 @@ export class PickerCommands {
   }
 
   /**
-   * Shared wrapper for the two editor-entry actions (new, edit-selected).
-   * Hides the picker overlay, opens the editor seeded with either an
-   * existing preset or `undefined` (new-preset defaults), and routes the
-   * result: a `saved` payload refreshes the list with the new selection
-   * focused; a `tested` payload closes the picker and reports the
-   * candidate preset as `activated` so the outer notification surface
-   * names the right preset.
+   * Hide the picker, open the editor with the given seed, and route the
+   * result. A `saved` payload refreshes the list with the saved preset
+   * focused. A `tested` payload closes the picker and reports the
+   * candidate as `activated`, so the outer notification names the preset
+   * the user tested.
    */
   private async openEditorAndDispatch(
     openOptions: Parameters<typeof openEditor>[1],

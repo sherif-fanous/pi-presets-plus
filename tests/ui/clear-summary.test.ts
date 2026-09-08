@@ -1,5 +1,6 @@
 /**
- * Tests for pure clear-summary rendering.
+ * Covers the clear summary: the lead sentence chosen for a set of cleared
+ * fields, the value rendered for each row, and the assembled summary text.
  */
 import type { ClearPart } from "../../src/activation/clear.js";
 import {
@@ -9,6 +10,7 @@ import {
 } from "../../src/ui/clear-summary.js";
 import { describe, expect, it } from "vitest";
 
+/** Builds a clear part, defaulting the fields a test does not care about. */
 const part = (
   action: ClearPart["action"],
   field: ClearPart["field"] = "model",

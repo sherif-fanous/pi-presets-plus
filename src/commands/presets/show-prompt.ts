@@ -1,8 +1,6 @@
 /**
- * `/presets show-prompt` reader subcommand.
- *
- * Owns active/named prompt classification and notification formatting; it
- * does NOT own preset activation, mutation, or storage merge semantics.
+ * Shows the system prompt of the active preset or of a preset named on
+ * the command line, and explains itself when there is no prompt to show.
  */
 import type { ActivePresetSession } from "../../activation/session.js";
 import type { HotkeyRegistry } from "../../hotkey-registry.js";
@@ -17,11 +15,13 @@ import type {
   Theme,
 } from "@earendil-works/pi-coding-agent";
 
+/** Text and severity to display for one `show-prompt` invocation. */
 export interface ShowPromptNotification {
   readonly body: string;
   readonly severity: "info" | "warning" | "error";
 }
 
+/** What `show-prompt` found: a prompt to display, or why there is none. */
 export type ShowPromptResult =
   | { kind: "active"; preset: LoadedPresetWithPrompt }
   | { kind: "named"; preset: LoadedPresetWithPrompt }
@@ -30,8 +30,14 @@ export type ShowPromptResult =
   | { kind: "no-prompt-named"; name: string }
   | { kind: "unknown"; name: string };
 
+/** A preset that carries a non-empty prompt. */
 type LoadedPresetWithPrompt = LoadedPreset & { instructions: string };
 
+/**
+ * Decide what `show-prompt` should display. A name resolves against the
+ * loaded presets with the project scope winning; without one, the active
+ * preset decides.
+ */
 export function findPresetForShowPrompt(
   name: string | undefined,
   active: ActivePresetState | null | undefined,
@@ -60,6 +66,7 @@ export function findPresetForShowPrompt(
   return { kind: "active", preset: promptPreset };
 }
 
+/** Turn a `show-prompt` result into the body text and severity to show. */
 export function formatShowPromptBody(
   result: ShowPromptResult,
   theme?: Theme,
@@ -87,6 +94,10 @@ export function formatShowPromptBody(
   }
 }
 
+/**
+ * Run `/presets show-prompt`, using a dialog under the TUI and a plain
+ * notification everywhere else.
+ */
 export async function runShowPrompt(
   ctx: ExtensionCommandContext,
   args: readonly string[],
@@ -102,8 +113,8 @@ export async function runShowPrompt(
   const result = findPresetForShowPrompt(name, session.current(), presets);
   const notification = formatShowPromptBody(result, ctx.ui.theme);
 
-  // Keep prompt previews temporary. Do not copy preset instructions into the
-  // session when the user only asked to inspect them.
+  // Neither branch appends to the transcript. Inspecting a prompt must not
+  // copy the preset instructions into the session.
   if (ctx.mode !== "tui" || typeof ctx.ui.custom !== "function") {
     ctx.ui.notify(notification.body, notification.severity);
 
@@ -127,6 +138,7 @@ function findPresetByNameWithScopePrecedence(
   );
 }
 
+/** Narrow a preset to one with a non-empty prompt, or return undefined. */
 function presetWithPrompt(
   preset: LoadedPreset,
 ): LoadedPresetWithPrompt | undefined {

@@ -1,13 +1,11 @@
 /**
- * Pure state transitions for the preset picker.
- *
- * Owns focus, scope, selection, and scroll invariants for the picker; it
- * does NOT own terminal input decoding, rendering, activation side
- * effects, or pi-tui component wiring.
+ * Applies the picker's state transitions, holding the focus, scope,
+ * selection, and scroll invariants together.
  */
 import type { LoadedPreset } from "../types.js";
 import { applyScopeFilter, rankPresets, type ScopeFilter } from "./filter.js";
 
+/** Focus, scope filter, selection, and scroll position of the picker. */
 export interface PickerState {
   readonly focusMode: PickerFocusMode;
   readonly scopeFilter: ScopeFilter;
@@ -15,10 +13,13 @@ export interface PickerState {
   readonly scrollOffset: number;
 }
 
+/** Which of the picker's two panes receives keystrokes. */
 export type PickerFocusMode = "list" | "filter";
 
+/** Order the left and right keys walk through the scope filters. */
 const SCOPE_ORDER: readonly ScopeFilter[] = ["all", "user", "project"];
 
+/** Step to the next scope filter, keeping the current preset selected. */
 export function cycleScope(
   state: PickerState,
   allPresets: readonly LoadedPreset[],
@@ -44,6 +45,7 @@ export function cycleScope(
   );
 }
 
+/** Build the picker state for a freshly opened picker. */
 export function initialPickerState(): PickerState {
   return {
     focusMode: "list",
@@ -54,10 +56,8 @@ export function initialPickerState(): PickerState {
 }
 
 /**
- * Stable identity key for a `LoadedPreset` used to compare selections
- * across re-renders, refreshes, and reorders. Exported so picker-side
- * command modules can refresh against the same key the state layer
- * remembers.
+ * Stable identity key for a `LoadedPreset`, used to compare selections
+ * across re-renders, refreshes, and reorders.
  */
 export function loadedPresetKey(
   preset: Pick<LoadedPreset, "name" | "scope">,
@@ -65,6 +65,7 @@ export function loadedPresetKey(
   return `${preset.scope}:${preset.name}`;
 }
 
+/** Move the selection by `delta` and scroll it back into view. */
 export function moveSelection(
   state: PickerState,
   allPresets: readonly LoadedPreset[],
@@ -85,6 +86,10 @@ export function moveSelection(
   return ensureSelectionVisible({ ...state, selectedIndex }, pageSize);
 }
 
+/**
+ * Re-select `previousSelection` after the visible list changes, falling
+ * back to the first row when that preset is no longer visible.
+ */
 export function preserveSelectionOrFirst(
   state: PickerState,
   allPresets: readonly LoadedPreset[],
@@ -108,6 +113,7 @@ export function preserveSelectionOrFirst(
   return ensureSelectionVisible({ ...state, selectedIndex }, pageSize);
 }
 
+/** Return the currently selected preset, if the visible list has one. */
 export function selectedPreset(
   state: PickerState,
   allPresets: readonly LoadedPreset[],
@@ -116,6 +122,7 @@ export function selectedPreset(
   return visiblePresets(state, allPresets, query)[state.selectedIndex];
 }
 
+/** Return the identity key of the currently selected preset. */
 export function selectedPresetKey(
   state: PickerState,
   allPresets: readonly LoadedPreset[],
@@ -126,6 +133,7 @@ export function selectedPresetKey(
   return preset ? loadedPresetKey(preset) : undefined;
 }
 
+/** Move keyboard focus between the list and the filter input. */
 export function setFocusMode(
   state: PickerState,
   focusMode: PickerFocusMode,
@@ -133,6 +141,7 @@ export function setFocusMode(
   return { ...state, focusMode };
 }
 
+/** Return the presets the picker shows for the current scope and query. */
 export function visiblePresets(
   state: PickerState,
   allPresets: readonly LoadedPreset[],

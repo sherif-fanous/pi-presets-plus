@@ -1,8 +1,6 @@
 /**
- * Canonical user-facing label vocabulary.
- *
- * Owns repeated field labels, action labels, and dialog titles shared across
- * surfaces; it does NOT compose full prose messages or own rendering layout.
+ * Holds the field labels, dialog titles, and action labels that the
+ * preset surfaces share, so one spelling reaches every surface.
  */
 
 // Field labels shared by status, clear, editor rows, and picker cards.
@@ -40,7 +38,8 @@ export const PROMPT_EDITOR_TITLE = "Edit prompt";
 export const PROMPT_EDITOR_TITLE_PREFIX = "Edit prompt: ";
 export const PROMPT_DIALOG_TITLE = "Preset Prompt";
 
-// Action labels, including single-use footer labels kept here for auditability.
+// Action labels, including the single-use footer labels, kept together so
+// the vocabulary stays reviewable in one place.
 export const ACTIVATE_LABEL = "Activate";
 export const FILTER_LABEL = "Filter";
 export const STATUS_ACTION_LABEL = "Status";

@@ -1,8 +1,6 @@
 /**
- * Reusable preset-picker widget primitives.
- *
- * Owns readable key/value preset card rendering; it does NOT own picker
- * state, keyboard handling, or activation.
+ * Renders one preset as a multi-line key/value card, along with the value
+ * formatters the card and its callers share.
  */
 import type { LoadedPreset } from "../types.js";
 import {
@@ -15,6 +13,7 @@ import {
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, type Component } from "@earendil-works/pi-tui";
 
+/** Per-render flags that decide how a card highlights and annotates itself. */
 export interface PresetCardOptions {
   active: boolean;
   dirty?: boolean;
@@ -25,21 +24,22 @@ export interface PresetCardOptions {
 }
 
 /**
- * Minimum theme surface needed by the preset card and its formatters.
+ * Minimum theme surface the preset card and its formatters need.
  *
- * Restricting to `fg` + `bold` (matching the `Styler` pattern in
- * `activation/clear.ts`) lets tests pass an honest stub without an
- * `as unknown as Theme` cast and makes future Theme additions
- * visible at the call sites that actually need them.
+ * Narrowing to `fg` and `bold` lets a test pass an honest stub without an
+ * `as unknown as Theme` cast.
  */
 type CardTheme = Pick<Theme, "fg" | "bold">;
 
+/** Theme color name accepted for a thinking level. */
 type ThinkingColor = Parameters<Theme["fg"]>[0];
 
+/** Column width that keeps every card label aligned to one gutter. */
 const FIELD_LABEL_WIDTH = Math.max(
   "Shadowing:".length,
   `${THINKING_LABEL}:`.length,
 );
+/** Characters of preset instructions shown in the card preview. */
 const PROMPT_PREVIEW_WIDTH = 60;
 
 class PresetCardComponent implements Component {
@@ -171,11 +171,12 @@ class PresetCardComponent implements Component {
   }
 
   /**
-   * Render the thinking level with its theme color. The `thinkingMax`
-   * theme color only exists in Pi >= 0.80.6; older Pi bundles throw
-   * `Unknown theme color` from `fg()`, which would crash the picker render
-   * path. Mirror Pi's own fallback and render `"max"` with the
-   * `thinkingXhigh` color there.
+   * Render the thinking level in its theme color.
+   *
+   * The `thinkingMax` color exists in Pi 0.80.6 and later. Earlier bundles
+   * throw `Unknown theme color` from `fg()` and would take the picker
+   * render path down, so `"max"` falls back to `thinkingXhigh` there, the
+   * same way Pi itself does.
    */
   private thinkingLevelValue(): string {
     const level = this.loadedPreset.thinkingLevel ?? "off";
@@ -197,6 +198,7 @@ class PresetCardComponent implements Component {
   }
 }
 
+/** Describe why a preset cannot run right now, or return an empty string. */
 export function formatAvailabilityStatus(loadedPreset: LoadedPreset): string {
   switch (loadedPreset.unavailable) {
     case "no-key":
@@ -210,6 +212,7 @@ export function formatAvailabilityStatus(loadedPreset: LoadedPreset): string {
   }
 }
 
+/** Flatten preset instructions to one line, clipped to the preview width. */
 export function formatInstructionsPreview(
   instructions: string | undefined,
 ): string {
@@ -222,18 +225,22 @@ export function formatInstructionsPreview(
   return `${singleLine.slice(0, PROMPT_PREVIEW_WIDTH - 1).trimEnd()}…`;
 }
 
+/** Render a scope as the `User` or `Project` label users see. */
 export function formatScopeName(scope: LoadedPreset["scope"]): string {
   return scope === "project" ? "Project" : "User";
 }
 
+/** Render the scope row value for one preset. */
 export function formatScopeValue(loadedPreset: LoadedPreset): string {
   return formatScopeName(loadedPreset.scope);
 }
 
+/** Return the dot that marks the active preset in the list. */
 export function formatStatusDot(active: boolean): string {
   return active ? "●" : " ";
 }
 
+/** Render a thinking level as its display label. */
 export function formatThinkingLevel(
   level: NonNullable<LoadedPreset["thinkingLevel"]>,
 ): string {
@@ -255,6 +262,7 @@ export function formatThinkingLevel(
   }
 }
 
+/** Summarize the tools a preset sets, or the session tools it inherits. */
 export function formatToolsSummary(
   tools: readonly string[] | undefined,
   inheritedTools: readonly string[] = [],
@@ -266,11 +274,11 @@ export function formatToolsSummary(
 }
 
 /**
- * Multi-line component for a single loaded preset.
+ * Build the multi-line card component for one loaded preset.
  *
- * The card is intentionally stateless: callers pass active/selected flags on
- * construction and rebuild cards when state changes. This keeps rendering
- * deterministic and easy for future editor dialogs to share.
+ * The card is stateless: callers pass the active and selected flags at
+ * construction and rebuild the card when that state changes, which keeps
+ * rendering deterministic.
  */
 export function presetCard(
   loadedPreset: LoadedPreset,

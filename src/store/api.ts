@@ -1,12 +1,8 @@
 /**
- * High-level storage API for presets.
- *
- * Owns the operations the rest of the extension calls to read and mutate
- * presets across both scopes: `loadAll`, `saveScope`, and the CRUD
- * primitives (`addPreset`, `updatePreset`, `removePreset`, `movePreset`,
- * `reorderWithinScope`). Storage is cache-free — every call re-reads
- * from disk — and mutations that would violate file invariants return an
- * `Err` result rather than throwing.
+ * Reads and mutates presets across both scopes through `loadAll`,
+ * `saveScope`, and the create, update, delete, move, and reorder
+ * primitives. Every call re-reads from disk, and a mutation that would
+ * break a file invariant returns an error result instead of throwing.
  */
 import { analyzeHotkeys, type HotkeyAnalysis } from "../hotkey-registry.js";
 import type {
@@ -30,11 +26,13 @@ interface LoadAllResult {
 }
 /** Result type for mutating operations: success carries no payload. */
 type SaveResult = { ok: true } | { ok: false; reason: string };
+/** Presets read from one scope, or the reason the read is not usable. */
 type ScopeReadResult =
   | { ok: true; presets: Preset[] }
   | { ok: false; reason: string };
 /** Subset of `ExtensionContext` the storage API actually needs. */
 type StorageContext = Pick<ExtensionContext, "cwd" | "modelRegistry">;
+/** Persists one scope's preset list; the seam `movePreset` writes through. */
 type WriteScope = (
   scope: PresetScope,
   presets: readonly Preset[],
@@ -44,9 +42,8 @@ type WriteScope = (
 /**
  * Append a preset to the named scope.
  *
- * Returns an `Err` result when the new name collides with an existing
- * preset in the same scope. Callers in later UI changes can map this to
- * a friendly "name already exists" notification.
+ * Returns an error result when the name collides with a preset that
+ * already exists in the same scope.
  */
 export async function addPreset(
   preset: Preset,
@@ -171,9 +168,9 @@ export async function movePreset(
 }
 
 /**
- * Remove a preset by name. No-op (returns `{ ok: true }`) when the named
- * preset does not exist; this matches the "idempotent delete" expectation
- * the spec calls out.
+ * Remove a preset by name.
+ *
+ * Removing a name that does not exist succeeds and leaves the file alone.
  */
 export async function removePreset(
   name: string,
@@ -194,14 +191,11 @@ export async function removePreset(
 }
 
 /**
- * Reorder presets within a scope according to the supplied name list.
+ * Reorder a scope's presets to follow `orderedNames`.
  *
- * Defensive behavior: any names not present in `orderedNames` keep their
- * relative file order and are appended after the explicitly-ordered
- * entries. Names in `orderedNames` that don't match any existing preset
- * are silently ignored — this matters when the caller's UI snapshot is
- * slightly stale (e.g. a delete happened between picker render and reorder
- * commit).
+ * Names missing from `orderedNames` keep their relative file order and
+ * follow the ordered entries. Names matching no preset are ignored, so a
+ * caller whose snapshot went stale still gets a usable write.
  */
 export async function reorderWithinScope(
   scope: PresetScope,
@@ -241,9 +235,8 @@ export async function reorderWithinScope(
 /**
  * Atomically rewrite a single scope's file with the given preset list.
  *
- * The serialized shape is always `{ version: 1, presets }`; only typed
- * fields on `Preset` are emitted. Callers are responsible for ordering
- * and uniqueness; this function just persists.
+ * The serialized shape is always `{ version: 1, presets }` carrying only
+ * the fields `Preset` declares. The caller owns ordering and uniqueness.
  */
 export async function saveScope(
   scope: PresetScope,
@@ -260,19 +253,14 @@ export async function saveScope(
 }
 
 /**
- * Canonical projection from any `Preset`-shaped value to the on-disk shape.
+ * Project any `Preset`-shaped value onto the on-disk shape.
  *
- * Drops `undefined` optional fields so the JSON stays clean and copies the
- * `tools` array defensively so callers can keep mutating their source
- * without leaking into persisted state. Round-tripping a
- * `LoadedPreset`-derived value (which carries merge metadata) strips
- * `scope`, `shadowed`, `unavailable`, and the hotkey-annotation flags
- * automatically because they are not declared on `Preset`.
- *
- * This is the single funnel every preset destined for disk — or for a
- * comparison against an on-disk shape — must pass through. Callers that
- * need to drop additional fields (e.g. `serializeForCopy` in the picker
- * strips `hotkey`) do so before invoking this helper.
+ * Undefined optional fields drop out, `tools` is copied so later mutation
+ * of the source cannot reach persisted state, and merge metadata such as
+ * `scope`, `shadowed`, `unavailable`, and the hotkey annotations falls
+ * away because `Preset` does not declare it. Every preset headed for disk
+ * or compared against an on-disk shape passes through here, so a caller
+ * that needs to drop more fields does so before calling.
  */
 export function toPersistedPreset(preset: Preset): Preset {
   const out: Preset = {
@@ -294,10 +282,10 @@ export function toPersistedPreset(preset: Preset): Preset {
 /**
  * Replace an existing preset by name.
  *
- * Supports renaming: `next.name` may differ from `oldName`. Position in
- * the file is preserved. Returns `Err` when:
- * - no preset with `oldName` exists in `scope`
- * - the rename would collide with another preset's name
+ * `next.name` may differ from `oldName` to rename the preset, which keeps
+ * its position in the file. Returns an error result when no preset named
+ * `oldName` exists in `scope`, or when the new name collides with another
+ * preset in that scope.
  */
 export async function updatePreset(
   oldName: string,

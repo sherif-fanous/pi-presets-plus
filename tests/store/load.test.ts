@@ -1,16 +1,8 @@
 /**
- * Tests for `src/store/load.ts`.
- *
- * Uses a per-test temp directory to exercise real filesystem I/O without
- * depending on the user environment. Covers all spec scenarios:
- *
- * - missing file → empty + no warning
- * - invalid JSON → empty + warning
- * - unsupported version → empty + warning, file untouched
- * - missing top-level fields → empty + warning
- * - mix of valid and invalid presets in one file → valid kept + warnings for invalid
- * - duplicate names within one file → first kept + warning for the rest
- * - duplicate tools → first occurrence kept in memory, source left unchanged
+ * Covers reading one presets file from disk: a missing file, invalid JSON,
+ * an unsupported version, malformed top-level fields, and invalid or
+ * duplicated entries, together with the warnings each case returns. Every
+ * test writes into a fresh temp directory.
  */
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -52,7 +44,6 @@ describe("loadFile", () => {
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain("invalid JSON");
 
-    // File should not be modified by the loader.
     const after = await readFile(path, "utf-8");
 
     expect(after).toBe("{ not json");
@@ -73,7 +64,6 @@ describe("loadFile", () => {
 
     expect(result.presets).toEqual([]);
     expect(result.warnings[0]).toContain("unsupported version");
-    // File on disk must be untouched.
     expect(await readFile(path, "utf-8")).toBe(original);
   });
 

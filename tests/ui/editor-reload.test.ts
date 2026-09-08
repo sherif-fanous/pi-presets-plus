@@ -1,5 +1,7 @@
 /**
- * Reload-prompt integration tests for editor Save paths.
+ * Covers when saving from the preset editor asks the user to reload Pi:
+ * hotkey adds, changes, and removals, renames and scope moves, and the
+ * cases where a pending change returns to what the session already runs.
  */
 import { ActivePresetSession } from "../../src/activation/session.js";
 import { analyzeHotkeys, HotkeyRegistry } from "../../src/hotkey-registry.js";
@@ -38,6 +40,7 @@ interface EditorHarness extends Component {
   state: EditorFormState;
 }
 
+/** Builds an extension context whose overlay mutates and saves the editor. */
 function makeCtx(mutate: (editor: EditorHarness) => void) {
   const reload = vi.fn();
   const notify = vi.fn();
@@ -78,6 +81,7 @@ function makeCtx(mutate: (editor: EditorHarness) => void) {
   };
 }
 
+/** Builds a saved preset that tests override field by field. */
 function preset(overrides: Partial<LoadedPreset> = {}): LoadedPreset {
   return {
     model: "claude-opus-4.5",
@@ -88,6 +92,10 @@ function preset(overrides: Partial<LoadedPreset> = {}): LoadedPreset {
   };
 }
 
+/**
+ * Binds a hotkey registry to the baseline presets, opens the editor, and
+ * saves the requested edit.
+ */
 async function runSave(options: {
   readonly initial?: LoadedPreset;
   readonly nextHotkey: string;

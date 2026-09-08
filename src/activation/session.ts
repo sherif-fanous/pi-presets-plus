@@ -1,9 +1,6 @@
 /**
- * Active-preset session attachment for pi-presets-plus.
- *
- * Owns the in-memory active-preset cell, session-entry persistence, status
- * badge refresh, dirty transitions, restore reconstruction, and self-trigger
- * guards. It does NOT own apply/clear decisions, storage loading, or picker UI.
+ * Holds the active-preset attachment for one extension invocation and keeps
+ * the session entry, the status badge, and the dirty flag in step with it.
  */
 import { findPreset } from "../preset-identity.js";
 import type {
@@ -18,6 +15,7 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
+/** Everything the session needs to start tracking a freshly applied preset. */
 export interface ActivePresetStartOptions {
   readonly baseline: PresetOverlayBaseline;
   readonly lastApplied: Extract<
@@ -80,11 +78,8 @@ export class ActivePresetSession {
   }
 
   /**
-   * Update the active preset identity after an editor rename or scope move.
-   *
-   * Refreshes the status badge so the footer shows the new name immediately;
-   * a missing refresh here was a pre-existing bug surfaced during the session
-   * refactor.
+   * Update the active preset identity after an editor rename or scope move,
+   * refreshing the status badge so the footer shows the new name.
    */
   updateIdentity(
     name: string,
@@ -191,7 +186,7 @@ export class ActivePresetSession {
     };
   }
 
-  /** Return whether the current model selection was triggered by this extension. */
+  /** Return whether this extension triggered the current model selection. */
   isSelfTriggered(): boolean {
     return this.selfTriggeredModelSetDepth > 0;
   }

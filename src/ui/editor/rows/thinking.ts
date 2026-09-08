@@ -1,9 +1,6 @@
 /**
- * "Thinking" row factory + shared pure helpers.
- *
- * Owns thinking-level cycling (gated by the current model's valid set),
- * help payload, and render. It does NOT own provider/model repair; the draft
- * module owns that coupled transition.
+ * The editor's thinking row, which cycles through the levels the selected
+ * model supports and renders the rest dimmed.
  */
 import { validThinkingLevels } from "../../../activation/thinking.js";
 import { THINKING_LEVELS } from "../../../types.js";
@@ -15,6 +12,7 @@ import type { Api, Model } from "@earendil-works/pi-ai";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey } from "@earendil-works/pi-tui";
 
+/** Build the thinking row. */
 export function makeThinkingRow(host: EditorRowHost): EditorRow {
   return {
     id: "thinking",
@@ -63,11 +61,8 @@ export function makeThinkingRow(host: EditorRowHost): EditorRow {
 }
 
 /**
- * Render the thinking row body for `state` against `model`.
- *
- * Exported so tests can exercise the dimmed-level + "not supported"
- * legend without instantiating the interactive editor; the row's
- * `renderLines` delegates here.
+ * Render the thinking row for `state` against `model`, dimming the levels
+ * that model does not support and adding a legend when any are dimmed.
  */
 export function renderThinkingRowsForState(
   theme: Pick<Theme, "fg">,
@@ -76,9 +71,8 @@ export function renderThinkingRowsForState(
   focused: boolean,
 ): string[] {
   const valid = validThinkingLevels(model);
-  // Disabled options are conveyed by dim color alone (no " disabled"
-  // suffix). The disabled-state legend below the row explains the
-  // convention so screen-reader users still get a hint.
+  // Unsupported levels carry no suffix, only dim color, so the legend
+  // below the row is what conveys their state without color.
   const options = THINKING_LEVELS.map((level) => {
     const label = level;
     const rendered = valid.includes(level) ? label : theme.fg("dim", label);
@@ -90,9 +84,8 @@ export function renderThinkingRowsForState(
   ];
 
   if (valid.length < THINKING_LEVELS.length) {
-    // Undefined models return the full set of valid levels, so this
-    // dimmed branch can only fire when the model is defined; the
-    // reasoning flag is therefore the complete branch condition.
+    // An undefined model reports every level as valid, so reaching here
+    // means `model` is set and its reasoning flag decides the wording.
     const message =
       model?.reasoning === false
         ? "This model does not support thinking."

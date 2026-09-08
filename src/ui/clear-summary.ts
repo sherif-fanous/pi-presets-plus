@@ -1,8 +1,6 @@
 /**
- * Clear-summary rendering for pi-presets-plus.
- *
- * Owns pure formatting of clear-result rows and lead copy. It does NOT own
- * clear decisions, Pi state restoration, notifications, or active sessions.
+ * Renders the summary shown after a preset is cleared: a title, a lead
+ * sentence, and one row per managed field.
  */
 import type {
   ClearAction,
@@ -17,17 +15,20 @@ import {
 } from "./labels.js";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
+/** Minimum theme surface the summary needs to color its title and labels. */
 interface Styler {
   bold(text: string): string;
   fg(color: Parameters<Theme["fg"]>[0], text: string): string;
 }
 
+/** Row label for each field the clear summary reports on. */
 const FIELD_LABELS: Record<ClearField, string> = {
   model: MODEL_LABEL,
   thinking: THINKING_LABEL,
   tools: TOOLS_LABEL,
 };
 
+/** Styler used when the caller passes no theme, leaving the text plain. */
 const IDENTITY_STYLER: Styler = {
   bold: (text) => text,
   fg: (_color, text) => text,
@@ -37,16 +38,9 @@ const IDENTITY_STYLER: Styler = {
  * Choose the plain-English lead sentence that sits under the title.
  *
  * The sentence describes the overall disposition so the per-row values
- * underneath can stay short. Decision priority (most specific first):
- *
- *   1. Every field is `unknown` (priorUnknown branch) — no baseline saved.
- *   2. Any field failed to restore — surface the problem in the lead.
- *   3. Every field already matched baseline — nothing was actually written.
- *   4. Every field is restore-like (restored / restored-partial /
- *      already-baseline) — the happy path; mention unavailable tools if any.
- *   5. Every field was kept (user-override / not-owned / baseline-null) —
- *      preset turned off but no baseline values were applicable.
- *   6. Otherwise it's a mixed result.
+ * underneath can stay short. The branches run from most specific to least:
+ * no saved baseline, a failed restore, everything already matching the
+ * baseline, everything restored, everything kept, then a mixed result.
  */
 export function chooseClearLead(parts: readonly ClearPart[]): string {
   if (parts.every((part) => part.action === "unknown")) {
@@ -74,6 +68,7 @@ export function chooseClearLead(parts: readonly ClearPart[]): string {
   return "Pi restored some settings and kept your manual changes for the rest.";
 }
 
+/** Format a model reference as `provider/id`, or `none` when unset. */
 export function formatModel(
   model: { provider: string; id: string } | null,
 ): string {
@@ -107,10 +102,12 @@ export function formatRowValue(part: ClearPart): string {
   }
 }
 
+/** Format a tool list as a comma-separated string, or `none` when empty. */
 export function formatTools(tools: readonly string[]): string {
   return tools.length > 0 ? tools.join(", ") : "none";
 }
 
+/** Render the full clear summary: title, lead sentence, and field rows. */
 export function renderClearSummary(
   name: string,
   parts: readonly ClearPart[],

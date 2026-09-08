@@ -1,9 +1,7 @@
 /**
- * Path resolution for preset storage files.
- *
- * Owns resolving the absolute on-disk location of each scope's presets
- * file (global under the agent dir, project under `<cwd>/.pi/`); it does
- * NOT perform any I/O.
+ * Resolves the absolute on-disk location of the presets and policy files
+ * for both the global scope (under the agent dir) and the project scope
+ * (under `<cwd>/.pi/`).
  */
 import { join } from "node:path";
 
@@ -24,10 +22,10 @@ export function getGlobalPolicyPath(agentDir: string = getAgentDir()): string {
 }
 
 /**
- * Absolute path to the global / user-scope preset file.
+ * Absolute path to the user-scope preset file.
  *
- * Uses pi's `getAgentDir()` by default (typically `~/.pi/agent`); pass an
- * override only from tests that want to point at a tmp dir without
+ * Defaults to Pi's `getAgentDir()`, typically `~/.pi/agent`. Pass an
+ * override from tests that point at a temporary directory instead of
  * patching environment variables.
  */
 export function getGlobalPresetsPath(agentDir: string = getAgentDir()): string {
@@ -35,10 +33,10 @@ export function getGlobalPresetsPath(agentDir: string = getAgentDir()): string {
 }
 
 /**
- * Absolute path to the project-scope preset file for the given working dir.
+ * Absolute path to the project-scope preset file for a working directory.
  *
- * Mirrors pi's convention of placing project-local config under `<cwd>/.pi/`.
- * The caller is expected to pass `ctx.cwd` from the extension context.
+ * Follows Pi's convention of keeping project-local config under
+ * `<cwd>/.pi/`. Callers pass `ctx.cwd` from the extension context.
  */
 export function getProjectPresetsPath(cwd: string): string {
   return join(cwd, PROJECT_PI_DIR, PRESETS_PLUS_SUBDIR, PRESETS_FILE_NAME);

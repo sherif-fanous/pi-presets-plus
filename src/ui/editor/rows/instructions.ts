@@ -1,9 +1,6 @@
 /**
- * "Instructions" (prompt) row factory.
- *
- * Owns the open-prompt-editor trigger, help payload, and render. The
- * actual multi-line editor lives in `prompt-editor.ts`; this row just
- * opens it via the host when Enter is pressed.
+ * The editor's prompt row, which previews the preset instructions on one
+ * line and opens the multi-line editor when the user presses Enter.
  */
 import {
   EMPTY_INPUT_PLACEHOLDER,
@@ -13,6 +10,7 @@ import {
 import type { EditorRow, EditorRowHost } from "../row.js";
 import { Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 
+/** Build the prompt row. */
 export function makeInstructionsRow(host: EditorRowHost): EditorRow {
   return {
     id: "instructions",

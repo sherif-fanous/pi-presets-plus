@@ -1,12 +1,11 @@
 /**
- * Status-bar rendering for active presets.
- *
- * Owns the compact `presets-plus` footer status formatter; it does NOT
- * compute drift, mutate active state, or write to the Pi UI directly.
+ * Renders the compact `presets-plus` badge that names the active preset in
+ * Pi's status bar.
  */
 import type { ActivePresetState } from "../types.js";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
+/** Status-bar slot the badge registers under. */
 export const STATUS_KEY = "presets-plus";
 
 /** Render the active-preset status badge. */

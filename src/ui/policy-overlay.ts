@@ -1,8 +1,6 @@
 /**
- * Confirmation overlay for policy-discouraged preset activations.
- *
- * Owns policy warning copy and outcome labels; it does NOT evaluate policy or
- * apply presets.
+ * Asks the user to confirm an activation that the directory's access
+ * policy does not permit.
  */
 import type { LoadedPreset } from "../types.js";
 import { openConfirm } from "./confirm.js";

@@ -1,8 +1,6 @@
 /**
- * Read-only informational overlay for picker-owned multi-line output.
- *
- * Owns tone styling, framing, and Enter/Esc dismissal; it does NOT own
- * command formatting, activation state, or picker state restoration.
+ * Read-only overlay that frames multi-line output, colors it by tone, and
+ * dismisses on Enter or Esc.
  */
 import { renderDialogFrame, wrapBody } from "./frame.js";
 import type {
@@ -16,14 +14,17 @@ import {
   type Focusable,
 } from "@earendil-works/pi-tui";
 
+/** Title, body, and optional tone for one informational overlay. */
 export interface InfoDialogOptions {
   readonly body: string;
   readonly title: string;
   readonly tone?: InfoDialogTone;
 }
 
+/** Severity that picks the title color and the footer hint wording. */
 export type InfoDialogTone = "info" | "warning" | "error";
 
+/** Dialog options after the default tone is filled in. */
 type ResolvedInfoDialogOptions = InfoDialogOptions & { tone: InfoDialogTone };
 
 class InfoDialogComponent implements Component, Focusable {
@@ -79,6 +80,7 @@ class InfoDialogComponent implements Component, Focusable {
   }
 }
 
+/** Open the overlay and resolve once the user dismisses it. */
 export async function openInfoDialog(
   ctx: Pick<ExtensionCommandContext, "ui">,
   options: InfoDialogOptions,

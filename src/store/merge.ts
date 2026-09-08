@@ -1,9 +1,7 @@
 /**
- * Scope merge for preset storage.
- *
- * Owns combining the per-scope loader outputs into the single ordered
- * `LoadedPreset[]` exposed by `loadAll`, including scope tagging,
- * shadowing, and availability tagging. Pure: no I/O, no logging.
+ * Combines the two scope files into the single ordered `LoadedPreset[]`
+ * that `loadAll` returns, tagging each entry with its scope, its
+ * shadowing, and its availability.
  */
 import type { LoadedPreset, Preset } from "../types.js";
 import { computeAvailability } from "./validate.js";
@@ -21,9 +19,9 @@ interface MergeScopesInput {
  * Merge two scopes into a single ordered list.
  *
  * Globals are emitted first, then projects, each preserving file order.
- * Globals that share a name with a project entry are tagged
- * `shadowed: true` (still emitted, never dropped). Availability is
- * computed for every entry.
+ * A global preset that shares a name with a project entry is tagged
+ * `shadowed: true` and still emitted. Availability is computed for every
+ * entry.
  */
 export function mergeScopes(
   input: MergeScopesInput,
@@ -53,11 +51,9 @@ export function mergeScopes(
 }
 
 /**
- * Spread-helper that returns either `{}` or `{ unavailable: <reason> }`.
- *
- * Keeps `LoadedPreset.unavailable` cleanly absent for available presets
- * (rather than serializing `unavailable: undefined`) and avoids the
- * caller having to do conditional assignment at every call site.
+ * Return `{ unavailable: <reason> }` for a preset that cannot be
+ * activated, and `{}` otherwise so the field stays absent rather than
+ * spreading as `unavailable: undefined`.
  */
 function availabilityField(
   preset: Pick<Preset, "provider" | "model">,

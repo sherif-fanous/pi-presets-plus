@@ -1,9 +1,7 @@
 /**
- * Tests effective thinking-level computation for preset activation.
- *
- * Owns coverage for OpenSpec change `add-preset-activation` task 2.2; it does
- * NOT exercise pi mutation. Future editor tests can reuse these cases as UI
- * fixtures.
+ * Covers the thinking level a preset resolves to for a given model and the
+ * set of levels that model accepts, including clamping for models without
+ * reasoning and for levels a `thinkingLevelMap` rules out.
  */
 import {
   effectiveThinkingLevel,

@@ -1,8 +1,6 @@
 /**
- * Thinking-level capability helpers for preset activation.
- *
- * Owns the mapping from a resolved model to the thinking levels a preset
- * may legally apply; it does NOT mutate pi state or surface notifications.
+ * Maps a resolved model to the thinking levels a preset may apply to it, and
+ * clamps a preset's declared level to that range.
  */
 import { THINKING_LEVELS, type Preset, type ThinkingLevel } from "../types.js";
 import {
@@ -11,7 +9,7 @@ import {
   type Model,
 } from "@earendil-works/pi-ai";
 
-/** Return the level pi will effectively use for the preset/model pair. */
+/** Return the level Pi will effectively use for the preset and model pair. */
 export function effectiveThinkingLevel(
   preset: Pick<Preset, "thinkingLevel">,
   model: Model<Api> | undefined,
@@ -24,15 +22,14 @@ export function effectiveThinkingLevel(
 }
 
 /**
- * Return the levels meaningful for a model; unknown models are permissive.
+ * Return the levels meaningful for a model; an unknown model allows them all.
  *
- * `model.reasoning === false` is authoritative and allows only `"off"`.
- * Reasoning models mirror pi-ai's supported-level parser: a level is
- * unsupported when the map explicitly stores `null`; missing keys fall through
- * to provider defaults for levels through `"high"`; `"xhigh"` and `"max"`
- * must be explicitly mapped to a non-null value. Optional-chained reads keep
- * older pi-ai bundles that predate `thinkingLevelMap` on the legacy up-to-high
- * behavior.
+ * `model.reasoning === false` settles the question and leaves only `"off"`.
+ * For reasoning models this mirrors the pi-ai supported-level parser: a level
+ * is unsupported when `thinkingLevelMap` stores `null` for it, missing keys
+ * fall through to provider defaults for levels up to `"high"`, and `"xhigh"`
+ * and `"max"` need an explicit non-null entry. The optional chaining keeps
+ * pi-ai bundles without `thinkingLevelMap` on the up-to-high behavior.
  */
 export function validThinkingLevels(
   model: Model<Api> | undefined,

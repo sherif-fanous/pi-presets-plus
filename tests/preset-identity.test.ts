@@ -1,5 +1,6 @@
 /**
- * Tests for shared preset identity helpers.
+ * Covers the helpers that identify a preset by name and scope together:
+ * looking one up in a list and comparing two identities.
  */
 import { findPreset, samePresetIdentity } from "../src/preset-identity.js";
 import type { LoadedPreset } from "../src/types.js";

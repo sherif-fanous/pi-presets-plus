@@ -1,8 +1,6 @@
 /**
- * Regression tests for the confirmation overlay chrome.
- *
- * The golden output guards the shared dialog-frame refactor from changing
- * openConfirm's caller-visible rendering contract.
+ * Covers the chrome of the confirmation overlay with a golden rendering of
+ * the frame, prompt, choices, and footer hint.
  */
 import { openConfirm } from "../../src/ui/confirm.js";
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -19,6 +17,7 @@ interface ConfirmHarness {
   readonly rendered: string[];
 }
 
+/** Opens a confirmation overlay and records the lines it renders. */
 function makeConfirmHarness(input = "n", width = 48): ConfirmHarness {
   const rendered: string[] = [];
   const ctx = {

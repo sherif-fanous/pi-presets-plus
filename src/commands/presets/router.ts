@@ -1,9 +1,7 @@
 /**
- * `/presets` subcommand router.
- *
- * Owns command token dispatch and autocomplete for the `/presets` command;
- * storage, activation, picker, and clear semantics live in their dedicated
- * modules.
+ * Dispatches `/presets` invocations to the picker, to a subcommand, or to
+ * activation by preset name, and answers the host's autocomplete requests
+ * for the same argument.
  */
 import { clear } from "../../activation/clear.js";
 import { requestActivation } from "../../activation/request.js";
@@ -22,6 +20,7 @@ import type {
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
 
+/** One `/presets` subcommand: the token, its completion label, and its runner. */
 interface Subcommand {
   readonly value: string;
   readonly label: string;
@@ -34,6 +33,7 @@ interface Subcommand {
   ): Promise<void>;
 }
 
+/** Every subcommand, read by both autocomplete and dispatch. */
 const SUBCOMMANDS: readonly Subcommand[] = [
   {
     value: "reload",
@@ -62,6 +62,10 @@ const SUBCOMMANDS: readonly Subcommand[] = [
   },
 ] as const;
 
+/**
+ * Complete the argument after `/presets`: preset names once the user has
+ * typed `show-prompt `, subcommand tokens otherwise.
+ */
 export async function getArgumentCompletions(
   prefix: string,
   getPresetNames: () => Promise<readonly string[]> = () => Promise.resolve([]),
@@ -85,6 +89,11 @@ export async function getArgumentCompletions(
   ).map(({ value, label }) => ({ value, label }));
 }
 
+/**
+ * Run a `/presets` invocation. An empty argument opens the picker, a known
+ * subcommand runs it, and any other token is tried as a preset name before
+ * the unknown-subcommand warning.
+ */
 export async function handlePresetsCommand(
   args: string,
   ctx: ExtensionCommandContext,
@@ -130,6 +139,7 @@ export async function handlePresetsCommand(
   );
 }
 
+/** Activate a preset by name, returning false when no such preset exists. */
 async function activateNamedPreset(
   name: string,
   ctx: ExtensionCommandContext,
@@ -155,6 +165,7 @@ async function activateNamedPreset(
   return true;
 }
 
+/** List the supported commands for the unknown-subcommand warning. */
 function formatSupportedCommandHint(): string {
   const commands = [
     "/presets",

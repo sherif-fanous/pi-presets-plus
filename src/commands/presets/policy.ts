@@ -1,8 +1,6 @@
 /**
- * Read-only `/presets policy` report.
- *
- * Owns effective policy formatting and notification delivery; it does NOT
- * mutate policy or preset files.
+ * Reports which presets the policy allows, prohibits, and defaults to for
+ * the current directory, and delivers that report to the user.
  */
 import { loadAll } from "../../store/api.js";
 import {
@@ -27,24 +25,29 @@ import type {
   Theme,
 } from "@earendil-works/pi-coding-agent";
 
+/** The theme surface {@link formatPolicy} needs to style its rows. */
 interface Styler {
   bold(text: string): string;
   fg(color: string, text: string): string;
 }
 
+/** Styler that returns text unchanged, for plain output and for tests. */
 const IDENTITY_STYLER: Styler = {
   bold: (text) => text,
   fg: (_color, text) => text,
 };
+/** Every label the report can render, in display order. */
 const POLICY_LABELS = [
   `${DIRECTORY_LABEL}:`,
   `${ALLOWED_PRESETS_LABEL}:`,
   `${PROHIBITED_PRESETS_LABEL}*:`,
   `${DEFAULT_PRESET_LABEL}:`,
 ] as const;
+/** Width of the label column, so the values line up. */
 const POLICY_LABEL_WIDTH = Math.max(
   ...POLICY_LABELS.map((label) => label.length),
 );
+/** Footnote shown when the policy prohibits at least one preset. */
 const OVERRIDE_FOOTNOTE =
   "* You can still activate a prohibited preset by confirming the override.";
 
@@ -120,6 +123,7 @@ function formatNames(names: readonly string[]): string {
   return names.length > 0 ? names.join(", ") : "none";
 }
 
+/** Render one label and value pair padded to the label column. */
 function row(label: string, value: string, styler: Pick<Theme, "fg">): string {
   const padding = " ".repeat(POLICY_LABEL_WIDTH - label.length);
 

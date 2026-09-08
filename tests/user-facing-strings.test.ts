@@ -1,15 +1,16 @@
 /**
- * Regression checks for user-facing string vocabulary.
- *
- * Owns a small static scan for old-voice fragments; it does NOT replace
- * reviewer judgement for new prose or validate every possible sentence.
+ * Scans the source tree for user-facing strings that break the project's
+ * voice: banned wording, notification literals that end without
+ * punctuation, and dialog titles that start lowercase.
  */
 import { globSync, readFileSync } from "node:fs";
 import { relative } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+/** Directory whose TypeScript files the scan reads. */
 const SOURCE_ROOT = "src";
+/** Wording that must not appear in a user-facing string. */
 const OLD_VOICE_PATTERNS: readonly RegExp[] = [
   /["'`]preset:\s*/,
   /["'`]scope:\s+(?!name|preset)/,
@@ -22,15 +23,17 @@ const OLD_VOICE_PATTERNS: readonly RegExp[] = [
   /["'`]user manually overrode preset value["'`]/,
   /["'`]not managed by active preset["'`]/,
 ];
-// openConfirm's title is the 2nd positional argument; openInfoDialog takes a
-// `title:` option. The openConfirm branch matches a plain identifier or
-// property access (no `:` — so the function declaration's typed parameters
-// don't match) terminated by a comma before the title literal. The `title:`
-// branch is anchored on a word boundary so it does not match property-name
-// declarations like `private readonly title: string`, which lack a trailing
-// string literal.
+/**
+ * Matches a dialog title literal that starts lowercase, whether it is the
+ * second positional argument of `openConfirm` or the `title:` option of
+ * `openInfoDialog`. The `openConfirm` branch demands a plain identifier or
+ * property access before the comma so typed parameters in a function
+ * declaration stay out, and the `title:` branch demands a following string
+ * literal so declarations like `private readonly title: string` stay out.
+ */
 const LOWERCASE_DIALOG_TITLE_PATTERN =
   /(?:openConfirm\(\s*[\w.]+,\s*|\btitle:\s*)["'`][a-z][^"'`?\n]*["'`]/s;
+/** Captures the first string literal passed to a `.notify(` call. */
 const NOTIFY_CALL_PATTERN = /\.notify\((?<body>`[^`]*`|"[^"]*"|'[^']*')/gs;
 
 describe("user-facing string conventions", () => {

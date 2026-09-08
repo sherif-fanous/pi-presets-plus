@@ -1,24 +1,19 @@
 /**
- * Shared low-level render primitives for editor rows.
- *
- * Owns the label/value row, choice row, text-input row, and field
- * diagnostic helpers consumed by individual row modules. It does NOT
- * own row dispatch, focus logic, or per-row state.
- *
- * Each helper here is a pure function of its arguments; rows pass the
- * host through when they need access to the editor's current
- * diagnostic for their row.
+ * Render primitives the editor rows share: the label and value line, the
+ * choice line, the text-input line, and the diagnostic line beneath a row.
  */
 import type { EditorRowId } from "../editor-types.js";
 import type { EditorRowHost } from "./row.js";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Input } from "@earendil-works/pi-tui";
 
+/** Column the value text starts at, in characters. */
 const EDITOR_LABEL_WIDTH = 15;
 
+/** Stand-in text shown for an empty value. */
 export const EMPTY_INPUT_PLACEHOLDER = "(empty)";
 
-/** Render a row whose value is a one-of choice (e.g. user / project). */
+/** Render a row whose value is one option out of a small set. */
 export function renderChoiceRow(
   theme: Pick<Theme, "fg">,
   label: string,
@@ -34,8 +29,8 @@ export function renderChoiceRow(
 }
 
 /**
- * Render a single-line text-input row: the live `Input` widget when
- * focused, the trimmed value (or a dim placeholder for empty) when not.
+ * Render a single-line text-input row: the live `Input` widget while the
+ * row has focus, otherwise the value or a dim placeholder when it is empty.
  */
 export function renderTextInputRow(
   host: EditorRowHost,
@@ -70,7 +65,7 @@ export function renderTextInputRow(
   );
 }
 
-/** Render the focus marker + padded label + value as a single line. */
+/** Render the focus marker, padded label, and value as one line. */
 export function renderValueRow(
   theme: Pick<Theme, "fg">,
   label: string,
@@ -86,10 +81,8 @@ export function renderValueRow(
 }
 
 /**
- * Append `row`'s diagnostic message line beneath `line` when one is
- * set; otherwise return just `[line]`. Diagnostics live on the host so
- * the editor can clear them in response to non-row events (e.g. a save
- * attempt) without each row re-rendering the latest state.
+ * Append the row's diagnostic message beneath `line` when the host holds
+ * one for it.
  */
 export function withFieldDiagnostic(
   host: EditorRowHost,
@@ -102,11 +95,8 @@ export function withFieldDiagnostic(
 }
 
 /**
- * Wrap a current index by `direction` (+1 / -1) modulo `length`.
- *
- * Used by every row whose value is a horizontal selector (scope,
- * provider, model, thinking, buttons) so navigation behaves
- * consistently across rows.
+ * Step an index one place in `direction`, wrapping around the ends of a
+ * list of `length` items.
  */
 export function wrapIndex(
   currentIndex: number,
@@ -118,6 +108,7 @@ export function wrapIndex(
   return (((currentIndex + direction) % length) + length) % length;
 }
 
+/** Render the host's diagnostic for `row` as a colored, indented line. */
 function renderFieldDiagnostic(
   host: EditorRowHost,
   row: EditorRowId,

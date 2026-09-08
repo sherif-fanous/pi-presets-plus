@@ -1,16 +1,11 @@
 /**
- * `/presets reload` command runner.
- *
- * Owns re-reading both scope files on demand and reporting the result to
- * the user as a single notification; it does NOT own the underlying
- * storage layer or activation state.
+ * Runs `/presets reload`, which re-reads both scope files and reports how
+ * many presets came back along with any warnings.
  */
 import { loadAll } from "../../store/api.js";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-/**
- * Run the `reload` subcommand against a live `ExtensionContext`.
- */
+/** Re-read both preset files and notify the user of the result. */
 export async function runReload(ctx: ExtensionContext): Promise<void> {
   const { presets, warnings } = await loadAll(ctx);
   const summary = `Reloaded ${presets.length} preset${presets.length === 1 ? "" : "s"}.`;

@@ -1,9 +1,6 @@
 /**
- * Single-file loader for preset storage.
- *
- * Owns reading one scope file from disk and turning it into a list of
- * valid presets plus human-readable warnings; it does NOT own merging
- * across scopes, availability computation, or any mutation.
+ * Reads one scope's preset file from disk and turns it into a list of
+ * valid presets plus warnings a user can act on.
  */
 import { readFile } from "node:fs/promises";
 
@@ -21,7 +18,8 @@ interface LoadFileResult {
 /**
  * Read and parse a single preset file.
  *
- * Behavior is fully described by the storage spec:
+ * A malformed file yields no presets and one warning; a malformed entry
+ * inside an otherwise valid file costs only that entry:
  *
  *  | Condition                    | Result                                  |
  *  | ---------------------------- | --------------------------------------- |
@@ -40,8 +38,8 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
   try {
     rawData = await readFile(path, "utf-8");
   } catch (err) {
-    // `ENOENT` is the only error that does not warrant a warning: a
-    // missing file is the normal "no presets configured yet" state.
+    // A missing file is the normal "no presets configured yet" state, so
+    // it is the one read error that carries no warning.
     if (isNotFoundError(err)) return emptyResult();
 
     return emptyResult(
@@ -87,8 +85,8 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
   const validatedPresets: Preset[] = [];
   const rawPresets: unknown[] = obj.presets;
 
-  // First pass: shape validation. Skip-and-warn on individual offenders so
-  // one broken preset never disables the whole file.
+  // Skipping and warning per entry keeps one broken preset from
+  // disabling the whole file.
   for (let i = 0; i < rawPresets.length; i++) {
     const candidatePreset = rawPresets[i];
     const result = validatePresetShape(candidatePreset);
@@ -103,7 +101,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
       continue;
     }
 
-    // validatePresetShape narrows to "object with required fields"; cast is safe.
+    // validatePresetShape already proved the required fields are present.
     const preset = candidatePreset as Preset;
 
     validatedPresets.push(
@@ -113,7 +111,7 @@ export async function loadFile(path: string): Promise<LoadFileResult> {
     );
   }
 
-  // Second pass: duplicate name detection. The first occurrence wins.
+  // The first entry to claim a name keeps it.
   const duplicatePresetNames = findDuplicatePresetNames(validatedPresets);
 
   if (duplicatePresetNames.length > 0) {

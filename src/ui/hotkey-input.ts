@@ -1,34 +1,34 @@
 /**
- * Hotkey parsing and conflict helpers for preset editor fields.
- *
- * Owns normalizing user-entered key combinations and comparing them against
- * pi built-ins or loaded presets; it does NOT register shortcuts or persist
- * preset files.
+ * Parses hotkeys typed into the preset editor and compares them against
+ * Pi's built-in keybindings and the hotkeys of other presets.
  */
 import type { LoadedPreset } from "../types.js";
 
+/** A hotkey split into its key and modifiers, plus its normalized form. */
 export interface ParsedHotkey {
   readonly key: string;
   readonly modifiers: readonly HotkeyModifier[];
   readonly normalized: string;
 }
 
+/** Modifier keys a hotkey may combine with its key. */
 export type HotkeyModifier = "alt" | "ctrl" | "shift";
 
+/** Parse outcome carrying either the parsed hotkey or a reason it failed. */
 export type ParseHotkeyResult =
   | { ok: true; parsed: ParsedHotkey }
   | { ok: false; reason: string };
 
 /**
- * Modifier ordering used for the `normalized` form of a parsed hotkey.
+ * Fixed modifier order used to build the `normalized` form of a hotkey.
  *
- * The order is fixed (not user-visible) so two hotkeys with the same set of
- * modifiers normalize to the same string regardless of how the user typed
- * them. Conflict detection compares normalized strings only — the
- * presentation layer is free to render modifiers in display order.
+ * Two hotkeys with the same modifiers normalize to the same string whatever
+ * order the user typed them in, which is what conflict detection compares.
  */
 const MODIFIER_ORDER: readonly HotkeyModifier[] = ["ctrl", "shift", "alt"];
+/** Modifier names recognized in a typed hotkey. */
 const MODIFIERS = new Set<string>(MODIFIER_ORDER);
+/** Named keys accepted as the key portion of a hotkey. */
 const SPECIAL_KEYS = new Set([
   "backspace",
   "clear",
@@ -49,11 +49,13 @@ const SPECIAL_KEYS = new Set([
   "tab",
   "up",
 ]);
-// TODO(change-7): shifted-symbol equivalents are layout-dependent
-// (e.g. on a US layout `ctrl+!` and `ctrl+shift+1` produce the same
-// physical chord but normalize to different strings here, so conflict
-// detection between the two will miss). Revisit when per-preset hotkeys
-// actually register with pi-tui's keybinding manager.
+/**
+ * Symbol keys accepted as the key portion of a hotkey.
+ *
+ * Shifted symbols depend on the keyboard layout, so `ctrl+!` and
+ * `ctrl+shift+1` normalize to different strings even where one chord
+ * produces both, and conflict detection treats them as separate hotkeys.
+ */
 const SYMBOL_KEYS = new Set([
   "`",
   "-",
@@ -88,7 +90,7 @@ const SYMBOL_KEYS = new Set([
   "?",
 ]);
 
-/** Defaults copied from pi's documented `docs/keybindings.md`. */
+/** Default keybindings Pi documents in `docs/keybindings.md`. */
 export const PI_BUILTIN_HOTKEYS: readonly string[] = [
   "alt+b",
   "alt+backspace",
@@ -150,12 +152,14 @@ export const PI_BUILTIN_HOTKEYS: readonly string[] = [
   "up",
 ];
 
+/** Normalized forms of every Pi built-in, for conflict lookups. */
 const NORMALIZED_PI_BUILTINS = new Set(
   PI_BUILTIN_HOTKEYS.map((hotkey) => parseHotkey(hotkey))
     .filter((result): result is { ok: true; parsed: ParsedHotkey } => result.ok)
     .map((result) => result.parsed.normalized),
 );
 
+/** Find the preset whose hotkey normalizes to the same chord, if any. */
 export function findConflictingPreset(
   parsedKey: ParsedHotkey,
   loadedPresets: readonly LoadedPreset[],
@@ -171,10 +175,12 @@ export function findConflictingPreset(
   });
 }
 
+/** Whether the hotkey shadows one of Pi's built-in keybindings. */
 export function isPiBuiltin(parsedKey: ParsedHotkey): boolean {
   return NORMALIZED_PI_BUILTINS.has(parsedKey.normalized);
 }
 
+/** Parse a typed hotkey such as `ctrl+shift+p` into its normalized form. */
 export function parseHotkey(text: string): ParseHotkeyResult {
   const raw = text.trim().toLowerCase();
 

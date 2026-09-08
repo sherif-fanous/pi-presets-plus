@@ -1,10 +1,7 @@
 /**
- * Tests for preset card formatting helpers.
- *
- * These cover reusable widget primitives from OpenSpec change
- * `add-preset-picker`; the interactive picker renders these helpers inside a
- * custom TUI component, so these unit checks focus on deterministic text
- * transformations rather than terminal integration.
+ * Covers the widgets a preset card is built from: scope, availability,
+ * thinking, and tools labels, the truncated prompt preview, and the rows a
+ * rendered card produces for warnings, drift, and shadowing.
  */
 import type { LoadedPreset } from "../../src/types.js";
 import {
@@ -19,6 +16,7 @@ import {
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 
+/** Preset the card tests start from before overriding single fields. */
 const basePreset: LoadedPreset = {
   model: "claude-opus-4.5",
   name: "plan",
@@ -26,6 +24,7 @@ const basePreset: LoadedPreset = {
   scope: "user",
 };
 
+/** Theme that returns text unchanged so assertions can match plain text. */
 const identityTheme: Pick<Theme, "fg" | "bold"> = {
   bold: (text) => text,
   fg: (_color, text) => text,

@@ -1,9 +1,7 @@
 /**
- * Validation primitives for the preset storage layer.
- *
- * Owns shape validation of individual presets, duplicate-name detection
- * within a list, and runtime availability checks against pi's model
- * registry. None of these helpers throw or perform file-system I/O.
+ * Checks the shape of a single preset, finds duplicate names in a list,
+ * and asks Pi's model registry whether a preset can run. None of these
+ * helpers throw or touch the file system.
  */
 import { validThinkingLevels } from "../activation/thinking.js";
 import { THINKING_LEVELS, type Preset, type ThinkingLevel } from "../types.js";
@@ -17,17 +15,13 @@ interface ValidationResult {
 }
 
 /**
- * Compute the availability of a preset against the live model registry.
+ * Report why a preset cannot run against the live model registry:
+ * `"no-model"` when its `provider` and `model` pair is not registered,
+ * `"no-key"` when the model is registered but its provider has no API
+ * key, `undefined` when the preset is available.
  *
- * Returns:
- * - `"no-model"`  the preset's `provider`/`model` is not registered
- * - `"no-key"`    the model is registered but its provider has no API key
- * - `undefined`   the preset is fully available
- *
- * Does not perform any network I/O: the API key check uses
- * `hasConfiguredAuth` (synchronous, fast) rather than refreshing OAuth
- * tokens. Activation-time code paths (later change) re-check with the
- * async resolver.
+ * The key check calls the synchronous `hasConfiguredAuth` and performs no
+ * network I/O, so it never refreshes an OAuth token.
  */
 export function computeAvailability(
   preset: Pick<Preset, "provider" | "model">,
@@ -56,11 +50,10 @@ export function computeClampWarning(
 }
 
 /**
- * Find duplicate `name` entries in a preset array, preserving the index of
- * each duplicate (i.e. the second and subsequent occurrences) so the
- * loader can skip-and-warn naming the offenders.
+ * Find repeated `name` entries in a preset array.
  *
- * Pure: does not mutate the input array.
+ * Only the second and later occurrences are reported, each with its index,
+ * so the loader can drop them and name them in a warning.
  */
 export function findDuplicatePresetNames(
   presets: readonly Preset[],
@@ -88,7 +81,7 @@ export function findDuplicatePresetNames(
 /**
  * Validate the shape of a single preset.
  *
- * Required fields (per the storage spec):
+ * Required fields:
  *  - `name`     non-empty string
  *  - `provider` non-empty string
  *  - `model`    non-empty string
@@ -100,8 +93,8 @@ export function findDuplicatePresetNames(
  *  - `hotkey`         must be a string
  *  - `order`          must be a finite number
  *
- * Unknown fields are accepted (forward-compat); the loader's serializer
- * only round-trips the typed shape but extra fields are not flagged.
+ * Unknown fields pass validation, and the serializer writes back only the
+ * fields `Preset` declares.
  */
 export function validatePresetShape(
   candidatePreset: unknown,

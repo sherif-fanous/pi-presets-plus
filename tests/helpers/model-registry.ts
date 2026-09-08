@@ -1,16 +1,12 @@
 /**
- * Shared `ModelRegistry` test stub.
- *
- * The storage layer only ever calls `find` + `hasConfiguredAuth`, so a
- * structural stub is sufficient. The real `ModelRegistry` class carries
- * private fields (`authStorage`, `models`, …) that a literal cannot
- * satisfy structurally, so callers cast through `unknown` at the
- * boundary — this helper centralizes that cast and its rationale so
- * individual tests don't repeat the comment.
+ * Builds the `ModelRegistry` stub that tests hand to storage and
+ * activation code, from a plain map of providers, models, and the auth and
+ * reasoning traits each model should report.
  */
 import type { Model, ThinkingLevelMap } from "@earendil-works/pi-ai";
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 
+/** Models a stub registry knows about, keyed by provider then model id. */
 export interface RegistryStub {
   models: Record<
     string,
@@ -25,6 +21,10 @@ export interface RegistryStub {
   >;
 }
 
+/**
+ * Builds a registry whose `find` and `hasConfiguredAuth` answer from the
+ * given map.
+ */
 export function makeStubModelRegistry(stub: RegistryStub): ModelRegistry {
   const modelRegistry = {
     find(provider: string, modelId: string): Model<never> | undefined {
@@ -46,8 +46,7 @@ export function makeStubModelRegistry(stub: RegistryStub): ModelRegistry {
     },
   };
 
-  // Cast at the boundary: the real class has private fields a structural
-  // stub cannot match. Storage-layer code only reads `find` +
-  // `hasConfiguredAuth`, so the runtime surface is faithful.
+  // The real class declares private fields that no object literal can
+  // satisfy structurally, so the stub crosses the boundary via `unknown`.
   return modelRegistry as unknown as ModelRegistry;
 }

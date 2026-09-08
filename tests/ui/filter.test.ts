@@ -1,10 +1,7 @@
 /**
- * Tests for pure preset-picker filtering helpers.
- *
- * Cover the literal-first ranking and scope-filter contracts from OpenSpec
- * change `add-preset-picker`. Picker state machine, activation, and TUI
- * rendering are tested elsewhere (or manually smoked) so failures here
- * point only at filter semantics.
+ * Covers the picker filtering helpers: ranking presets against a query so
+ * literal matches come before subsequence matches, and narrowing the list
+ * to the user or project scope.
  */
 import type { LoadedPreset } from "../../src/types.js";
 import { applyScopeFilter, rankPresets } from "../../src/ui/filter.js";
@@ -41,6 +38,7 @@ function names(presets: readonly LoadedPreset[]): string[] {
   return presets.map((preset) => preset.name);
 }
 
+/** Lists presets as `scope:name` so assertions can tell scopes apart. */
 function scopedNames(presets: readonly LoadedPreset[]): string[] {
   return presets.map((preset) => `${preset.scope}:${preset.name}`);
 }

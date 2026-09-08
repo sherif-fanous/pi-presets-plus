@@ -1,10 +1,7 @@
 /**
- * Preset apply flow.
- *
- * Owns the end-to-end activation of a preset: writing model, thinking, and
- * tool state, recording the baseline overlay, persisting activation, and
- * refreshing status. It does NOT own command lookup, session restore, or
- * picker UI.
+ * Activates a preset by writing its model, thinking level, and tools to Pi,
+ * capturing the baseline those writes replaced, and attaching the preset to
+ * the session.
  */
 import { samePresetIdentity } from "../preset-identity.js";
 import type { LoadedPreset } from "../types.js";
@@ -17,20 +14,20 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
-/**
- * In-memory result from applying a preset.
- *
- * Refusal kinds:
- * - `no-key`: the preset is unavailable because its provider key is missing.
- * - `no-model`: the preset is unavailable because its model is not installed.
- * - `unknown-model`: the preset references a provider/model not in the registry.
- * - `key-revoked`: the model resolved, but `setModel` refused it at apply time.
- */
+/** Message that an apply produced alongside a successful activation. */
 export interface ApplyNotice {
   readonly severity: "info" | "warning";
   readonly message: string;
 }
 
+/**
+ * Outcome of an apply: success with any notices, or a refusal.
+ *
+ * The refusal kinds separate a preset that was already unavailable
+ * (`no-key`, `no-model`), one naming a model the registry does not know
+ * (`unknown-model`), and one whose model resolved but that `setModel`
+ * rejected at apply time (`key-revoked`).
+ */
 export type ApplyResult =
   | {
       ok: true;
@@ -44,9 +41,10 @@ export type ApplyResult =
     };
 
 /**
- * Apply `preset` to Pi state and return structured refusals or successful
- * accompaniments. Callers surface the result through the channel appropriate
- * to their context.
+ * Apply `preset` to Pi state.
+ *
+ * The result carries refusals and notices as data so each caller can surface
+ * them through the channel that suits its context.
  */
 export async function apply(
   preset: LoadedPreset,
@@ -133,7 +131,7 @@ export async function apply(
   }
 
   // Commit active state before callers present the apply outcome so the
-  // footer and any related UI already reflect the new preset.
+  // footer and any related UI already show the new preset.
   session.start(
     {
       applyCount,
@@ -184,6 +182,7 @@ function filterValidTools(
   return desired.filter((toolName) => available.has(toolName));
 }
 
+/** Set the model inside the self-trigger guard so drift handlers ignore it. */
 async function setModelGuarded(
   pi: Pick<ExtensionAPI, "setModel">,
   model: NonNullable<ReturnType<ExtensionContext["modelRegistry"]["find"]>>,

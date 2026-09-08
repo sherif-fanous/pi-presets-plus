@@ -1,11 +1,7 @@
 /**
- * Event-handler logic for active-preset drift tracking.
- *
- * Owns translating Pi model/thinking/turn events into dirty-state updates;
- * it does NOT register handlers with Pi, render picker/status UI directly,
- * or read the on-disk preset files. Drift detection compares against the
- * `declared` snapshot cached on `ActivePresetState` at apply / restore time
- * so per-turn handlers stay in-memory only.
+ * Turns Pi model, thinking level, and turn events into dirty-state updates
+ * for the active preset, comparing against the snapshot cached on
+ * `ActivePresetState` so the per-turn work stays in memory.
  */
 import { detectDriftReasons } from "./drift.js";
 import type { ActivePresetSession } from "./session.js";
@@ -32,10 +28,9 @@ type DriftHandlerPi = Pick<ExtensionAPI, "getActiveTools" | "getThinkingLevel">;
 /**
  * Handle `model_select` by re-evaluating drift against the cached snapshot.
  *
- * The model-match branch deliberately delegates to a full drift recheck
- * (instead of unconditionally marking clean) so that re-selecting the
- * preset's model while thinking or tools are still drifted does not produce
- * a stale-clean badge until the next `turn_start` runs.
+ * The recheck covers every dimension even when the chosen model matches the
+ * preset, because a drifted thinking level or tool set would otherwise show
+ * a clean badge until the next `turn_start`.
  */
 export async function handleModelSelectDrift(
   event: ModelSelectLikeEvent,

@@ -1,9 +1,6 @@
 /**
- * Baseline capture for preset activation overlays.
- *
- * Owns reading the current pi state so a preset can later be cleared back
- * to its pre-activation values; it does NOT apply presets or restore
- * state.
+ * Reads the current Pi model, thinking level, and tools so a later clear
+ * can restore the values that a preset activation replaced.
  */
 import type { PresetOverlayBaseline } from "../types.js";
 import type {
@@ -14,7 +11,7 @@ import type {
 /** Minimal context surface needed to capture the current model. */
 type BaselineContext = Pick<ExtensionContext, "model">;
 
-/** Minimal pi surface needed to capture restorable state. */
+/** Minimal Pi surface needed to capture restorable state. */
 type BaselinePi = Pick<ExtensionAPI, "getActiveTools" | "getThinkingLevel">;
 
 /** Capture the current Pi state as an overlay restore baseline. */

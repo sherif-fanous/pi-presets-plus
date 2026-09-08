@@ -1,9 +1,6 @@
 /**
- * "Provider" row factory.
- *
- * Owns provider cycling (with side-effects on model selection and
- * thinking level), help payload, and render. It does NOT own the model
- * registry or auth checks; those live on the host.
+ * The editor's provider row, which cycles through the known providers and
+ * moves the model and thinking selections along with each change.
  */
 import { selectProvider } from "../draft.js";
 import {
@@ -14,6 +11,7 @@ import {
 import type { EditorRow, EditorRowHost } from "../row.js";
 import { Key, matchesKey } from "@earendil-works/pi-tui";
 
+/** Build the provider row. */
 export function makeProviderRow(host: EditorRowHost): EditorRow {
   return {
     id: "provider",

@@ -1,8 +1,6 @@
 /**
- * Tests for unexpected UI action error formatting.
- *
- * Covers thrown-value conversion and punctuation; it does NOT exercise
- * editor or picker delivery.
+ * Covers how an unexpected thrown value becomes the message shown after a
+ * failed UI action, including string conversion and trailing punctuation.
  */
 import { formatActionError } from "../../src/ui/action-error.js";
 import { describe, expect, it } from "vitest";

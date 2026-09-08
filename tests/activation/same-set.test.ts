@@ -1,8 +1,6 @@
 /**
- * Tests for unordered string-set equality.
- *
- * Covers order and duplicate semantics; it does NOT test activation flows
- * that consume the comparison helper.
+ * Covers unordered string-set equality, including how it treats ordering
+ * and repeated values.
  */
 import { sameSet } from "../../src/activation/same-set.js";
 import { describe, expect, it } from "vitest";

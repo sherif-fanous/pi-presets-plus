@@ -1,15 +1,7 @@
 /**
- * Tests for `src/store/save.ts`.
- *
- * Covers spec scenarios for the atomic write requirement:
- *
- * - happy-path: destination contains exactly the requested contents
- * - parent directory is created when missing (`mkdir -p`)
- * - "crash between write and rename" simulation: previous destination
- *   contents survive, no `.tmp` file lingers (we check that after our
- *   simulated abort, the tmp file is cleaned up by `atomicWrite`'s
- *   finally block — and that the destination is unchanged).
- * - tmp filename uniqueness across two synchronous calls (PID + hrtime).
+ * Covers the atomic write: the destination receives exactly the requested
+ * bytes, missing parent directories are created, a failed rename leaves
+ * the old contents and no stray tmp file, and tmp names stay unique.
  */
 import * as fsPromises from "node:fs/promises";
 import {
@@ -69,10 +61,8 @@ describe("atomicWrite", () => {
 
     await writeFile(target, original, "utf-8");
 
-    // Simulate a crash *between* the durable write and the rename by
-    // passing an injected fs whose `rename` throws. The destination
-    // must remain the original content; the orphaned tmp file must be
-    // cleaned up by atomicWrite's finally branch.
+    // An injected `rename` that throws stands in for a crash after the
+    // durable write and before the file lands at its destination.
     const rename = vi
       .fn<typeof fsPromises.rename>()
       .mockRejectedValueOnce(new Error("simulated crash"));

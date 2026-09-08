@@ -1,9 +1,6 @@
 /**
- * Active-preset clear flow.
- *
- * Owns restoring pi state from the baseline overlay (with user-override
- * protection) and deciding clear outcomes; it does NOT own apply, picker UI,
- * or pure clear-summary rendering.
+ * Detaches the active preset and restores Pi to the baseline captured at
+ * activation, leaving any field the user changed since then untouched.
  */
 import type { ActivePresetState, ThinkingLevel } from "../types.js";
 import {
@@ -19,34 +16,35 @@ import type {
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
 
+/** What a clear will write to Pi and how it will report each field. */
 export interface ClearDecision {
   readonly parts: readonly ClearPart[];
   readonly writes: ClearWrites;
 }
 
+/** One field's outcome in a clear, ready for the summary renderer. */
 export interface ClearPart {
   readonly action: ClearAction;
-  /** Tools that were dropped because they no longer exist (restored-partial only). */
+  /** Baseline tools left out of the restore because Pi no longer has them. */
   readonly dropped?: readonly string[];
   readonly field: ClearField;
   /**
-   * The value to render after the field label.
+   * Value rendered after the field label.
    *
-   * - For `restored` / `already-baseline` / `restored-partial`: the baseline
-   *   value (which is what the row reports as the post-clear state).
-   * - For `user-override` / `not-owned` / `baseline-null` / `unknown`: the
-   *   user's *current* value (which the clear left untouched).
-   * - For `restore-failed`: the baseline value we tried (and failed) to
-   *   reach; the renderer wraps it as "could not switch back to …".
+   * Restored and already-baseline rows carry the baseline value, rows the
+   * clear left alone carry the user's current value, and `restore-failed`
+   * carries the baseline value the clear could not reach.
    */
   readonly value: string;
 }
 
+/** Name of the cleared preset and the per-field outcomes to report. */
 export interface ClearResult {
   readonly name: string;
   readonly parts: readonly ClearPart[];
 }
 
+/** Active preset plus the Pi values a clear decision compares it against. */
 export interface ClearSnapshot {
   readonly active: ActivePresetState;
   readonly allTools: readonly string[];
@@ -55,12 +53,14 @@ export interface ClearSnapshot {
   readonly currentTools: readonly string[];
 }
 
+/** Values a clear writes back to Pi, omitting the fields it leaves alone. */
 export interface ClearWrites {
   readonly model?: { provider: string; id: string };
   readonly thinkingLevel?: ThinkingLevel;
   readonly tools?: readonly string[];
 }
 
+/** What the clear did to one field, which the summary turns into prose. */
 export type ClearAction =
   | "already-baseline"
   | "baseline-null"
@@ -71,8 +71,10 @@ export type ClearAction =
   | "unknown"
   | "user-override";
 
+/** Pi state channel that a clear reports on. */
 export type ClearField = "model" | "thinking" | "tools";
 
+/** Run a clear and notify the user with the rendered summary. */
 export async function clear(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
@@ -99,6 +101,7 @@ export async function clear(
   );
 }
 
+/** Run a clear and return its outcome, or `undefined` when none is active. */
 export async function clearReturning(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
@@ -132,6 +135,7 @@ export async function clearReturning(
   return { name: active.name, parts: finalParts };
 }
 
+/** Decide the writes and per-field outcomes for a clear, writing nothing. */
 export function decideClear(snapshot: ClearSnapshot): ClearDecision {
   const { active } = snapshot;
   const currentModelDisplay = formatModel(snapshot.currentModel);
@@ -181,9 +185,9 @@ export function decideClear(snapshot: ClearSnapshot): ClearDecision {
           value: formatModel(baseline.model),
         });
       } else {
-        // Activation captured no prior model (e.g. pi was launched without
-        // one selected); restoring to null is not actionable, so we keep
-        // the current value and surface it as baseline-null.
+        // Activation captured no prior model, which happens when Pi starts
+        // without one selected. There is nothing to switch back to, so keep
+        // the current model and report it as baseline-null.
         parts.push({
           action: "baseline-null",
           field: "model",
@@ -321,6 +325,8 @@ async function executeClear(
     }
   }
 
+  // Pi resets the thinking level when the model changes, so a successful
+  // model restore has to rewrite the level the user is on.
   const targetThinking =
     decision.writes.thinkingLevel ??
     (modelRestored ? currentThinking : undefined);

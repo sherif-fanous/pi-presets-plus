@@ -1,9 +1,7 @@
 /**
- * `/presets status` textual diagnostic.
- *
- * Owns formatting the active preset and its baseline-overlay state into a
- * user-facing report; it does NOT update the footer indicator or mutate
- * the active attachment.
+ * Reports `/presets status`: which preset is active, the baseline it
+ * overlays, and how the session's current model, thinking level, and
+ * tools compare against both.
  */
 import type { OverlayFieldClassification } from "../../activation/classify-overlay-field.js";
 import { assessOverlay } from "../../activation/overlay-assessment.js";
@@ -33,21 +31,25 @@ import type {
   Theme,
 } from "@earendil-works/pi-coding-agent";
 
+/** Report text, its severity, and the warnings the preset load produced. */
 export interface StatusBodyResult {
   readonly body: string;
   readonly severity: "info" | "warning";
   readonly warnings: readonly string[];
 }
 
+/** The theme surface {@link formatStatus} needs to style its rows. */
 interface Styler {
   bold(text: string): string;
   fg(color: string, text: string): string;
 }
 
+/** Styler that returns text unchanged, for plain output and for tests. */
 const IDENTITY_STYLER: Styler = {
   bold: (text) => text,
   fg: (_color, text) => text,
 };
+/** Every label the report can render, in display order. */
 const STATUS_LABELS = [
   `${PRESET_LABEL}:`,
   `${SCOPE_LABEL}:`,
@@ -62,10 +64,17 @@ const STATUS_LABELS = [
   `${CURRENT_THINKING_LABEL}:`,
   `${CURRENT_TOOLS_LABEL}:`,
 ] as const;
+/** Width of the label column, so the values line up. */
 const STATUS_LABEL_WIDTH = Math.max(
   ...STATUS_LABELS.map((label) => label.length),
 );
 
+/**
+ * Render the status report for the active preset.
+ *
+ * A session whose baseline was never captured gets the shorter report
+ * that omits the baseline and preset rows.
+ */
 export function formatStatus(
   active: ReturnType<ActivePresetSession["current"]>,
   _preset: LoadedPreset,
@@ -142,6 +151,7 @@ export function formatStatus(
   ].join("\n");
 }
 
+/** Load the presets and build the status report, severity, and warnings. */
 export async function formatStatusBody(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
@@ -171,6 +181,7 @@ export async function formatStatusBody(
   };
 }
 
+/** Run `/presets status` and deliver the report to the user. */
 export async function runStatus(
   ctx: ExtensionCommandContext,
   pi: ExtensionAPI,
@@ -187,11 +198,10 @@ export async function runStatus(
 }
 
 /**
- * Status-row vocabulary for each {@link OverlayFieldClassification}.
+ * Wording each {@link OverlayFieldClassification} gets in a status row.
  *
- * Parallels the per-row annotations in `renderClearSummary` so users see
- * matching phrasing across `/presets status` and `/presets clear`. When
- * the wording changes here, update the clear summary at the same time.
+ * `renderClearSummary` annotates its rows with the same vocabulary, so a
+ * phrase that changes here has to change there too.
  */
 const STATUS_VOCABULARY: Record<OverlayFieldClassification, string> = {
   "already-baseline": "Already at baseline",
@@ -207,6 +217,7 @@ function formatTools(tools: readonly string[]): string {
   return tools.length > 0 ? tools.join(", ") : "none";
 }
 
+/** Render one label and value pair padded to the label column. */
 function row(
   label: (typeof STATUS_LABELS)[number],
   value: string,

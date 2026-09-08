@@ -1,13 +1,11 @@
 /**
- * "Hotkey" row factory.
- *
- * Owns the hotkey text-input behavior, help payload, and render.
- * Recomputes the hotkey diagnostic (conflict / Pi built-in shadow) on
- * each keystroke via the host so users get live feedback.
+ * The editor's hotkey row, which takes the typed key combination and asks
+ * the host to recheck it for conflicts after every keystroke.
  */
 import { renderTextInputRow } from "../row-render.js";
 import type { EditorRow, EditorRowHost } from "../row.js";
 
+/** Build the hotkey row. */
 export function makeHotkeyRow(host: EditorRowHost): EditorRow {
   return {
     id: "hotkey",

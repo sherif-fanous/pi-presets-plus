@@ -1,5 +1,6 @@
 /**
- * Tests for user-requested activation orchestration.
+ * Covers the entry point for a user-requested activation, which runs the
+ * policy gate first and applies the preset only when the gate permits it.
  */
 import { ActivePresetSession } from "../../src/activation/session.js";
 import type { LoadedPreset } from "../../src/types.js";

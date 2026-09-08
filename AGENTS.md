@@ -77,9 +77,27 @@ project-wide unless noted.
   through `ctx.ui.notify`. Tests assert on the formatter's return
   value and never stub `ctx.ui`.
 
-Every source file opens with a module JSDoc stating its role and what it
-does not own. Keep it change-agnostic: no OpenSpec change names, no future
-extension points. Comments explain why, not what.
+### Comments
+
+Every source file opens with a module JSDoc: one or two sentences saying
+what the module does. Every exported function, type, and constant carries
+a short JSDoc saying what it does. Do not list what a module is not
+responsible for, and do not name sibling modules to disclaim them.
+
+Skip `@param`, `@returns`, and `@throws` tags that restate the signature.
+Add a second sentence to a doc block only when the caller needs it: an
+invariant to uphold, a non-obvious return contract, a host quirk.
+
+Inline comments are rare. Write one only where the code cannot show the
+reason on its own, such as a protocol quirk, an ordering constraint, or a
+workaround for host behavior. Delete anything that narrates the next line.
+
+Comments describe the code as it stands today. Never write about what the
+code used to do, why it changed, what a change was called, or where it
+might be extended later. That history lives in Git and `CHANGELOG.md`.
+
+Comment prose follows the same rules as user-facing text: sentence case,
+complete sentences, no em or en dashes, no AI stock vocabulary.
 
 ## User-facing text
 

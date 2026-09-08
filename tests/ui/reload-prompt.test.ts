@@ -1,5 +1,7 @@
 /**
- * Tests for the commit-time reload confirmation helper.
+ * Covers the reload confirmation asked for after a save: the answer it
+ * returns, the skip when the host offers no reload, and the deferred reload
+ * that reports its own failure.
  */
 import {
   confirmReload,
@@ -9,6 +11,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, Focusable } from "@earendil-works/pi-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+/** Theme that returns text unchanged so assertions can match plain text. */
 const theme = {
   bold: (text: string) => text,
   fg: (_name: string, text: string) => text,
@@ -20,6 +23,7 @@ interface TestContext {
   readonly reload?: ReturnType<typeof vi.fn>;
 }
 
+/** Builds an extension context whose overlay answers the prompt as the user. */
 function makeCtx(options: {
   readonly answer?: "yes" | "no";
   readonly reload?: ReturnType<typeof vi.fn>;

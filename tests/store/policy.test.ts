@@ -1,5 +1,7 @@
 /**
- * Tests for preset access-policy loading, matching, permissions, and defaults.
+ * Covers the access policy: loading and validating `policy.json`, matching
+ * rules against a preset, deciding whether a preset is permitted, and
+ * resolving the default preset for a directory.
  */
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

@@ -1,14 +1,15 @@
 /**
- * Tests for the read-only info-dialog overlay.
- *
- * The dialog owns only chrome, tone styling, wrapping, and dismissal.
+ * Covers the read-only info dialog: the color each tone gives the title,
+ * dismissal with Enter or Esc, and body wrapping at a narrow width.
  */
 import { openInfoDialog } from "../../src/ui/info-dialog.js";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, Focusable } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+/** Color names the theme was asked for while rendering a dialog. */
 const coloredCalls: string[] = [];
+/** Theme that tags styled text so assertions can read tone and emphasis. */
 const theme = {
   bold: (text: string) => `<b>${text}</b>`,
   fg: (name: string, text: string) => {
@@ -27,6 +28,7 @@ interface InfoDialogHarness {
   readonly rendered: string[];
 }
 
+/** Opens an info dialog, records its lines, and feeds it one keypress. */
 function makeInfoDialogHarness(input = "\r", width = 48): InfoDialogHarness {
   const rendered: string[] = [];
   const ctx = {

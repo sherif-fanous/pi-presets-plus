@@ -1,8 +1,6 @@
 /**
- * Pure preset filtering helpers for the picker UI.
- *
- * Owns ranking and scope filtering of loaded presets; it does NOT own
- * rendering, picker state, or activation.
+ * Ranks loaded presets against the picker's free-text query and narrows
+ * them to the selected scope.
  */
 import type { LoadedPreset } from "../types.js";
 
@@ -12,10 +10,9 @@ export type ScopeFilter = "all" | "user" | "project";
 /**
  * Hide presets outside the selected scope.
  *
- * `all` returns a shallow copy so callers can chain mutations safely;
- * `user`/`project` apply a simple equality filter. Shadowed globals are
- * returned in `user` scope because their project shadow is hidden — the
- * user is still allowed to inspect/activate the global directly.
+ * `all` returns a shallow copy so callers can chain mutations safely.
+ * Shadowed user presets still appear under `user` scope, where the user
+ * can inspect and activate them directly.
  */
 export function applyScopeFilter(
   presets: readonly LoadedPreset[],
@@ -34,10 +31,10 @@ export function applyScopeFilter(
 /**
  * Rank presets by a free-text query.
  *
- * Empty queries preserve input order. Non-empty queries return literal
- * case-insensitive substring matches first, followed by subsequence-only
- * matches. Ordering within each group is stable so storage/user ordering
- * remains meaningful after filtering.
+ * An empty query preserves input order. Otherwise case-insensitive
+ * substring matches come first and subsequence-only matches follow, with
+ * stable order inside each group so the stored ordering still shows
+ * through.
  */
 export function rankPresets(
   items: readonly LoadedPreset[],

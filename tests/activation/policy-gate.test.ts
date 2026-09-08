@@ -1,5 +1,7 @@
 /**
- * Tests for the access-policy activation gate.
+ * Covers the gate that checks a preset against the access policy before
+ * activation, opening the override overlay for prohibited presets and
+ * reporting loader warnings as a single notification.
  */
 import type { LoadedPreset } from "../../src/types.js";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";

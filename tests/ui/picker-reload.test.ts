@@ -1,5 +1,7 @@
 /**
- * Reload-prompt integration tests for picker Delete paths.
+ * Covers what deleting a preset from the picker does about reloading Pi:
+ * the prompt shown for a preset that carries a hotkey, and the refresh the
+ * picker performs when the user declines or no hotkey was bound.
  */
 import { ActivePresetSession } from "../../src/activation/session.js";
 import { analyzeHotkeys, HotkeyRegistry } from "../../src/hotkey-registry.js";
@@ -30,6 +32,7 @@ vi.mock("../../src/ui/confirm.js", () => ({
 
 const { openPicker } = await import("../../src/ui/picker.js");
 
+/** Builds an extension context whose overlay mounts the picker and hits `x`. */
 function makeCtx() {
   const reload = vi.fn();
   const notify = vi.fn();
@@ -67,6 +70,7 @@ function makeCtx() {
   };
 }
 
+/** Builds a saved preset, with or without a hotkey. */
 function preset(hotkey?: string): LoadedPreset {
   return {
     hotkey,
@@ -77,6 +81,10 @@ function preset(hotkey?: string): LoadedPreset {
   };
 }
 
+/**
+ * Binds a hotkey registry to the preset, opens the picker, and deletes the
+ * selection with the given answer to the reload prompt.
+ */
 async function runDelete(hotkey: string | undefined, reloadAnswer = false) {
   const selected = preset(hotkey);
 

@@ -1,13 +1,6 @@
 /**
- * "Buttons" (Save / Cancel / Test) row factory.
- *
- * Owns the button-action cursor (Save → Cancel → Test cycling), help
- * payload, and render. Activation itself is delegated back to the
- * host so the same code path handles Ctrl+S / Ctrl+T shortcuts and
- * Enter on a focused button.
- *
- * `buttonAction` is private mutable state in this factory's closure
- * \u2014 only this row needs to know which button is highlighted.
+ * The editor's action row, which moves the highlight across Save, Cancel,
+ * and Test and asks the host to run the highlighted action.
  */
 import type { ButtonAction } from "../../editor-types.js";
 import { CANCEL_LABEL, SAVE_LABEL, TEST_LABEL } from "../../labels.js";
@@ -15,8 +8,10 @@ import { renderChoiceRow, wrapIndex } from "../row-render.js";
 import type { EditorRow, EditorRowHost } from "../row.js";
 import { Key, matchesKey } from "@earendil-works/pi-tui";
 
+/** Buttons in the order the row cycles through them. */
 const ALL_BUTTONS: readonly ButtonAction[] = ["save", "cancel", "test"];
 
+/** Build the action row, dropping Test when the host cannot run it. */
 export function makeButtonsRow(host: EditorRowHost): EditorRow {
   const buttonOrder: readonly ButtonAction[] = host.canTest
     ? ALL_BUTTONS
@@ -64,6 +59,7 @@ export function makeButtonsRow(host: EditorRowHost): EditorRow {
   };
 }
 
+/** Map a button action to the label shown for it. */
 function formatButton(action: ButtonAction): string {
   switch (action) {
     case "cancel":

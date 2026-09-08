@@ -1,10 +1,8 @@
 /**
- * Tests apply and clear activation flows.
- *
- * Owns unit coverage for OpenSpec change `add-preset-activation` baseline
- * overlay semantics; it uses local fakes for pi side effects and does NOT
- * exercise the interactive TUI. Future drift-detection tests should add
- * model_select cases separately.
+ * Covers applying and clearing a preset: baseline capture, model,
+ * thinking, and tool overlays, refusals for unavailable presets, and the
+ * restoration each clear performs. Local fakes stand in for Pi so the
+ * tests never touch a real session.
  */
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

@@ -1,8 +1,6 @@
 /**
- * Fresh-session policy-default activation.
- *
- * Owns precedence guards, default resolution, apply refusal handling, and the
- * default-applied notification; it does NOT restore sessions or parse flags.
+ * Activates the preset that the access policy names as the default for the
+ * current directory when nothing else claimed the fresh session.
  */
 import { loadPolicy, resolvePolicyDefault } from "../store/policy.js";
 import type { LoadedPreset } from "../types.js";
@@ -14,6 +12,7 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
+/** Whether a command flag or a restored session already chose a preset. */
 export interface PolicyDefaultPrecedence {
   readonly flagApplied: boolean;
   readonly restored: boolean;

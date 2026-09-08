@@ -1,8 +1,5 @@
 /**
- * Small custom confirmation overlay shared by preset TUI surfaces.
- *
- * Owns yes/no keyboard handling for extension-local confirmations; it does
- * NOT own the action being confirmed or any persistence side effects.
+ * Yes/no confirmation overlay shared by the preset TUI surfaces.
  */
 import { centerText, renderDialogFrame, wrapBody } from "./frame.js";
 import type {
@@ -16,6 +13,7 @@ import {
   type Focusable,
 } from "@earendil-works/pi-tui";
 
+/** Button text for the two choices, defaulting to `Yes` and `No`. */
 interface ConfirmLabels {
   readonly no: string;
   readonly yes: string;
@@ -110,6 +108,7 @@ class ConfirmComponent implements Component, Focusable {
   }
 }
 
+/** Open the confirmation overlay and resolve with the user's choice. */
 export async function openConfirm(
   ctx: Pick<ExtensionCommandContext, "ui">,
   title: string,

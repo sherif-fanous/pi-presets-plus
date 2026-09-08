@@ -1,14 +1,12 @@
 /**
- * Shared notification helper for `/presets` subcommands.
- *
- * Owns rolling load-time warnings into a single user-visible notification
- * so callers do not flood the UI; it does NOT own loading or validation.
+ * Rolls the warnings a preset load produced into one notification so a
+ * broken file does not flood the UI with separate messages.
  */
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 /**
- * Fire a single warning-level notification listing every warning, or
- * no-op when the list is empty.
+ * Show one warning notification listing every warning, or nothing at all
+ * when the list is empty.
  */
 export function surfaceWarnings(
   ctx: Pick<ExtensionContext, "ui">,

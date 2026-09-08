@@ -1,10 +1,7 @@
 /**
- * "Tools" row factory.
- *
- * Owns the session/preset mode toggle, the per-tool checkbox cursor,
- * help payload, and render. The cursor (`toolIndex`) is private
- * mutable state in the factory's closure so it stays scoped to this
- * row instead of leaking onto the editor class.
+ * The editor's tools row, which switches between inheriting the session's
+ * tools and pinning a list, and moves a cursor over that list to toggle
+ * individual tools.
  */
 import { TOOLS_LABEL } from "../../labels.js";
 import { selectToolsMode, toggleSelectedTool } from "../draft.js";
@@ -12,6 +9,7 @@ import { renderValueRow } from "../row-render.js";
 import type { EditorRow, EditorRowHost } from "../row.js";
 import { Key, matchesKey } from "@earendil-works/pi-tui";
 
+/** Build the tools row. */
 export function makeToolsRow(host: EditorRowHost): EditorRow {
   let toolIndex = 0;
 
@@ -71,23 +69,12 @@ export function makeToolsRow(host: EditorRowHost): EditorRow {
     renderLines() {
       const state = host.getState();
       const focused = host.currentRow() === "tools";
-      // Tools-capability gating is intentionally out of scope until
-      // pi-ai exposes a supports-tools flag.
-      //
-      // Labels pair with `formatToolsSummary` on the picker card so
-      // the editor and card share one vocabulary:
-      //   session — session tools pass through at apply time (no
-      //             `tools` field is persisted).
-      //   preset  — an explicit `tools: [...]` list is persisted and
-      //             wins at apply time.
       const sessionMarker = state.toolsMode === "session" ? "●" : "○";
       const presetMarker = state.toolsMode === "preset" ? "●" : "○";
       const mode = `${sessionMarker} session   ${presetMarker} preset`;
       const lines = [renderValueRow(host.theme, TOOLS_LABEL, mode, focused)];
 
       if (state.toolsMode === "session") {
-        // Explain the less-obvious mode inline; in `preset` mode the
-        // multi-toggle list below speaks for itself.
         lines.push(
           host.theme.fg("dim", "    Session: inherits the active tool set."),
         );

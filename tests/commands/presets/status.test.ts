@@ -1,11 +1,7 @@
 /**
- * Pure-formatter tests for `runStatus` output.
- *
- * Asserts on `formatStatus` directly so the rendering rules for baseline,
- * priorUnknown, and per-field classification stay covered without going
- * through `ctx.ui.notify`. The runner wrapper is only a notification +
- * lookup edge over this formatter; its branches (no-active, missing
- * preset) are exercised in the apply-clear integration tests.
+ * Covers the `/presets status` report: the diagnostic `runStatus` sends to
+ * `ctx.ui.notify`, and the rows `formatStatus` renders for baseline,
+ * priorUnknown, and per-field classifications.
  */
 import { ActivePresetSession } from "../../../src/activation/session.js";
 import {

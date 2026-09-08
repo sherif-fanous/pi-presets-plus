@@ -1,9 +1,7 @@
 /**
- * Pure preset-editor draft transitions and persistence projection.
- *
- * Owns form initialization, coupled provider/model/thinking changes, tool
- * selection changes, and conversion to a persisted preset. It does NOT own
- * input handling, rendering, validation diagnostics, dialogs, or I/O.
+ * Pure transitions over the editor's draft form state: building the
+ * initial draft, applying provider, model, thinking, and tool changes, and
+ * projecting the draft into a preset for storage.
  */
 import { validThinkingLevels } from "../../activation/thinking.js";
 import { toPersistedPreset } from "../../store/api.js";
@@ -49,7 +47,7 @@ export function initialState(
   };
 }
 
-/** Select a model and repair the current thinking selection if needed. */
+/** Select a model, dropping a thinking level the model cannot serve. */
 export function selectModel(
   state: EditorFormState,
   model: ModelItem,
@@ -57,7 +55,10 @@ export function selectModel(
   return snapThinkingSelection({ ...state, model: model.id }, model.model);
 }
 
-/** Select a provider and its first model, repairing thinking if needed. */
+/**
+ * Select a provider along with its first model, dropping a thinking level
+ * that model cannot serve.
+ */
 export function selectProvider(
   state: EditorFormState,
   provider: string,
@@ -89,7 +90,7 @@ export function selectToolsMode(
   };
 }
 
-/** Repair thinking after a user-driven provider or model change. */
+/** Reset the thinking level to `off` when `model` does not support it. */
 export function snapThinkingSelection(
   state: EditorFormState,
   model: Model<Api> | undefined,

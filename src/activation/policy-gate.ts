@@ -1,8 +1,6 @@
 /**
- * Access-policy gate for new preset activations.
- *
- * Owns fresh policy loading, warning surfacing, and override confirmation; it
- * does NOT apply presets or participate in session restore.
+ * Checks a preset against the access policy before activation and asks the
+ * user to confirm an override when the policy forbids it.
  */
 import {
   isPermitted,

@@ -1,17 +1,16 @@
 /**
- * Reload confirmation helper shared by commit-time preset mutations.
- *
- * Owns the user-facing reload prompt and guarded `ctx.reload()` invocation;
- * it does NOT own deciding whether a particular preset mutation needs a
- * reload.
+ * Asks whether Pi should reload after a preset change, and performs the
+ * reload once the calling overlay has closed.
  */
 import { openConfirm } from "./confirm.js";
 import { RELOAD_PROMPT_TITLE } from "./labels.js";
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 
+/** Body of the reload confirmation dialog. */
 const RELOAD_PROMPT_BODY =
   "Hotkey changes take effect after a reload. Reload now?";
 
+/** Minimum context the reload helpers need. */
 interface ReloadContext {
   readonly reload?: () => Promise<void>;
   readonly ui: ExtensionCommandContext["ui"];
@@ -27,9 +26,9 @@ export async function confirmReload(ctx: ReloadContext): Promise<boolean> {
 /**
  * Reload Pi after giving custom overlays a turn to resolve and unmount.
  *
- * Reload failures are reported to the user instead of escaping the calling
- * editor or picker flow. Callers should resolve their overlay before invoking
- * this helper; otherwise stale TUI components may survive the extension reload.
+ * A failed reload is reported to the user rather than escaping into the
+ * calling editor or picker flow. Callers resolve their overlay before
+ * calling this helper, or stale TUI components survive the reload.
  */
 export function reloadAfterOverlayClose(ctx: ReloadContext): void {
   const { reload } = ctx;

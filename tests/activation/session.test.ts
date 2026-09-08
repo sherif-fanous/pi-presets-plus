@@ -1,9 +1,7 @@
 /**
- * Tests for active-preset session attachment state transitions.
- *
- * Owns coverage for preserving active-state variants while flipping dirty,
- * persisting active markers, and restoring from session branches; it does NOT
- * test drift detection decisions.
+ * Covers the in-session active-preset state: starting and clearing it,
+ * flipping dirty while keeping restore data, persisting active markers,
+ * and restoring from a session branch.
  */
 import { ActivePresetSession } from "../../src/activation/session.js";
 import type { ActivePresetState, LoadedPreset } from "../../src/types.js";
@@ -203,10 +201,8 @@ describe("ActivePresetSession", () => {
   });
 
   it("refreshes the status badge after a successful restore", () => {
-    // Critical regression guard: the session_start handler relies on
-    // restoreFromBranch (and its no-op companion paths) to update the
-    // status badge so the footer reflects the restored preset name on
-    // every fresh session, not only after a user-driven action.
+    // The session_start handler leaves badge updates to restoreFromBranch,
+    // so every path through it has to write the status itself.
     const { ctx, session, status } = harness();
     const branch = [
       {

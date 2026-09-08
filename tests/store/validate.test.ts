@@ -1,14 +1,7 @@
 /**
- * Tests for `src/store/validate.ts`.
- *
- * Covers all spec scenarios for the validation requirement:
- *
- * - Minimal valid preset accepted
- * - Missing required fields rejected
- * - Invalid `thinkingLevel` rejected
- * - Duplicate names within a file detected
- * - Availability classification: missing model → "no-model",
- *   present model with no key → "no-key", fully available → undefined.
+ * Covers preset validation: which shapes are accepted or rejected, how
+ * duplicate names within a file are reported, and how a preset is
+ * classified as unavailable or as clamping its thinking level.
  */
 import {
   computeAvailability,

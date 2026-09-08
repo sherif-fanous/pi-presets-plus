@@ -1,8 +1,7 @@
 /**
- * Integration tests for picker info actions and command failure reporting.
- *
- * These tests exercise picker key routing, overlay restoration, and error
- * notifications; command formatter details are covered elsewhere.
+ * Covers the picker actions that open a dialog: status, clear, and failed
+ * activation. Each test drives a keypress through the picker and checks the
+ * dialog it opens, the overlay focus it restores, and how failures surface.
  */
 import type { ApplyResult } from "../../src/activation/apply.js";
 import { ActivePresetSession } from "../../src/activation/session.js";
@@ -57,6 +56,7 @@ const { PickerCommands: pickerCommandsClass } =
   await import("../../src/ui/picker-commands.js");
 const { openPicker } = await import("../../src/ui/picker.js");
 
+/** Preset the picker starts with selected. */
 const selected: LoadedPreset = {
   model: "claude-opus-4.5",
   name: "plan",
@@ -80,6 +80,10 @@ interface RunPickerOptions {
   readonly withPi?: boolean;
 }
 
+/**
+ * Builds an extension context whose overlay mounts the picker, feeds it the
+ * given input, and exposes the spies each test asserts on.
+ */
 function makeCtx(
   input: string,
 ): PickerHarness & Parameters<typeof openPicker>[0] {
@@ -137,6 +141,7 @@ function makeCtx(
   } as unknown as PickerHarness & Parameters<typeof openPicker>[0];
 }
 
+/** Opens the picker over fake presets and drains its pending timers. */
 async function runPicker(
   input: string,
   options: RunPickerOptions = {},

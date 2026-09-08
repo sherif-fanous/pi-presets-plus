@@ -1,20 +1,24 @@
 /**
- * User-global preset access-policy loading and evaluation.
- *
- * Owns policy validation, regex compilation, cwd matching, permission checks,
- * and default resolution; it does NOT own activation, UI, or persistence.
+ * Loads the user-global preset access policy, compiles its patterns, and
+ * evaluates them against the working directory to decide which presets a
+ * directory permits and which one it defaults to.
  */
 import { readFile } from "node:fs/promises";
 
 import type { LoadedPreset } from "../types.js";
 import { getGlobalPolicyPath } from "./paths.js";
 
+/** One allow, prohibit, or default pattern with its regex compiled. */
 export interface CompiledPolicyMatcher {
   readonly field: PolicyMatcherField;
   readonly pattern: string;
   readonly regex: RegExp;
 }
 
+/**
+ * One policy rule with every pattern compiled. `index` is the rule's
+ * position in the file, which breaks ties between equally specific rules.
+ */
 export interface CompiledPolicyRule {
   readonly allow: readonly CompiledPolicyMatcher[];
   readonly default?: CompiledPolicyMatcher;
@@ -24,16 +28,23 @@ export interface CompiledPolicyRule {
   readonly prohibit: readonly CompiledPolicyMatcher[];
 }
 
+/** A rule whose `match` pattern accepted the cwd, and how much it matched. */
 export interface MatchedPolicyRule {
   readonly matchLength: number;
   readonly rule: CompiledPolicyRule;
 }
 
+/** Compiled rules plus the warnings collected while reading the file. */
 export interface PolicyLoadResult {
   readonly rules: readonly CompiledPolicyRule[];
   readonly warnings: string[];
 }
 
+/**
+ * Outcome of resolving the default preset for a directory: no rule asks
+ * for a default, the winning rule names a usable preset, or it names one
+ * that no loaded preset satisfies.
+ */
 export type PolicyDefaultResult =
   | {
       readonly kind: "none";
@@ -53,9 +64,15 @@ export type PolicyDefaultResult =
       readonly winner: MatchedPolicyRule;
     };
 
+/** Preset field a matcher tests. `"model"` tests `provider/model`. */
 export type PolicyMatcherField = "model" | "name" | "provider";
 
-/** Apply the unioned allow/prohibit policy to one preset. */
+/**
+ * Return whether the matched rules permit a preset.
+ *
+ * Allow entries union across the rules, so a rule set with no allow entry
+ * permits everything, and a single prohibit match rejects the preset.
+ */
 export function isPermitted(
   preset: Pick<LoadedPreset, "model" | "name" | "provider">,
   matchedRules: readonly MatchedPolicyRule[],
@@ -239,6 +256,7 @@ export function resolvePolicyDefault(
     : { kind: "unresolvable", matchedRules, reason, winner };
 }
 
+/** Compile one matcher, or warn and return undefined when it is invalid. */
 function compileMatcher(
   candidate: unknown,
   section: string,
@@ -319,6 +337,7 @@ function compileOptionalMatcher(
   return compileMatcher(candidate, section, ruleIndex, path, warnings);
 }
 
+/** Compile a pattern, returning undefined instead of throwing on bad input. */
 function compileRegex(pattern: string): RegExp | undefined {
   try {
     return new RegExp(pattern);

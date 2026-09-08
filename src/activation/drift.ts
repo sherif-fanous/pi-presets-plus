@@ -1,9 +1,6 @@
 /**
- * Drift-reason detection for active presets.
- *
- * Owns comparing current Pi model, thinking, and tools against a preset
- * snapshot; it does NOT mutate active state, notify users, render UI, or
- * read the on-disk preset files.
+ * Compares the current Pi model, thinking level, and tools against a preset
+ * snapshot and names the dimensions that no longer match.
  */
 import type { LoadedPreset, PresetDriftSnapshot } from "../types.js";
 import { sameSet } from "./same-set.js";
@@ -51,11 +48,10 @@ export function detectDriftReasons(
 }
 
 /**
- * Build a drift snapshot from a freshly resolved preset.
+ * Build the drift snapshot cached on `ActivePresetState.declared`.
  *
- * Stored on `ActivePresetState.declared` at apply / restore time so the
- * per-turn comparison never reopens the preset JSON files. The snapshot is
- * deliberately minimal \u2014 only the fields drift detection actually compares.
+ * It carries only the fields drift detection compares, so the per-turn check
+ * never reopens the preset files.
  */
 export function snapshotPresetForDrift(
   preset: Pick<LoadedPreset, "provider" | "model" | "thinkingLevel" | "tools">,

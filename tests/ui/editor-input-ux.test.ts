@@ -1,8 +1,7 @@
 /**
- * Regression tests for preset editor text-row rendering and shortcuts.
- *
- * Covers interactive component behavior through `openEditor`; it does NOT
- * exercise storage parsing or picker orchestration beyond mocked seams.
+ * Covers the interactive preset editor driven through `openEditor`: how
+ * text rows render focused and unfocused, inline validation of name and
+ * hotkey, the save, test, and help shortcuts, and the footer hints.
  */
 import { ActivePresetSession } from "../../src/activation/session.js";
 import type { LoadedPreset, Preset } from "../../src/types.js";
@@ -52,11 +51,13 @@ interface EditorHarness extends Component {
 const f1Input = "\u001bOP";
 const promptNewlineHint = "Enter inserts a newline. Tab exits.";
 
+/** Theme that returns text unchanged so assertions can match plain text. */
 const passthroughTheme = {
   bold: (text: string) => text,
   fg: (_name: string, text: string) => text,
 };
 
+/** Theme that wraps colored text in tags so tests can assert severity. */
 const colorTagTheme = {
   bold: (text: string) => text,
   fg: (name: string, text: string) => `<${name}>${text}</${name}>`,
@@ -64,6 +65,7 @@ const colorTagTheme = {
 
 const model = { id: "claude-opus-4.5", provider: "anthropic" };
 
+/** Asserts that the message strip between Hotkey and Actions omits text. */
 function expectBottomMessagesNotToContain(
   editor: EditorHarness,
   text: string,
@@ -79,6 +81,7 @@ function expectBottomMessagesNotToContain(
   );
 }
 
+/** Asserts that the error renders on a line below its field label. */
 function expectErrorAfterLabel(
   editor: EditorHarness,
   label: string,
@@ -101,6 +104,7 @@ function lineContaining(editor: EditorHarness, text: string): string {
   return line;
 }
 
+/** Builds an extension context whose overlay hands back the mounted editor. */
 function makeCtx(
   capture: (editor: EditorHarness) => void,
   overlayHandle: {
@@ -142,10 +146,12 @@ function makeCtx(
   };
 }
 
+/** Tabs forward through the given number of rows. */
 function moveFocus(editor: EditorHarness, count: number): void {
   for (let index = 0; index < count; index++) editor.handleInput("\t");
 }
 
+/** Opens the editor in new, edit, or duplicate mode and returns its parts. */
 async function openHarness(
   options: {
     readonly duplicateSeed?: LoadedPreset;
@@ -200,6 +206,7 @@ async function openHarness(
   return { editor, overlayHandle, result };
 }
 
+/** Builds a saved preset that tests override field by field. */
 function preset(overrides: Partial<LoadedPreset> = {}): LoadedPreset {
   return {
     hotkey: "ctrl+1",
@@ -621,11 +628,8 @@ describe("preset editor input UX", () => {
   });
 
   it("opens focused-row help with F1", async () => {
-    // Drive the loop by row identity (not positional index) so the test
-    // stays correct if EDITOR_ROWS is reordered. The keyed lookup pairs
-    // each EditorRowId with the title authored in the editor's row
-    // registry; if a row's title or set of rows changes, this map must
-    // change too.
+    // Each row id pairs with the title authored in the editor's row
+    // registry, so adding a row or renaming a title has to land here too.
     const titlesByRow: Record<(typeof EDITOR_ROWS)[number], string> = {
       buttons: "Actions",
       hotkey: "Hotkey",
@@ -655,11 +659,10 @@ describe("preset editor input UX", () => {
   });
 
   it("recognizes Kitty F1 sequences across terminals", async () => {
-    // Two encodings cover the F-key forms pi-tui's matchesKey doesn't:
-    //   - Legacy-with-event-info (observed in Ghostty):
-    //       \x1b[1P, \x1b[1;1P, \x1b[1;1:1P
-    //   - Codepoint form (per Kitty keyboard-protocol spec):
-    //       \x1b[57364u, \x1b[57364;1u, \x1b[57364;1:1u
+    // pi-tui's matchesKey misses two F1 encodings: the legacy form
+    // carrying event info that Ghostty emits (\x1b[1P, \x1b[1;1P,
+    // \x1b[1;1:1P) and the codepoint form from the Kitty keyboard
+    // protocol (\x1b[57364u, \x1b[57364;1u, \x1b[57364;1:1u).
     for (const input of [
       "\u001b[1P",
       "\u001b[1;1P",

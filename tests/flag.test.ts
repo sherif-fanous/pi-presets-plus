@@ -1,5 +1,7 @@
 /**
- * Tests for startup `--preset` flag handling.
+ * Covers the startup `--preset` flag: how it resolves a name across
+ * scopes, what it warns when the name is unknown, and how it reports a
+ * cancelled or refused activation.
  */
 import { ActivePresetSession } from "../src/activation/session.js";
 import type { LoadedPreset } from "../src/types.js";

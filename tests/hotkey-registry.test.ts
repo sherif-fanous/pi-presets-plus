@@ -1,5 +1,7 @@
 /**
- * Tests for hotkey registry analysis, binding, and reload-prompt decisions.
+ * Covers the hotkey registry: how it flags conflicting, invalid, and
+ * shadowing hotkeys, what it binds for a session, and when it asks the
+ * user to reload after presets change.
  */
 import { ActivePresetSession } from "../src/activation/session.js";
 import {

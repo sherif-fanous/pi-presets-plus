@@ -1,10 +1,6 @@
 /**
- * Interactive picker for browsing and activating presets.
- *
- * Owns the `ctx.ui.custom` state machine that drives the picker dialog;
- * it does NOT own persistence, scope/rank filtering, card formatting, or
- * the activation side effects (the `onActivate` callback is injected by
- * the caller).
+ * Drives the `ctx.ui.custom` overlay that lets the user browse, filter,
+ * edit, and activate presets.
  */
 import { detectDriftReasons } from "../activation/drift.js";
 import type { ActivationResult } from "../activation/request.js";
@@ -72,6 +68,7 @@ import {
   type Terminal,
 } from "@earendil-works/pi-tui";
 
+/** Everything the picker needs from its caller to open. */
 export interface PickerOptions {
   inheritedTools?: readonly string[];
   /**
@@ -85,10 +82,12 @@ export interface PickerOptions {
   session: ActivePresetSession;
 }
 
+/** Outcome of a closed picker, naming the preset it activated. */
 export interface PickerResult {
   activated?: LoadedPreset;
 }
 
+/** Rendered card lines plus the viewport they were laid out against. */
 interface RenderListResult {
   readonly lines: string[];
   readonly pageSize: number;
@@ -108,11 +107,10 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
   /**
    * Memoized drift reasons for the currently-active preset.
    *
-   * Recomputed when the loaded presets change (`refreshPresets`); within a
-   * single render pass the reasons are stable, so we don't re-run
-   * `detectDriftReasons` on every keystroke or scroll. The picker is opened
-   * within a single agent turn, so the cached snapshot on the active state
-   * cannot move under us between renders.
+   * `refreshPresets` clears the cache, so `detectDriftReasons` does not
+   * re-run on every keystroke or scroll. The picker lives inside a single
+   * agent turn, so the snapshot the reasons compare against cannot change
+   * between renders.
    */
   private driftReasonsCache:
     | { reasons: readonly string[]; signature: string }
@@ -146,19 +144,15 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     if (this.actionInFlight) return;
 
     this.dispatchInput(input);
-    // Blanket request-render after every key dispatch keeps sync mutators
-    // (moveSelection, cycleScope, setFocusMode, filter typing) visible
-    // without each path having to opt in. Async paths request their own
-    // render via runWithHiddenOverlay / refreshPresets; this trailing
-    // request is idempotent in those cases.
+    // One render request per key dispatch shows the result of every
+    // synchronous mutator without each path opting in. Async paths request
+    // their own render, where this trailing request is a no-op.
     this.requestRender();
   }
 
   private dispatchInput(input: string): void {
-    // Defensive Kitty CSI-u normalization: pi-tui currently doesn't request
-    // CSI-u for plain printable keys (flag 1 alone leaves them as raw chars),
-    // but future flag bumps or unusual layouts may wrap them. Normalize so
-    // `===` checks below stay correct in either world.
+    // Kitty CSI-u normalization keeps the `===` comparisons below correct
+    // when a terminal wraps a plain printable key in a CSI-u sequence.
     const printable = decodeKittyPrintable(input);
     const normalized = printable ?? input;
 
@@ -191,9 +185,8 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     } else if (normalized === "/") {
       this.setFocusMode("filter");
     } else {
-      // Source-of-truth dispatch over PICKER_ACTIONS so a new action key
-      // lands once in the registry and shows up in both the handler chain
-      // and the footer hint.
+      // Dispatching over PICKER_ACTIONS keeps this chain and the footer
+      // hint reading from the one registry.
       const action = PICKER_ACTIONS.find(
         (candidate) => candidate.key === normalized,
       );
@@ -293,12 +286,12 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
   }
 
   /**
-   * Memoized drift-reason lookup for the currently-active preset.
+   * Look up the drift reasons for the active preset, reusing the cache.
    *
-   * Keyed on the active state's identity (`scope:name:dirty`) so a tools
-   * toggle or a scope change invalidates the cache, but a filter keystroke
-   * or page scroll does not. The compared snapshot lives on `active.declared`
-   * — no disk I/O.
+   * The cache key is the active identity (`scope:name:dirty`), so a tools
+   * toggle or a scope change invalidates it while a filter keystroke or a
+   * page scroll does not. The compared snapshot lives on
+   * `active.declared`, so the lookup does no disk I/O.
    */
   private computeDriftReasons(
     active: NonNullable<ReturnType<ActivePresetSession["current"]>>,
@@ -354,7 +347,7 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
   /**
    * {@link PickerCommandHost} member.
    *
-   * Idempotent resolver — guards against double-resolve from rapid Enter.
+   * Idempotent, so a rapid second Enter cannot resolve the picker twice.
    */
   finish(result: PickerResult | undefined): void {
     if (this.resolved) return;
@@ -375,8 +368,8 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
       return;
     }
 
-    // Navigation keys stay live in filter mode so users can type-then-arrow
-    // without needing to escape back to the list first.
+    // Navigation keys stay live in filter mode so the user can type and
+    // then arrow without escaping back to the list first.
     if (matchesKey(input, Key.up)) {
       this.moveSelection(-1);
 
@@ -471,9 +464,8 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     const contentWidth = labelledContentWidth(width, label);
     const active = this.session.current();
 
-    // No active preset: render the sentinel in `dim` so it reads as an
-    // absence marker, not a preset literally named "none" (names are only
-    // required to be non-empty, so `none` is a legal preset name).
+    // A preset may legally be named `none`, so the sentinel renders in
+    // `dim` to read as an absence marker.
     if (!active) {
       const sentinel = this.theme.fg(
         "dim",
@@ -483,8 +475,8 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
       return `${label}${sentinel}`;
     }
 
-    // Disambiguate by scope (rendered `dim`) so the row identifies the active
-    // preset as precisely as the in-list dot, which matches on name + scope.
+    // The dimmed scope suffix identifies the active preset as precisely as
+    // the in-list dot, which matches on name and scope together.
     const scopeSuffix = ` (${formatScopeName(active.scope)})`;
     const nameWidth = Math.max(1, contentWidth - visibleWidth(scopeSuffix));
     const name = middleEllipsize(active.name, nameWidth);
@@ -702,33 +694,27 @@ function formatScopeFilter(scopeFilter: ScopeFilter): string {
 }
 
 /**
- * Visible-column budget for a labelled chrome row's value, after the row
- * label and the two border columns are reserved.
+ * Visible columns left for a labelled chrome row's value once the label
+ * and the two border columns are reserved.
  *
- * `visibleWidth` strips ANSI, so callers MUST pass the already-themed label
- * (the same string concatenated into the rendered row) to keep the measured
- * width aligned with what `frameLine` later pads/truncates against. Clamped
- * to a minimum of 1 so an over-wide label degrades to a single value column
- * rather than a negative budget.
+ * `visibleWidth` strips ANSI, so callers pass the already-themed label,
+ * the same string the rendered row concatenates, to keep this measurement
+ * aligned with what `frameLine` later pads against. The result is clamped
+ * to 1 so an over-wide label degrades to a single value column instead of
+ * a negative budget.
  */
 function labelledContentWidth(width: number, label: string): number {
   return Math.max(1, width - 2 - visibleWidth(label));
 }
 
 /**
- * Truncate `text` in the middle to fit `width` visible columns, preserving
- * the leading and trailing portions around a single `…`.
+ * Truncate `text` in the middle to fit `width` visible columns, keeping the
+ * leading and trailing portions around a single `…`.
  *
- * Invariants:
- *  - Returns `text` unchanged when it already fits (no spurious ellipsis).
- *  - The result's visible width never exceeds `width`.
- *  - The prefix and suffix can never overlap: the ellipsis branch is only
- *    reached when `visibleWidth(text) > width`, and the two side budgets sum
- *    to `width - 1`, which is strictly less than `visibleWidth(text)`.
- *  - The prefix receives the larger half (`ceil`) and the suffix the smaller
- *    (`floor`) of the side budget, biasing retention toward the start.
- * Both sides truncate on grapheme-cluster boundaries so neither half can
- * split a multi-code-point glyph.
+ * Text that already fits comes back unchanged, and the result never exceeds
+ * `width`. The prefix takes the larger half of the remaining budget and the
+ * suffix the smaller, so the start of the name survives, and both sides cut
+ * on grapheme-cluster boundaries so neither half splits a glyph.
  */
 function middleEllipsize(text: string, width: number): string {
   const textWidth = visibleWidth(text);

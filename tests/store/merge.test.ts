@@ -1,10 +1,7 @@
 /**
- * Tests for `src/store/merge.ts`.
- *
- * Covers the spec scenarios for shadowing, ordering, and availability
- * tagging. Uses an in-memory `ModelRegistry` stub so tests stay
- * hermetic; the real registry depends on filesystem state we don't want
- * to touch from a unit test.
+ * Covers merging the user and project scopes into one list: the order of
+ * the result, which entries a project preset shadows, and how each entry
+ * is tagged when its model is missing or has no key.
  */
 import { mergeScopes } from "../../src/store/merge.js";
 import type { Preset } from "../../src/types.js";

@@ -1,5 +1,7 @@
 /**
- * Tests for the read-only `/presets policy` report.
+ * Covers the `/presets policy` report: which presets it lists as allowed
+ * or prohibited, how it resolves the default, and how it leaves
+ * `policy.json` untouched.
  */
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

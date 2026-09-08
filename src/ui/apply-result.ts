@@ -1,8 +1,6 @@
 /**
- * Apply-result presentation for pi-presets-plus.
- *
- * Owns formatting and delivery of activation outcomes; it does NOT perform
- * preset activation or decide whether an activation is permitted.
+ * Turns the outcome of a preset activation into a single notification,
+ * folding any notices into the message body.
  */
 import type { ApplyResult } from "../activation/apply.js";
 import type { LoadedPreset } from "../types.js";

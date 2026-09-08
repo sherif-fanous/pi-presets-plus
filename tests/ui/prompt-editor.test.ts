@@ -1,7 +1,7 @@
 /**
- * Prompt editor delegation tests.
- *
- * Covers the preset-specific wrapper around Pi's built-in multi-line editor.
+ * Covers the prompt editor wrapper: the title it builds for a named or
+ * unnamed preset, and how it turns Pi's built-in editor result into a
+ * confirmed or cancelled outcome.
  */
 import {
   openPromptEditor,

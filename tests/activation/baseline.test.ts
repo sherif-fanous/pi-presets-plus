@@ -1,8 +1,6 @@
 /**
- * Tests baseline capture for preset activation.
- *
- * Owns coverage for current model, thinking, and tool snapshots; it does NOT
- * test drift detection or activation side effects.
+ * Covers the baseline snapshot taken before a preset is applied: the
+ * current model, thinking level, and active tools.
  */
 import { captureBaseline } from "../../src/activation/baseline.js";
 import type { ThinkingLevel } from "../../src/types.js";

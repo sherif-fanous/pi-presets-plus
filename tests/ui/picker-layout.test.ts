@@ -1,8 +1,7 @@
 /**
- * Tests for pure variable-height picker viewport layout.
- *
- * These cover line budgeting, card packing, and selection visibility without
- * constructing Pi presets or terminal components.
+ * Covers the picker viewport layout: the line budget left for the list,
+ * packing cards of mixed height into it, and keeping the selected card
+ * visible as the viewport scrolls.
  */
 import {
   layoutPickerViewport,
@@ -11,6 +10,7 @@ import {
 } from "../../src/ui/picker-layout.js";
 import { describe, expect, it, vi } from "vitest";
 
+/** Reads card heights by index, treating anything past the end as zero. */
 function heights(values: readonly number[]): (index: number) => number {
   return (index) => values[index] ?? 0;
 }

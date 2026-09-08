@@ -1,8 +1,6 @@
 /**
- * User-requested preset activation orchestration.
- *
- * Owns policy authorization followed by preset application; it does NOT own
- * preset lookup, result presentation, or policy-default activation.
+ * Runs the access-policy check for a preset the user asked for and applies
+ * the preset once it passes.
  */
 import type { LoadedPreset } from "../types.js";
 import { apply, type ApplyResult } from "./apply.js";
@@ -13,6 +11,10 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
+/**
+ * Apply outcome, plus the refusal returned when the user declines the policy
+ * override.
+ */
 export type ActivationResult =
   | ApplyResult
   | {

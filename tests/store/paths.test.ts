@@ -1,9 +1,7 @@
 /**
- * Tests for `src/store/paths.ts`.
- *
- * The path helpers are pure: they take string inputs and return absolute
- * file paths. We exercise them with synthetic agent / cwd values rather
- * than the real environment so the tests are hermetic.
+ * Covers where the presets and policy files land for each scope, using
+ * synthetic agent and cwd values so the results do not depend on the
+ * developer's environment.
  */
 import {
   getGlobalPolicyPath,
@@ -20,10 +18,8 @@ describe("getGlobalPresetsPath", () => {
   });
 
   it("uses pi's getAgentDir() when no override is provided", () => {
-    // We don't pin the exact path (it depends on the real env), but the
-    // returned path must end with the canonical file location and be
-    // absolute. This guards against accidentally returning a relative
-    // path or losing the `presets-plus/presets.json` suffix.
+    // The agent dir varies by machine, so the assertions check only that
+    // the result is absolute and keeps the expected suffix.
     const resolved = getGlobalPresetsPath();
 
     expect(resolved.endsWith("/presets-plus/presets.json")).toBe(true);
