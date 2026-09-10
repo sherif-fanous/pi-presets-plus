@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1] - 2026-09-10
+
+### Fixed
+
+- Scroll continuously across the first and last presets without jumping to the opposite end of the list ([#33](https://github.com/sherif-fanous/pi-presets-plus/pull/33))
+- Wrap PgUp and PgDn navigation in both list and filter modes ([#33](https://github.com/sherif-fanous/pi-presets-plus/pull/33))
+
 ## [0.7.0] - 2026-09-05
 
 ### Added
@@ -106,6 +113,7 @@
 
 _Initial release._
 
+[0.7.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.7.1
 [0.7.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.7.0
 [0.6.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.6.1
 [0.6.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.6.0
