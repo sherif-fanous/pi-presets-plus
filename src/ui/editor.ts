@@ -17,7 +17,12 @@ import {
   type FieldDiagnostic,
   type ModelItem,
 } from "./editor-types.js";
-import { buildPreset, initialState } from "./editor/draft.js";
+import {
+  buildPreset,
+  initialState,
+  selectModel,
+  selectProvider,
+} from "./editor/draft.js";
 import { wrapIndex } from "./editor/row-render.js";
 import type { EditorRow, EditorRowHost } from "./editor/row.js";
 import { makeButtonsRow } from "./editor/rows/buttons.js";
@@ -41,6 +46,7 @@ import {
 import { openInfoDialog } from "./info-dialog.js";
 import { isHelpKey } from "./key-fallbacks.js";
 import { MOVE_LABEL, MOVE_PRESET_TITLE } from "./labels.js";
+import { openModelSelector } from "./model-selector.js";
 import { withHiddenOverlay } from "./overlay-host.js";
 import { openPromptEditor } from "./prompt-editor.js";
 import { confirmReload, reloadAfterOverlayClose } from "./reload-prompt.js";
@@ -342,6 +348,44 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
     }
   }
 
+  /** Select a provider or model without changing the draft until confirmation. */
+  async openModelSelector(row: "provider" | "model"): Promise<void> {
+    const state = this.state;
+    const items =
+      row === "provider"
+        ? this.providers().map((id) => ({ id }))
+        : this.modelsForProvider(state.provider).map((item) => ({
+            id: item.id,
+            name: item.model.name,
+            available: item.available,
+          }));
+    const result = await this.runWithHiddenOverlay(() =>
+      openModelSelector(this.ctx, {
+        title:
+          row === "provider"
+            ? "Select provider"
+            : `Select model: ${state.provider}`,
+        current: state[row],
+        items,
+      }),
+    );
+
+    if (result === undefined || result === state[row]) return;
+
+    if (row === "provider") {
+      this.state = selectProvider(state, result, this.models);
+    } else {
+      const model = this.modelsForProvider(state.provider).find(
+        (item) => item.id === result,
+      );
+
+      if (!model) return;
+      this.state = selectModel(state, model);
+    }
+
+    this.clearFieldDiagnosticsFor(row);
+  }
+
   activateButton(action: "cancel" | "save" | "test"): void {
     void this.runAsync(() => this.executeButton(action));
   }
@@ -389,7 +433,11 @@ class PresetEditorComponent implements Component, Focusable, EditorRowHost {
       `⇥/↑/↓ ${MOVE_LABEL}`,
       "←/→ Change",
       "Space Toggle",
-      this.currentRow() === "instructions" ? "Enter to edit" : "Enter Action",
+      this.currentRow() === "instructions"
+        ? "Enter to edit"
+        : this.currentRow() === "provider" || this.currentRow() === "model"
+          ? "Enter Search"
+          : "Enter Action",
       "F1 Help",
       "^S Save",
     ];

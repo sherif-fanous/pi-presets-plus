@@ -65,6 +65,8 @@ export interface EditorRowHost {
   activateButton(action: "cancel" | "save" | "test"): void;
   /** Run an async row action, ignoring further input until it settles. */
   runAsync(fn: () => Promise<void>): Promise<void>;
+  /** Open the searchable provider or model selector. */
+  openModelSelector(row: "provider" | "model"): Promise<void>;
   /** Open the multi-line prompt editor for the instructions row. */
   openPromptEditor(): Promise<void>;
   /** Recompute the hotkey row's diagnostic after the user types. */
