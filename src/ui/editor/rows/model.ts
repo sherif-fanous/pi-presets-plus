@@ -18,12 +18,19 @@ export function makeModelRow(host: EditorRowHost): EditorRow {
     id: "model",
     help: {
       body: [
+        "Press Enter to search, or use left and right to cycle through options.",
         "Pick which model Pi should use whenever this preset is active.",
         "Models marked (no key) don't have an API key set up yet. You can still pick one if you need to repair a preset whose key was removed.",
       ],
       title: "Model",
     },
     handleInput(input) {
+      if (matchesKey(input, Key.enter)) {
+        void host.runAsync(() => host.openModelSelector("model"));
+
+        return;
+      }
+
       if (!matchesKey(input, Key.left) && !matchesKey(input, Key.right)) return;
 
       const state = host.getState();

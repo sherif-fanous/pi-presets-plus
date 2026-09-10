@@ -655,6 +655,11 @@ describe("preset editor input UX", () => {
 
       expect(helpOptions?.body).toEqual(expect.any(String));
       expect(helpOptions?.title).toBe(titlesByRow[row]);
+
+      if (row === "provider" || row === "model") {
+        expect(helpOptions?.body).toContain("Press Enter to search");
+        expect(renderText(editor)).toContain("Enter Search");
+      }
     }
   });
 

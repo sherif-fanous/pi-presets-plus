@@ -17,12 +17,19 @@ export function makeProviderRow(host: EditorRowHost): EditorRow {
     id: "provider",
     help: {
       body: [
+        "Press Enter to search, or use left and right to cycle through options.",
         "The provider is the service that hosts the model, like OpenAI or Anthropic.",
         "Only providers Pi knows about show up here. Switching providers refreshes the model list.",
       ],
       title: "Provider",
     },
     handleInput(input) {
+      if (matchesKey(input, Key.enter)) {
+        void host.runAsync(() => host.openModelSelector("provider"));
+
+        return;
+      }
+
       if (!matchesKey(input, Key.left) && !matchesKey(input, Key.right)) return;
 
       const providers = host.providers();
