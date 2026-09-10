@@ -12,12 +12,12 @@ The package SHALL apply a preset by (a) deciding whether to reuse an existing ba
 
 `apply()` SHALL return one of two shapes:
 
-- `{ ok: true }` on success.
+- A success result with `ok: true` and any apply accompaniments.
 - `{ ok: false; reason: string; kind: "no-key" | "no-model" | "unknown-model" | "key-revoked" }` on refusal. The `reason` is human-readable and SHALL be the only text the package surfaces for that failure; the `kind` is a stable enum suitable for test assertions and call-site routing decisions.
 
 `apply()` SHALL NOT call `ctx.ui.notify` for refusals. Callers SHALL surface the `reason` through their context-appropriate channel (e.g. `ctx.ui.notify` for prompt / hotkey / flag / session-restore callers; the shared info-dialog overlay for picker callers per the `preset-picker` capability).
 
-`apply()` MAY still call `ctx.ui.notify` with severity `warning` for non-refusal accompaniments (e.g. unknown-tools dropped during a successful apply). Warnings ride alongside `ok: true` and are not part of the refusal return path.
+`apply()` SHALL return non-refusal accompaniments, such as dropped unknown tools, with `ok: true`. It SHALL NOT notify directly. Callers SHALL combine these accompaniments with the activation result in one user-facing outcome.
 
 Baseline capture rules:
 
@@ -104,7 +104,8 @@ Ownership rules:
 
 - **WHEN** apply runs for a preset declaring `tools: ["foo", "bar"]` where `bar` is not in `pi.getAllTools()`
 - **THEN** `pi.setActiveTools(["foo"])` SHALL be called
-- **AND** `apply()` SHALL emit a `ctx.ui.notify(<text naming "bar">, "warning")` for the dropped tool
+- **AND** `apply()` SHALL return a warning accompaniment naming `bar` for the caller to include in the activation outcome
+- **AND** `apply()` SHALL NOT emit a separate notification for the dropped tool
 - **AND** `apply()` SHALL return `{ ok: true }`
 
 ### Requirement: Apply uses effective thinking level and surfaces clamping
@@ -178,6 +179,12 @@ The validity check SHALL read `thinkingLevelMap` defensively. An absent map SHAL
 - **THEN** `pi.setThinkingLevel("off")` SHALL be called
 - **AND** the apply result SHALL contain no thinking-level accompaniment
 
+#### Scenario: Apply combines a thinking adjustment and dropped tools
+
+- **WHEN** apply adjusts the requested thinking level and drops one or more unknown tools
+- **THEN** the apply result SHALL contain both accompaniments
+- **AND** no separate user-facing message SHALL be emitted by the apply operation
+
 ### Requirement: Clear restores the overlay baseline with user-override protection
 
 The package SHALL provide a clear operation that detaches the active preset and attempts to return Pi to the overlay's baseline state, respecting manual user overrides made after activation.
@@ -192,7 +199,7 @@ When the active preset has `restore.kind === "unknown"`, clear SHALL perform a s
 
 Equality comparisons: model equality compares `provider` and `id` exactly (a `null` baseline model only equals a `null` current model); thinking equality compares string values exactly; tools equality compares the two lists as sets of tool names (order-insensitive).
 
-Regardless of which branch runs, clear SHALL detach the active preset, append a `presets-plus:active` session entry with `{ name: null }`, refresh the compact preset footer indicator, and emit a result notification describing the outcome per field.
+Regardless of which branch runs, clear SHALL detach the active preset, append a `presets-plus:active` session entry with `{ name: null }`, refresh the compact preset footer indicator, and produce one user-visible result describing the outcome. The result SHALL retain the required per-field distinctions but MAY group successful outcomes concisely.
 
 Failures to apply the baseline (e.g. `pi.setModel` returns false, baseline tools reference names no longer present) SHALL NOT abort the clear operation: the active preset SHALL still be detached and the result notification SHALL describe the partial outcome.
 
@@ -200,7 +207,7 @@ Failures to apply the baseline (e.g. `pi.setModel` returns false, baseline tools
 
 - **WHEN** preset A is applied while no preset was attached and then the user clears while current Pi state still equals `lastApplied`
 - **THEN** model, thinking, and (if owned) tools SHALL be restored to the baseline values captured before A was applied
-- **AND** the active preset SHALL be detached and a result notification SHALL name the restored fields
+- **AND** the active preset SHALL be detached and one result SHALL describe the restoration, either naming the restored fields or grouping them as restored previous settings
 
 #### Scenario: Clear after a chain of presets (A → B → clear)
 
@@ -314,7 +321,7 @@ On `session_start`, the package SHALL inspect the current branch for the most re
 #### Scenario: Session resumes but preset no longer available
 
 - **WHEN** the most recent `presets-plus:active` entry names a preset that no longer exists or is `unavailable`
-- **THEN** the active preset SHALL remain unset and a warning SHALL be emitted
+- **THEN** the active preset SHALL remain unset and its warning SHALL be included in the startup warning collection
 
 #### Scenario: Session resumes with cleared state
 
@@ -330,26 +337,41 @@ On `session_start`, the package SHALL inspect the current branch for the most re
 
 ### Requirement: Activation emits a visible audit-trail message
 
-When a preset is applied (interactively via `/presets <name>`), the package SHALL emit a custom message of type `presets-plus:activated` via `pi.sendMessage` with `display: true`, containing the preset name, the resolved `provider/model`, and the effective thinking level. This message SHALL render in the conversation but SHALL NOT enter the LLM context.
+When a preset is successfully applied, the package SHALL produce one human-facing success outcome naming the preset. The outcome SHALL NOT use `pi.sendMessage()` or add activation text to LLM context. Apply accompaniments SHALL be included in the same outcome where the delivery surface supports it.
+
+A no-op re-apply SHALL produce no success outcome. Session restore SHALL remain silent because it re-attaches state without applying the preset.
 
 #### Scenario: Interactive activation
 
-- **WHEN** a preset is applied via `/presets <name>`
-- **THEN** a `presets-plus:activated` custom message SHALL appear in the conversation showing the preset name and effective model and thinking level
+- **WHEN** a preset is applied via `/presets <name>` from the prompt
+- **THEN** one info notification SHALL name the applied preset
+- **AND** the notification SHALL NOT enter LLM context
 
 #### Scenario: Re-apply that is a no-op
 
 - **WHEN** the re-apply rule short-circuits (state already matches)
-- **THEN** NO activation marker SHALL be appended
+- **THEN** no activation success outcome SHALL be emitted
 
 #### Scenario: Restore attachment
 
 - **WHEN** the package re-attaches a preset on `session_start` (no apply runs)
-- **THEN** NO activation marker SHALL be appended (the marker from the original apply already exists in the branch)
+- **THEN** no activation success outcome SHALL be emitted
+
+#### Scenario: Picker activation reports success
+
+- **WHEN** a preset is applied from the picker and the picker remains the active interaction surface
+- **THEN** one user-facing success outcome SHALL name the applied preset
+- **AND** the outcome SHALL include any apply accompaniments without adding them to LLM context
+
+#### Scenario: Apply accompaniments are grouped
+
+- **WHEN** an activation succeeds with a thinking adjustment or dropped unknown tools
+- **THEN** the user SHALL receive one combined outcome for that activation
+- **AND** the outcome SHALL identify each adjustment or warning
 
 ### Requirement: Clear emits a per-field result notification
 
-The package SHALL emit exactly one user-visible report on every successful invocation of clear (including the no-active-preset path), describing the outcome for each of model, thinking, and tools. The report SHALL distinguish at least the following per-field outcomes:
+The package SHALL emit exactly one user-visible report on every successful invocation of clear, including the no-active-preset path. The report MAY use concise grouped wording rather than listing every field in all successful cases, but SHALL preserve the following distinctions:
 
 - restored to baseline
 - already at baseline (MAY be collapsed with "restored" in user-facing text)
@@ -359,11 +381,11 @@ The package SHALL emit exactly one user-visible report on every successful invoc
 - could not restore (e.g. model write failed)
 - tools restored with some baseline names dropped because they are no longer available
 
-The report SHALL name the preset that was cleared.
+The report SHALL name the preset that was cleared when one was active.
 
 The delivery surface SHALL depend on the call site:
 
-- When clear is invoked from `/presets clear` typed at the prompt, the package SHALL deliver the report via `ctx.ui.notify` with severity `info`.
+- When clear is invoked from `/presets clear` typed at the prompt, the package SHALL deliver the report via `ctx.ui.notify`. A normal successful clear SHALL use info severity. A restore failure or partial restore SHALL use warning severity.
 - When clear is invoked from inside the `/presets` picker (the `c` action), the package SHALL deliver the report via the shared info-dialog overlay so the report is readable without dismissing the picker; the dialog SHALL block until the user dismisses it with `Enter` or `Esc`.
 
 The textual content of the report SHALL be identical across both delivery surfaces (the same formatter feeds both); only the rendering chrome differs.
@@ -371,7 +393,7 @@ The textual content of the report SHALL be identical across both delivery surfac
 #### Scenario: Full restore from prompt
 
 - **WHEN** the user runs `/presets clear` from the prompt and clear restores every field to baseline
-- **THEN** the report SHALL be delivered via `ctx.ui.notify` and SHALL name the cleared preset and indicate that model, thinking, and tools were restored
+- **THEN** one info report SHALL be delivered via `ctx.ui.notify`, naming the cleared preset and stating that the previous settings were restored
 
 #### Scenario: Full restore from picker
 
@@ -383,6 +405,7 @@ The textual content of the report SHALL be identical across both delivery surfac
 
 - **WHEN** clear leaves a field unchanged because current value differs from both baseline and `lastApplied`
 - **THEN** the report SHALL explicitly state that that field was left unchanged because it changed after activation, regardless of delivery surface
+- **AND** the result SHALL use info severity unless another clear outcome requires warning severity
 
 #### Scenario: priorUnknown report
 
@@ -392,7 +415,13 @@ The textual content of the report SHALL be identical across both delivery surfac
 #### Scenario: Nothing-to-clear report
 
 - **WHEN** clear is invoked with no active preset
-- **THEN** the report SHALL state that there is no active preset to clear, regardless of delivery surface
+- **THEN** exactly one info result SHALL state that there is no active preset to clear, regardless of delivery surface
+
+#### Scenario: Restore failure uses warning severity
+
+- **WHEN** clear detaches the preset but cannot restore one or more baseline values
+- **THEN** exactly one result SHALL be delivered
+- **AND** the result SHALL use warning severity and name the failed restoration
 
 ### Requirement: New-session and fork behavior
 
@@ -444,7 +473,7 @@ The `/presets` command SHALL accept three additional subcommands beyond those in
 
 - `<name>` — activate the named preset (any token that is not a known subcommand is interpreted as a preset name).
 - `clear` — clear the active preset per the baseline-overlay restore rules with user-override protection. The result SHALL be delivered via `ctx.ui.notify` (prompt invocation surface).
-- `status` — print a textual summary of active state including baseline, `lastApplied`, current Pi values, per-field ownership classification (extension-owned / user override / already at baseline), `applyCount`, and the attachment kind (`baseline` vs. `priorUnknown`). The summary SHALL be delivered via `ctx.ui.notify` (prompt invocation surface).
+- `status`: produce a read-only command report of active state including baseline, `lastApplied`, current Pi values, per-field ownership classification (extension-owned / user override / already at baseline), `applyCount`, and the attachment kind (`baseline` vs. `priorUnknown`). In TUI mode, the prompt invocation SHALL append a durable TUI-only report in the conversation without adding it to LLM context. The report SHALL apply its theme when rendered and SHALL NOT persist ANSI styling. In RPC mode, it SHALL use the RPC-compatible notification path. JSON and print modes are out of scope.
 
 The picker provides additional in-overlay paths to `clear` and `status` whose textual content is identical but whose delivery surface is the shared info-dialog overlay (see the picker capability for those scenarios).
 
@@ -467,21 +496,41 @@ The picker provides additional in-overlay paths to `clear` and `status` whose te
 #### Scenario: Status with no active preset
 
 - **WHEN** the user runs `/presets status` and no preset is active
-- **THEN** an info message SHALL state that no preset is active, delivered via `ctx.ui.notify`
+- **THEN** the command report SHALL state that no preset is active
 
 #### Scenario: Status with baseline-managed attachment from prompt
 
-- **WHEN** the user runs `/presets status` from the prompt and a preset is active with `restore.kind === "baseline"`
-- **THEN** the output SHALL be delivered via `ctx.ui.notify`
+- **WHEN** the user runs `/presets status` from the prompt in TUI mode and a preset is active with `restore.kind === "baseline"`
+- **THEN** a durable command report SHALL appear in the conversation without entering LLM context
 - **AND** the output SHALL show the active name and scope, the attachment kind with `applyCount`, the baseline values, `lastApplied` values, and current Pi values for model, thinking, and tools
 - **AND** each field SHALL be classified as extension-owned, user-overridden, already at baseline, or (tools only) not owned by the overlay
 
 #### Scenario: Status with priorUnknown attachment from prompt
 
-- **WHEN** the user runs `/presets status` from the prompt and a preset is active with `restore.kind === "unknown"`
-- **THEN** the output SHALL be delivered via `ctx.ui.notify`
+- **WHEN** the user runs `/presets status` from the prompt in TUI mode and a preset is active with `restore.kind === "unknown"`
+- **THEN** a durable command report SHALL appear in the conversation without entering LLM context
 - **AND** the output SHALL indicate `priorUnknown (no restore baseline — clear will only un-attach)`
 - **AND** SHALL show current Pi values for model, thinking, and tools
+
+#### Scenario: Status from the prompt
+
+- **WHEN** the user runs `/presets status` from the prompt in TUI mode
+- **THEN** a command report SHALL appear in the conversation
+- **AND** the report SHALL be durable in the session
+- **AND** the report SHALL NOT enter LLM context
+
+#### Scenario: Status from the picker
+
+- **WHEN** the user presses `s` in the picker
+- **THEN** the status report SHALL appear in an info dialog above the picker
+- **AND** dismissing the dialog SHALL return the user to the picker
+- **AND** the report text SHALL match the prompt-invoked report
+
+#### Scenario: Status in RPC mode
+
+- **WHEN** the user invokes `/presets status` in RPC mode
+- **THEN** the report SHALL be delivered through the RPC notification protocol
+- **AND** the report SHALL NOT be sent to the LLM as a custom message
 
 ### Requirement: model_select handler is reserved
 

@@ -273,47 +273,61 @@ The resulting precedence SHALL be:
 `--preset flag > session restore (if the named preset still exists) > policy default > baseline`.
 
 When the policy default is auto-activated, the package SHALL apply it through the
-existing apply flow, capturing a fresh baseline, emitting the single visible
-activation message, and refreshing the footer indicator. It SHALL NOT emit a
-second success notification via `ctx.ui.notify` for the same activation.
+existing apply flow, capturing a fresh baseline, producing one visible success
+outcome naming the preset, and refreshing the footer indicator. Any apply
+accompaniments SHALL be combined into that outcome. It SHALL NOT emit a second
+success notification for the same activation.
 
 If the apply flow returns a refusal for the default (e.g. the model's key was
 revoked between load and apply), the package SHALL surface the refusal reason as
 a warning, leave the Pi baseline in place, attach no preset, and continue the
-session.
+session. Startup warnings collected during this session SHALL be combined into
+one startup warning where possible.
 
 #### Scenario: Fresh session applies the default
 
 - **WHEN** a fresh session starts, no `--preset` flag is passed, no prior active preset is restored, and a policy default resolves to a permitted available preset
 - **THEN** the default SHALL be applied via the standard apply flow
-- **AND** exactly one visible success message naming the applied preset SHALL be emitted
-- **AND** no additional success notification naming the same preset SHALL be emitted via `ctx.ui.notify`
+- **AND** exactly one visible success outcome naming the applied preset SHALL be emitted
+- **AND** any apply accompaniments SHALL be included in that outcome
+- **AND** no second success notification naming the same preset SHALL be emitted
 
 #### Scenario: Flag overrides policy default
 
 - **WHEN** a session starts with `--preset other` passed and a policy default also resolves
 - **THEN** `other` SHALL be activated by the flag and the policy default SHALL NOT be applied
+- **AND** no policy-default success outcome SHALL be emitted
 
 #### Scenario: Restored session is not a fresh session
 
 - **WHEN** a session is resumed whose most recent `presets-plus:active` entry names a still-loadable preset
 - **THEN** that preset SHALL be re-attached by restore and the policy default SHALL NOT be applied
+- **AND** no activation success outcome SHALL be emitted for the restore
 
 #### Scenario: Failed restore falls through to policy default
 
 - **WHEN** a session is resumed whose most recent `presets-plus:active` entry names a preset that no longer loads, and a policy default resolves to a permitted available preset
-- **THEN** restore SHALL attach nothing (and warn per the restore requirement) and the policy default SHALL then be applied
-- **AND** the successful default activation SHALL emit only its single visible success message
+- **THEN** restore SHALL attach nothing and SHALL contribute its warning to the startup warning collection
+- **AND** the policy default SHALL then be applied
+- **AND** the successful default activation SHALL emit only its single combined success outcome
 
 #### Scenario: No notification when the default is preempted
 
 - **WHEN** a flag or a successful restore preempts the policy default
-- **THEN** no default-applied notification SHALL be emitted
+- **THEN** no default-applied success outcome SHALL be emitted
 
 #### Scenario: Apply refusal on the default is non-fatal
 
 - **WHEN** the resolved default's apply flow returns a refusal
-- **THEN** a warning SHALL be surfaced, no preset SHALL be attached, and the session SHALL continue on the Pi baseline
+- **THEN** a warning SHALL be added to the startup warning collection
+- **AND** no preset SHALL be attached
+- **AND** the session SHALL continue on the Pi baseline
+
+#### Scenario: Startup warnings are aggregated
+
+- **WHEN** startup produces multiple warnings from preset loading, hotkey registration, policy loading, restore, or default activation
+- **THEN** the package SHALL present one startup warning containing the individual warning messages where possible
+- **AND** the package SHALL preserve each warning's meaning
 
 ### Requirement: Read-only policy inspection view
 
@@ -335,7 +349,28 @@ When the report contains one or more prohibited presets, it SHALL append a blank
 
 The report SHALL NOT display policy rule numbers, rule patterns, matcher expressions, match lengths, matched substrings, winning-rule details, or default-selection reasons.
 
-The view SHALL be read-only. It SHALL never write `policy.json`. It SHALL be delivered through `ctx.ui.notify`, following the existing pure-formatter and thin-runner convention.
+The view SHALL be read-only and SHALL never write `policy.json`. In TUI mode, a prompt-invoked `/presets policy` SHALL appear as a durable TUI-only command report that does not enter LLM context. The picker SHALL show the same report text in the shared info-dialog overlay. In RPC mode, the package SHALL deliver the report through the RPC-compatible notification path. JSON and print modes are out of scope.
+
+Warnings found while loading policy or presets SHALL be included in the command report where possible instead of appearing as a separate notification immediately before it.
+
+#### Scenario: Policy view from the prompt
+
+- **WHEN** the user runs `/presets policy` from the prompt in TUI mode
+- **THEN** a durable command report SHALL appear in the conversation
+- **AND** the report SHALL NOT enter LLM context
+
+#### Scenario: Policy view from the picker
+
+- **WHEN** the user requests policy from inside the picker
+- **THEN** the policy report SHALL appear in an info dialog above the picker
+- **AND** dismissing the dialog SHALL return the user to the picker
+- **AND** the report text SHALL match the prompt-invoked report
+
+#### Scenario: Policy view in RPC mode
+
+- **WHEN** the user invokes `/presets policy` in RPC mode
+- **THEN** the report SHALL be delivered through the RPC notification protocol
+- **AND** the report SHALL NOT be sent to the LLM as a custom message
 
 #### Scenario: Policy view with matching rules
 
