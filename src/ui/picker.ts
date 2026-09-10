@@ -167,9 +167,9 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     } else if (matchesKey(input, Key.down)) {
       this.moveSelection(1);
     } else if (matchesKey(input, Key.pageUp)) {
-      this.moveSelection(-this.pageSize, { wrap: false });
+      this.moveSelection(-this.pageSize);
     } else if (matchesKey(input, Key.pageDown)) {
-      this.moveSelection(this.pageSize, { wrap: false });
+      this.moveSelection(this.pageSize);
     } else if (matchesKey(input, Key.left)) {
       this.cycleScope(-1);
     } else if (matchesKey(input, Key.right)) {
@@ -383,13 +383,13 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     }
 
     if (matchesKey(input, Key.pageUp)) {
-      this.moveSelection(-this.pageSize, { wrap: false });
+      this.moveSelection(-this.pageSize);
 
       return;
     }
 
     if (matchesKey(input, Key.pageDown)) {
-      this.moveSelection(this.pageSize, { wrap: false });
+      this.moveSelection(this.pageSize);
 
       return;
     }
@@ -567,7 +567,11 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     ) {
       if (absoluteIndex > layout.startIndex) lines.push(frameLine("", width));
 
-      const cardLines = cardLinesByIndex.get(absoluteIndex) ?? [];
+      const cardLines =
+        cardLinesByIndex.get(
+          ((absoluteIndex % visiblePresets.length) + visiblePresets.length) %
+            visiblePresets.length,
+        ) ?? [];
 
       for (const cardLine of cardLines) {
         lines.push(frameLine(cardLine, width));

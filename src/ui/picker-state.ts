@@ -83,7 +83,16 @@ export function moveSelection(
     ? ((nextIndex % visibleCount) + visibleCount) % visibleCount
     : Math.max(0, Math.min(nextIndex, visibleCount - 1));
 
-  return ensureSelectionVisible({ ...state, selectedIndex }, pageSize);
+  const moved = ensureSelectionVisible(
+    { ...state, selectedIndex: options.wrap ? nextIndex : selectedIndex },
+    pageSize,
+  );
+
+  return {
+    ...moved,
+    selectedIndex,
+    scrollOffset: moved.scrollOffset + selectedIndex - moved.selectedIndex,
+  };
 }
 
 /**
@@ -110,7 +119,17 @@ export function preserveSelectionOrFirst(
     : -1;
   const selectedIndex = nextIndex >= 0 ? nextIndex : 0;
 
-  return ensureSelectionVisible({ ...state, selectedIndex }, pageSize);
+  return ensureSelectionVisible(
+    {
+      ...state,
+      selectedIndex,
+      scrollOffset: Math.max(
+        0,
+        Math.min(state.scrollOffset, visible.length - 1),
+      ),
+    },
+    pageSize,
+  );
 }
 
 /** Return the currently selected preset, if the visible list has one. */

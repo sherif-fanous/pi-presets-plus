@@ -157,6 +157,66 @@ describe("picker variable-height navigation", () => {
     vi.clearAllMocks();
   });
 
+  it.each([false, true])(
+    "scrolls across both ends in filter mode %s",
+    async (filterMode) => {
+      const component = await mountPicker(makePresets(18));
+
+      component.render(120);
+      if (filterMode) component.handleInput?.("/");
+
+      component.handleInput?.(KEY_BYTES[Key.up]);
+
+      const upward = component
+        .render(120)
+        .filter((line) => line.includes("preset-"));
+
+      expect(upward[0]).toContain(presetName(17));
+      expect(upward[0]).toContain("▌");
+      expect(upward[1]).toContain(presetName(0));
+      expect(upward[2]).toContain(presetName(1));
+
+      component.handleInput?.(KEY_BYTES[Key.down]);
+
+      const downward = component
+        .render(120)
+        .filter((line) => line.includes("preset-"));
+
+      expect(downward[0]).toContain(presetName(17));
+      expect(downward[1]).toContain(presetName(0));
+      expect(downward[1]).toContain("▌");
+    },
+  );
+
+  it.each([false, true])(
+    "wraps page navigation in filter mode %s",
+    async (filterMode) => {
+      const component = await mountPicker(makePresets(18));
+      const pageSize = component
+        .render(120)
+        .filter((line) => line.includes("preset-")).length;
+
+      if (filterMode) component.handleInput?.("/");
+
+      component.handleInput?.(KEY_BYTES[Key.pageUp]);
+
+      const upward = component.render(120);
+
+      expect(upward.find((line) => line.includes("▌"))).toContain(
+        presetName(18 - pageSize),
+      );
+
+      const nextPageSize = upward.filter((line) =>
+        line.includes("preset-"),
+      ).length;
+
+      component.handleInput?.(KEY_BYTES[Key.pageDown]);
+      expect(
+        component.render(120).find((line) => line.includes("▌")),
+      ).toContain(presetName((18 - pageSize + nextPageSize) % 18));
+    },
+  );
+
   it("keeps the selected card rendered through consecutive Down presses", async () => {
     const component = await mountPicker(makePresets(18));
     const initialRender = component.render(120).join("\n");

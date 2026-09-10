@@ -12,7 +12,7 @@ const MINIMUM_PAGE_SIZE = 1;
 /** Blank line drawn between two cards. */
 const SEPARATOR_LINES = 1;
 
-/** Visible card range and the scroll offset that produced it. */
+/** Logical card range, with indices wrapping modulo the item count. */
 export type PickerViewportLayout = {
   readonly endIndex: number;
   readonly pageSize: number;
@@ -39,15 +39,22 @@ export function layoutPickerViewport(
 
   const lastIndex = itemCount - 1;
   const selection = Math.max(0, Math.min(selectedIndex, lastIndex));
-  let startIndex = Math.max(0, Math.min(scrollOffset, lastIndex));
-  let endIndex = packEndIndex(itemCount, startIndex, lineBudget, cardHeightAt);
+  const heightAt = (index: number): number =>
+    cardHeightAt(((index % itemCount) + itemCount) % itemCount);
+  let startIndex = scrollOffset;
+  let endIndex = packEndIndex(itemCount, startIndex, lineBudget, heightAt);
 
   if (selection < startIndex) {
     startIndex = selection;
-    endIndex = packEndIndex(itemCount, startIndex, lineBudget, cardHeightAt);
+    endIndex = packEndIndex(itemCount, startIndex, lineBudget, heightAt);
   } else if (selection >= endIndex) {
-    startIndex = scrollOffsetForSelection(selection, lineBudget, cardHeightAt);
-    endIndex = packEndIndex(itemCount, startIndex, lineBudget, cardHeightAt);
+    startIndex = scrollOffsetForSelection(
+      selection,
+      itemCount,
+      lineBudget,
+      heightAt,
+    );
+    endIndex = packEndIndex(itemCount, startIndex, lineBudget, heightAt);
   }
 
   return {
@@ -92,7 +99,7 @@ function packEndIndex(
   let endIndex = startIndex;
   let usedLines = 0;
 
-  while (endIndex < itemCount) {
+  while (endIndex < startIndex + itemCount) {
     const separatorLines = endIndex > startIndex ? SEPARATOR_LINES : 0;
     const nextLines = separatorLines + cardLines(endIndex, cardHeightAt);
 
@@ -107,13 +114,14 @@ function packEndIndex(
 
 function scrollOffsetForSelection(
   selectedIndex: number,
+  itemCount: number,
   lineBudget: number,
   cardHeightAt: (index: number) => number,
 ): number {
   let scrollOffset = selectedIndex;
   let usedLines = cardLines(selectedIndex, cardHeightAt);
 
-  while (scrollOffset > 0) {
+  while (scrollOffset > selectedIndex - itemCount + 1) {
     const previousIndex = scrollOffset - 1;
     const previousLines =
       SEPARATOR_LINES + cardLines(previousIndex, cardHeightAt);
