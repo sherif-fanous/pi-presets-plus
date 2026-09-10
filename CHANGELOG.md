@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.0] - 2026-09-10
+
+### Added
+
+- Search providers and models by name and version with `Enter` on either row in the preset editor, while keeping left/right cycling available ([#35](https://github.com/sherif-fanous/pi-presets-plus/pull/35))
+
 ## [0.7.1] - 2026-09-10
 
 ### Fixed
@@ -113,6 +119,7 @@
 
 _Initial release._
 
+[0.8.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.8.0
 [0.7.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.7.1
 [0.7.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.7.0
 [0.6.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.6.1
