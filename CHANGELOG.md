@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0] - 2026-09-10
+
+### Changed
+
+- Open the picker with the cursor on the active preset instead of the first one in the list ([#37](https://github.com/sherif-fanous/pi-presets-plus/pull/37))
+- Place the active preset in the middle of the picker instead of at the bottom edge, so the presets around it stay in view ([#38](https://github.com/sherif-fanous/pi-presets-plus/pull/38))
+
 ## [0.8.0] - 2026-09-10
 
 ### Added
@@ -119,6 +126,7 @@
 
 _Initial release._
 
+[0.9.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.9.0
 [0.8.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.8.0
 [0.7.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.7.1
 [0.7.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.7.0
