@@ -101,6 +101,7 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
   private readonly filterInput = new Input();
   private cachedVisible?: { key: string; presets: readonly LoadedPreset[] };
   private overlayHandle: OverlayHandle | undefined;
+  private balanceOpeningViewport = false;
   private renderedPageSize: number | undefined;
   private resolved = false;
   private actionInFlight = false;
@@ -140,6 +141,9 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
       active ? loadedPresetKey(active) : undefined,
       this.pageSize,
     );
+    // A non-zero opening selection means the active preset was found below
+    // the first card, which is the only case balancing changes.
+    this.balanceOpeningViewport = this.state.selectedIndex > 0;
   }
 
   get focused(): boolean {
@@ -513,6 +517,11 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
 
   private renderList(width: number): RenderListResult {
     const visiblePresets = this.visiblePresets();
+    // Consume the opening hint before any early return, so a first frame
+    // with no matches cannot leave it armed for a later render.
+    const balanced = this.balanceOpeningViewport;
+
+    this.balanceOpeningViewport = false;
 
     if (visiblePresets.length === 0) {
       return {
@@ -568,7 +577,9 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
       this.state.scrollOffset,
       pickerListLineBudget(this.terminal.rows),
       cardHeightAt,
+      balanced,
     );
+
     const lines: string[] = [];
 
     for (
