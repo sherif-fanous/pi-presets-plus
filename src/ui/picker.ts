@@ -38,6 +38,7 @@ import {
 import {
   cycleScope as cyclePickerScope,
   initialPickerState,
+  loadedPresetKey,
   moveSelection as movePickerSelection,
   preserveSelectionOrFirst as preservePickerSelectionOrFirst,
   selectedPreset as selectedPickerPreset,
@@ -96,7 +97,7 @@ interface RenderListResult {
 
 class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
   private _focused = false;
-  private state: PickerState = initialPickerState();
+  private state: PickerState;
   private readonly filterInput = new Input();
   private cachedVisible?: { key: string; presets: readonly LoadedPreset[] };
   private overlayHandle: OverlayHandle | undefined;
@@ -129,7 +130,17 @@ class PresetPickerComponent implements Component, Focusable, PickerCommandHost {
     readonly onActivate: (preset: LoadedPreset) => Promise<ActivationResult>,
     private readonly done: (result: PickerResult | undefined) => void,
     private readonly requestRender: () => void,
-  ) {}
+  ) {
+    const active = session.current();
+
+    this.state = preservePickerSelectionOrFirst(
+      initialPickerState(),
+      this.allPresets,
+      "",
+      active ? loadedPresetKey(active) : undefined,
+      this.pageSize,
+    );
+  }
 
   get focused(): boolean {
     return this._focused;
