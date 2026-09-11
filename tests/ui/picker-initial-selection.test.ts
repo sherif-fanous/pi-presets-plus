@@ -14,8 +14,9 @@ const loadAll = vi.fn();
 
 /** Raw terminal byte sequence for the one key these tests drive. */
 const KEY_BYTES = {
+  [Key.down]: "\u001B[B",
   [Key.enter]: "\r",
-} as const satisfies Record<typeof Key.enter, string>;
+} as const satisfies Record<typeof Key.down | typeof Key.enter, string>;
 
 vi.mock("../../src/store/api.js", async (importOriginal) => {
   const actual =
@@ -127,6 +128,13 @@ async function mountPicker(options: MountOptions): Promise<MountResult> {
   return { component, onActivate };
 }
 
+/** Builds numbered presets whose names are easy to find in rendered output. */
+function numberedPresets(count: number): LoadedPreset[] {
+  return Array.from({ length: count }, (_, index) =>
+    makeLoadedPreset(`preset-${String(index).padStart(2, "0")}`),
+  );
+}
+
 /** Read the picker's private state without rendering it first. */
 function pickerState(component: Component): PickerState {
   return (component as unknown as { state: PickerState }).state;
@@ -149,6 +157,14 @@ function stripAnsi(text: string): string {
   const escapeCharacter = String.fromCharCode(27);
 
   return text.replace(new RegExp(`${escapeCharacter}\\[[0-9;]*m`, "g"), "");
+}
+
+/** Return visible preset-card names, excluding the active status row. */
+function visibleCardNames(component: Component): string[] {
+  return renderLines(component)
+    .filter((line) => !line.includes("Active:"))
+    .map((line) => /preset-\d+/.exec(line)?.[0])
+    .filter((name): name is string => name !== undefined);
 }
 
 describe("picker initial selection", () => {
@@ -177,40 +193,85 @@ describe("picker initial selection", () => {
     expect(selectedLine).toContain("●");
   });
 
-  it("scrolls an active preset below the fold into the first frame", async () => {
-    const presets = Array.from({ length: 20 }, (_, index) =>
-      makeLoadedPreset(`preset-${String(index).padStart(2, "0")}`),
-    );
-    const active = presets[18];
+  it("opens an active preset below the fold near the middle", async () => {
+    const presets = numberedPresets(20);
+    const active = presets[10];
     const { component } = await mountPicker({
       active,
       presets,
-      terminalRows: 24,
+      terminalRows: 60,
     });
 
+    const names = visibleCardNames(component);
+    const selectedIndex = names.indexOf(active?.name ?? "");
+
+    expect(selectedIndex).toBeGreaterThan(0);
+    expect(selectedIndex).toBeLessThan(names.length - 1);
     expect(renderLines(component).join("\n")).toContain(
       `▌ ● ${active?.name ?? ""}`,
     );
   });
 
-  it("selects the first card when no preset is active", async () => {
+  it("does not rebalance after the opening render", async () => {
+    const presets = numberedPresets(20);
     const { component } = await mountPicker({
-      presets: [makeLoadedPreset("build"), makeLoadedPreset("plan")],
+      active: presets[10],
+      presets,
+      terminalRows: 24,
     });
 
+    expect(visibleCardNames(component)).toEqual(["preset-10", "preset-11"]);
+
+    component.handleInput?.(KEY_BYTES[Key.down]);
+
+    expect(visibleCardNames(component)).toEqual(["preset-10", "preset-11"]);
+  });
+
+  it("clamps the opening viewport to the top near the start", async () => {
+    const presets = numberedPresets(20);
+    const { component } = await mountPicker({
+      active: presets[1],
+      presets,
+      terminalRows: 60,
+    });
+
+    expect(visibleCardNames(component)[0]).toBe("preset-00");
+    expect(selectedCardName(component)).toBe("preset-01");
+  });
+
+  it("clamps the opening viewport to the bottom near the end", async () => {
+    const presets = numberedPresets(20);
+    const { component } = await mountPicker({
+      active: presets[18],
+      presets,
+      terminalRows: 60,
+    });
+
+    const names = visibleCardNames(component);
+
+    expect(names).toContain("preset-19");
+    expect(selectedCardName(component)).toBe("preset-18");
+  });
+
+  it("selects the first card when no preset is active", async () => {
+    const presets = numberedPresets(2);
+    const { component } = await mountPicker({ presets });
+
     expect(pickerState(component).selectedIndex).toBe(0);
-    expect(selectedCardName(component)).toBe("build");
+    expect(visibleCardNames(component)[0]).toBe("preset-00");
+    expect(selectedCardName(component)).toBe("preset-00");
   });
 
   it("selects the first card when the active preset is no longer loaded", async () => {
-    const presets = [makeLoadedPreset("build"), makeLoadedPreset("review")];
+    const presets = numberedPresets(2);
     const { component } = await mountPicker({
       active: makeLoadedPreset("deleted"),
       presets,
     });
 
     expect(pickerState(component).selectedIndex).toBe(0);
-    expect(selectedCardName(component)).toBe("build");
+    expect(visibleCardNames(component)[0]).toBe("preset-00");
+    expect(selectedCardName(component)).toBe("preset-00");
   });
 
   it("matches the active preset by scope as well as by name", async () => {

@@ -67,6 +67,76 @@ describe("picker layout", () => {
     });
   });
 
+  it("balances the selected card near the vertical midpoint on open", () => {
+    expect(
+      layoutPickerViewport(20, 10, 0, 9, heights(Array(20).fill(1)), true),
+    ).toEqual({
+      endIndex: 13,
+      pageSize: 5,
+      scrollOffset: 8,
+      startIndex: 8,
+    });
+  });
+
+  it("balances by rendered lines rather than by card count", () => {
+    // The tall card at index 3 fills the space a count-halving anchor would
+    // have spent on three short cards.
+    const tallAbove = heights([1, 1, 1, 9, 1, 1, 1, 1, 1, 1]);
+    const layout = layoutPickerViewport(10, 5, 0, 11, tallAbove, true);
+
+    expect(layout).toEqual({
+      endIndex: 10,
+      pageSize: 6,
+      scrollOffset: 4,
+      startIndex: 4,
+    });
+    expect(layout.startIndex).not.toBe(5 - Math.floor(layout.pageSize / 2));
+  });
+
+  it("keeps a later card visible instead of centering exactly", () => {
+    expect(
+      layoutPickerViewport(20, 10, 0, 9, heights(Array(20).fill(3)), true),
+    ).toEqual({
+      endIndex: 12,
+      pageSize: 2,
+      scrollOffset: 10,
+      startIndex: 10,
+    });
+  });
+
+  it("clamps a balanced opening viewport at the start of the list", () => {
+    expect(
+      layoutPickerViewport(20, 1, 0, 9, heights(Array(20).fill(1)), true),
+    ).toEqual({
+      endIndex: 5,
+      pageSize: 5,
+      scrollOffset: 0,
+      startIndex: 0,
+    });
+  });
+
+  it("clamps a balanced opening viewport at the end of the list", () => {
+    expect(
+      layoutPickerViewport(20, 18, 0, 9, heights(Array(20).fill(1)), true),
+    ).toEqual({
+      endIndex: 20,
+      pageSize: 4,
+      scrollOffset: 16,
+      startIndex: 16,
+    });
+  });
+
+  it("renders an oversized selected card alone when balancing on open", () => {
+    expect(layoutPickerViewport(3, 1, 0, 5, heights([1, 10, 1]), true)).toEqual(
+      {
+        endIndex: 2,
+        pageSize: 1,
+        scrollOffset: 1,
+        startIndex: 1,
+      },
+    );
+  });
+
   it("returns an empty viewport without reading card heights", () => {
     const cardHeightAt = vi.fn(() => 1);
 
