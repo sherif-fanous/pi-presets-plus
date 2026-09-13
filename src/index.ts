@@ -22,7 +22,7 @@ import {
 } from "./hotkey-registry.js";
 import { findPreset } from "./preset-identity.js";
 import { loadAll } from "./store/api.js";
-import { loadConfig } from "./store/config.js";
+import { describeMigration, migrateAll } from "./store/migrate.js";
 import { registerCommandReportRenderer } from "./ui/command-report.js";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
@@ -63,19 +63,21 @@ export default function presetsPlus(pi: ExtensionAPI) {
     };
 
     try {
-      const { showInactiveStatus, warnings: configWarnings } =
-        await loadConfig();
+      const migrationOutcomes = await migrateAll(ctx.cwd);
+      const migrationDescription = describeMigration(migrationOutcomes);
 
-      if (configWarnings.length > 0) {
-        startupCtx.ui.notify(
-          `${configWarnings.length} configuration warning${configWarnings.length === 1 ? "" : "s"}:\n- ${configWarnings.join("\n- ")}`,
-          "warning",
-        );
+      if (migrationDescription) {
+        if (migrationDescription.level === "warning") {
+          startupWarnings.push(migrationDescription.text);
+        } else {
+          ctx.ui.notify(migrationDescription.text, migrationDescription.level);
+        }
       }
 
-      session.setShowInactiveStatus(showInactiveStatus, startupCtx);
+      const { hotkeyAnalysis, presets, showInactiveStatus, warnings } =
+        await loadAll(startupCtx);
 
-      const { hotkeyAnalysis, presets, warnings } = await loadAll(startupCtx);
+      session.setShowInactiveStatus(showInactiveStatus, startupCtx);
 
       surfaceWarnings(startupCtx, warnings);
 

@@ -22,9 +22,10 @@ import {
   movePreset,
   removePreset,
   reorderWithinScope,
-  saveScope,
+  saveScope as saveScopeImpl,
   updatePreset,
 } from "../../src/store/api.js";
+import { loadScope } from "../../src/store/config.js";
 import type { Preset, PresetScope } from "../../src/types.js";
 import {
   makeStubModelRegistry,
@@ -62,12 +63,22 @@ function preset(name: string, extra: Partial<Preset> = {}): Preset {
 
 function presetPath(scope: PresetScope): string {
   return scope === "user"
-    ? join(agentDir, "presets-plus", "presets.json")
-    : join(projectDir, ".pi", "presets-plus", "presets.json");
+    ? join(agentDir, "presets-plus", "config.json")
+    : join(projectDir, ".pi", "presets-plus", "config.json");
+}
+
+async function saveScope(
+  scope: PresetScope,
+  presets: readonly Preset[],
+  ctx: ReturnType<typeof makeCtx>,
+): Promise<void> {
+  const loaded = await loadScope(scope, ctx.cwd);
+
+  await saveScopeImpl(scope, presets, ctx, loaded.document);
 }
 
 function unsafeMutationReason(scope: PresetScope, path: string): string {
-  return `Pi Presets Plus did not change the ${scope} preset file at ${path}. It could not load the complete file. Fix the file and try again.`;
+  return `Pi Presets Plus did not change the ${scope} configuration file at ${path}. It could not load the complete file. Fix the file and try again.`;
 }
 
 async function writeRawScope(
@@ -114,22 +125,53 @@ describe("loadAll", () => {
   it("merges both scopes and surfaces warnings from each", async () => {
     await mkdir(join(agentDir, "presets-plus"), { recursive: true });
     await writeFile(
-      join(agentDir, "presets-plus", "presets.json"),
+      join(agentDir, "presets-plus", "config.json"),
       "not json",
       "utf-8",
     );
 
     const ctx = makeCtx(projectDir, fullRegistry);
 
-    await saveScope("project", [preset("plan")], ctx);
+    await writeRawScope(
+      "project",
+      JSON.stringify({
+        version: 2,
+        showInactiveStatus: "yes",
+        presets: [preset("plan")],
+      }),
+    );
 
     const result = await loadAll(ctx);
 
     expect(
       result.presets.map((loaded) => `${loaded.scope}:${loaded.name}`),
     ).toEqual(["project:plan"]);
-    expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]).toContain("invalid JSON");
+
+    expect(result.warnings).toEqual([
+      expect.stringContaining("The config file"),
+      expect.stringContaining('invalid "showInactiveStatus" value'),
+    ]);
+    expect(result.warnings.join("\n")).toContain("invalid JSON");
+  });
+
+  it("surfaces a project policy section as one warning", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+
+    await writeRawScope(
+      "project",
+      JSON.stringify({
+        version: 2,
+        policy: { rules: [] },
+        presets: [preset("plan")],
+      }),
+    );
+
+    const result = await loadAll(ctx);
+
+    expect(result.presets.map((loaded) => loaded.name)).toEqual(["plan"]);
+    expect(result.warnings).toEqual([
+      expect.stringContaining("only in the user configuration"),
+    ]);
   });
 
   it("sets clampWarning for loaded presets that will clamp thinking", async () => {
@@ -181,9 +223,9 @@ describe("loadAll", () => {
 
     await mkdir(join(agentDir, "presets-plus"), { recursive: true });
     await writeFile(
-      join(agentDir, "presets-plus", "presets.json"),
+      join(agentDir, "presets-plus", "config.json"),
       JSON.stringify({
-        version: 1,
+        version: 2,
         presets: [preset("a"), preset("b")],
       }),
       "utf-8",
@@ -201,13 +243,13 @@ describe("saveScope", () => {
 
     await saveScope("user", [preset("plan"), preset("ship")], ctx);
 
-    const path = join(agentDir, "presets-plus", "presets.json");
+    const path = join(agentDir, "presets-plus", "config.json");
     const parsed = JSON.parse(await readFile(path, "utf-8")) as {
       version: number;
       presets: Preset[];
     };
 
-    expect(parsed.version).toBe(1);
+    expect(parsed.version).toBe(2);
     expect(parsed.presets.map((entry) => entry.name)).toEqual(["plan", "ship"]);
   });
 
@@ -233,7 +275,7 @@ describe("saveScope", () => {
     await saveScope("user", loaded, ctx);
 
     const raw = await readFile(
-      join(agentDir, "presets-plus", "presets.json"),
+      join(agentDir, "presets-plus", "config.json"),
       "utf-8",
     );
 
@@ -244,6 +286,34 @@ describe("saveScope", () => {
 });
 
 describe("addPreset", () => {
+  it("preserves every other configuration section when adding", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const path = presetPath("user");
+
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(
+      path,
+      JSON.stringify({
+        version: 2,
+        showInactiveStatus: false,
+        policy: { rules: [{ match: "work" }] },
+        unknown: { retained: true },
+        presets: [preset("old")],
+      }),
+      "utf8",
+    );
+
+    expect(await addPreset(preset("new"), "user", ctx)).toEqual({ ok: true });
+    expect(JSON.parse(await readFile(path, "utf8"))).toEqual({
+      version: 2,
+      showInactiveStatus: false,
+      policy: { rules: [{ match: "work" }] },
+      unknown: { retained: true },
+      presets: [preset("old"), preset("new")],
+    });
+    expect((await readFile(path, "utf8")).endsWith("\n")).toBe(true);
+  });
+
   it("appends to an empty scope", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
     const result = await addPreset(preset("plan"), "user", ctx);
@@ -281,10 +351,16 @@ describe("addPreset", () => {
 });
 
 describe("updatePreset", () => {
-  it("replaces a preset in place, preserving position", async () => {
+  it("replaces a preset in place and preserves the complete document", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
-
-    await saveScope("user", [preset("a"), preset("b"), preset("c")], ctx);
+    const original = {
+      version: 2,
+      showInactiveStatus: false,
+      policy: { rules: [{ match: "work" }] },
+      unknown: { retained: true },
+      presets: [preset("a"), preset("b"), preset("c")],
+    };
+    const path = await writeRawScope("user", JSON.stringify(original));
 
     const result = await updatePreset(
       "b",
@@ -294,14 +370,14 @@ describe("updatePreset", () => {
     );
 
     expect(result).toEqual({ ok: true });
-
-    const names = (await loadAll(ctx)).presets.map((entry) => entry.name);
-
-    expect(names).toEqual(["a", "b", "c"]);
-
-    const loadedB = (await loadAll(ctx)).presets[1];
-
-    expect(loadedB?.thinkingLevel).toBe("high");
+    expect(JSON.parse(await readFile(path, "utf-8"))).toEqual({
+      ...original,
+      presets: [
+        preset("a"),
+        preset("b", { thinkingLevel: "high" }),
+        preset("c"),
+      ],
+    });
   });
 
   it("supports renaming when there is no collision", async () => {
@@ -336,11 +412,23 @@ describe("updatePreset", () => {
 });
 
 describe("movePreset", () => {
-  it("moves a user preset to the project scope", async () => {
+  it("moves a user preset to the project scope and preserves both documents", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
-
-    await saveScope("user", [preset("keep"), preset("move")], ctx);
-    await saveScope("project", [preset("project")], ctx);
+    const user = {
+      version: 2,
+      showInactiveStatus: false,
+      policy: { rules: [] },
+      unknown: "user",
+      presets: [preset("keep"), preset("move")],
+    };
+    const project = {
+      version: 2,
+      showInactiveStatus: true,
+      unknown: "project",
+      presets: [preset("project")],
+    };
+    const userPath = await writeRawScope("user", JSON.stringify(user));
+    const projectPath = await writeRawScope("project", JSON.stringify(project));
 
     const result = await movePreset(
       "move",
@@ -351,18 +439,34 @@ describe("movePreset", () => {
     );
 
     expect(result).toEqual({ ok: true });
-    expect(
-      (await loadAll(ctx)).presets.map(
-        (entry) => `${entry.scope}:${entry.name}`,
-      ),
-    ).toEqual(["user:keep", "project:project", "project:moved"]);
+    expect(JSON.parse(await readFile(userPath, "utf-8"))).toEqual({
+      ...user,
+      presets: [preset("keep")],
+    });
+
+    expect(JSON.parse(await readFile(projectPath, "utf-8"))).toEqual({
+      ...project,
+      presets: [preset("project"), preset("moved")],
+    });
   });
 
-  it("moves a project preset to the user scope", async () => {
+  it("moves a project preset to the user scope and preserves both documents", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
-
-    await saveScope("user", [preset("user")], ctx);
-    await saveScope("project", [preset("move"), preset("keep")], ctx);
+    const user = {
+      version: 2,
+      showInactiveStatus: false,
+      policy: { rules: [] },
+      unknown: "user",
+      presets: [preset("user")],
+    };
+    const project = {
+      version: 2,
+      showInactiveStatus: true,
+      unknown: "project",
+      presets: [preset("move"), preset("keep")],
+    };
+    const userPath = await writeRawScope("user", JSON.stringify(user));
+    const projectPath = await writeRawScope("project", JSON.stringify(project));
 
     const result = await movePreset(
       "move",
@@ -373,11 +477,15 @@ describe("movePreset", () => {
     );
 
     expect(result).toEqual({ ok: true });
-    expect(
-      (await loadAll(ctx)).presets.map(
-        (entry) => `${entry.scope}:${entry.name}`,
-      ),
-    ).toEqual(["user:user", "user:moved", "project:keep"]);
+    expect(JSON.parse(await readFile(userPath, "utf-8"))).toEqual({
+      ...user,
+      presets: [preset("user"), preset("moved")],
+    });
+
+    expect(JSON.parse(await readFile(projectPath, "utf-8"))).toEqual({
+      ...project,
+      presets: [preset("keep")],
+    });
   });
 
   it("rejects matching source and destination scopes without writing", async () => {
@@ -532,17 +640,24 @@ describe("movePreset", () => {
 });
 
 describe("removePreset", () => {
-  it("removes a present entry", async () => {
+  it("removes an entry and preserves the complete document", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
-
-    await saveScope("user", [preset("a"), preset("b")], ctx);
+    const original = {
+      version: 2,
+      showInactiveStatus: true,
+      policy: { rules: [] },
+      unknown: "retained",
+      presets: [preset("a"), preset("b")],
+    };
+    const path = await writeRawScope("user", JSON.stringify(original));
 
     const result = await removePreset("a", "user", ctx);
 
     expect(result).toEqual({ ok: true });
-    expect((await loadAll(ctx)).presets.map((entry) => entry.name)).toEqual([
-      "b",
-    ]);
+    expect(JSON.parse(await readFile(path, "utf-8"))).toEqual({
+      ...original,
+      presets: [preset("b")],
+    });
   });
 
   it("is a no-op when the entry does not exist (idempotent)", async () => {
@@ -560,19 +675,24 @@ describe("removePreset", () => {
 });
 
 describe("reorderWithinScope", () => {
-  it("rewrites the file in the requested order", async () => {
+  it("rewrites the file in the requested order and preserves its sections", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
-
-    await saveScope("user", [preset("a"), preset("b"), preset("c")], ctx);
+    const original = {
+      version: 2,
+      showInactiveStatus: false,
+      policy: { rules: [{ match: "work" }] },
+      unknown: [1, 2],
+      presets: [preset("a"), preset("b"), preset("c")],
+    };
+    const path = await writeRawScope("user", JSON.stringify(original));
 
     const result = await reorderWithinScope("user", ["c", "a", "b"], ctx);
 
     expect(result).toEqual({ ok: true });
-    expect((await loadAll(ctx)).presets.map((entry) => entry.name)).toEqual([
-      "c",
-      "a",
-      "b",
-    ]);
+    expect(JSON.parse(await readFile(path, "utf-8"))).toEqual({
+      ...original,
+      presets: [preset("c"), preset("a"), preset("b")],
+    });
   });
 
   it("appends omitted names at the end in their original order", async () => {
@@ -654,7 +774,7 @@ describe("unsafe mutation protection", () => {
 
   it("rejects remove and preserves an unsupported version", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
-    const original = JSON.stringify({ presets: [preset("plan")], version: 2 });
+    const original = JSON.stringify({ presets: [preset("plan")], version: 3 });
     const path = await writeRawScope("project", original);
 
     const result = await removePreset("plan", "project", ctx);
@@ -684,7 +804,7 @@ describe("unsafe mutation protection", () => {
     const ctx = makeCtx(projectDir, fullRegistry);
     const source = JSON.stringify({
       presets: [preset("move"), { name: "broken", provider: "anthropic" }],
-      version: 1,
+      version: 2,
     });
     const sourcePath = await writeRawScope("user", source);
 
@@ -711,6 +831,47 @@ describe("unsafe mutation protection", () => {
     expect(await readFile(destinationPath, "utf-8")).toBe(destination);
   });
 
+  it("rejects user mutation when policy compilation is unsafe", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const original = JSON.stringify({
+      version: 2,
+      policy: { rules: [{ match: "[" }] },
+      presets: [preset("keep")],
+    });
+    const path = await writeRawScope("user", original);
+
+    const result = await addPreset(preset("new"), "user", ctx);
+
+    expect(result).toEqual({
+      ok: false,
+      reason: unsafeMutationReason("user", path),
+    });
+    expect(await readFile(path, "utf-8")).toBe(original);
+  });
+
+  it("rejects project mutations when policy is present", async () => {
+    const ctx = makeCtx(projectDir, fullRegistry);
+    const original = JSON.stringify({
+      version: 2,
+      policy: { rules: [] },
+      presets: [preset("keep")],
+    });
+    const path = await writeRawScope("project", original);
+
+    expect(await addPreset(preset("new"), "project", ctx)).toEqual({
+      ok: false,
+      reason: unsafeMutationReason("project", path),
+    });
+
+    expect(
+      await updatePreset("keep", "project", preset("changed"), ctx),
+    ).toEqual({
+      ok: false,
+      reason: unsafeMutationReason("project", path),
+    });
+    expect(await readFile(path, "utf-8")).toBe(original);
+  });
+
   it("rejects move and preserves a destination with duplicate names", async () => {
     const ctx = makeCtx(projectDir, fullRegistry);
 
@@ -720,7 +881,7 @@ describe("unsafe mutation protection", () => {
     const source = await readFile(sourcePath, "utf-8");
     const destination = JSON.stringify({
       presets: [preset("keep"), preset("keep")],
-      version: 1,
+      version: 2,
     });
     const destinationPath = await writeRawScope("project", destination);
     const writeScope = vi.fn<typeof saveScope>();

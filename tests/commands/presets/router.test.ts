@@ -252,8 +252,8 @@ describe("handlePresetsCommand", () => {
 
     await mkdir(join(agentDir, "presets-plus"), { recursive: true });
     await writeFile(
-      join(agentDir, "presets-plus", "presets.json"),
-      JSON.stringify({ presets: [preset], version: 1 }),
+      join(agentDir, "presets-plus", "config.json"),
+      JSON.stringify({ presets: [preset], version: 2 }),
     );
 
     await handlePresetsCommand("plan", ctx, pi, session, new HotkeyRegistry());
@@ -348,7 +348,7 @@ describe("handlePresetsCommand", () => {
     await mkdir(join(agentDir, "presets-plus"), { recursive: true });
     await writeFile(
       join(agentDir, "presets-plus", "config.json"),
-      JSON.stringify({ version: 1, showInactiveStatus: true }),
+      JSON.stringify({ version: 2, showInactiveStatus: true }),
     );
 
     await handlePresetsCommand(

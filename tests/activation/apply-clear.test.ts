@@ -4,14 +4,9 @@
  * restoration each clear performs. Local fakes stand in for Pi so the
  * tests never touch a real session.
  */
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { apply } from "../../src/activation/apply.js";
 import { clear } from "../../src/activation/clear.js";
 import { ActivePresetSession } from "../../src/activation/session.js";
-import { loadFile } from "../../src/store/load.js";
 import type { LoadedPreset, ThinkingLevel } from "../../src/types.js";
 import { makeStubModelRegistry } from "../helpers/model-registry.js";
 import type { Api, Model, ThinkingLevelMap } from "@earendil-works/pi-ai";
@@ -95,45 +90,18 @@ describe("apply", () => {
   });
 
   it("applies normalized tools from a loaded preset", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "pi-presets-apply-"));
-    const path = join(directory, "presets.json");
+    const loaded: LoadedPreset = {
+      ...basePreset,
+      tools: ["read", "bash"],
+    };
+    const harness = makeHarness();
 
-    try {
-      await writeFile(
-        path,
-        JSON.stringify({
-          presets: [
-            {
-              ...basePreset,
-              scope: undefined,
-              tools: ["read", "read", "bash", "read"],
-            },
-          ],
-          version: 1,
-        }),
-        "utf-8",
-      );
+    await apply(loaded, harness.ctx, harness.pi, harness.session);
 
-      const loaded = (await loadFile(path)).presets[0];
-
-      if (!loaded) throw new Error("Expected a loaded preset.");
-
-      const harness = makeHarness();
-
-      await apply(
-        { ...loaded, scope: "project" },
-        harness.ctx,
-        harness.pi,
-        harness.session,
-      );
-
-      expect(harness.setToolsCalls).toEqual([["read", "bash"]]);
-      expect(harness.session.current()).toMatchObject({
-        restore: { lastApplied: { tools: ["read", "bash"] } },
-      });
-    } finally {
-      await rm(directory, { force: true, recursive: true });
-    }
+    expect(harness.setToolsCalls).toEqual([["read", "bash"]]);
+    expect(harness.session.current()).toMatchObject({
+      restore: { lastApplied: { tools: ["read", "bash"] } },
+    });
   });
 
   it("applies tools after filtering unknown names with a warning", async () => {

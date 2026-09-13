@@ -4,6 +4,15 @@
  * thinking levels a preset may record.
  */
 
+/** A parsed version 2 configuration document, including unknown fields. */
+export interface ConfigDocument {
+  version: 2;
+  showInactiveStatus?: boolean;
+  presets?: unknown[];
+  policy?: unknown;
+  [key: string]: unknown;
+}
+
 /**
  * A preset carrying the merge and availability metadata computed at load
  * time. Those annotations can change on every reload, so callers must not
@@ -83,15 +92,20 @@ export interface PresetOverlayBaseline {
   tools: string[];
 }
 
-/**
- * On-disk JSON shape for a single preset file.
- *
- * `version: 1` is the schema version the loader accepts. It reads a file
- * declaring any other version as empty, warns, and never rewrites it.
- */
-export interface PresetsFile {
-  version: 1;
-  presets: Preset[];
+/** Result of loading one consolidated configuration scope. */
+export interface ScopeConfig {
+  readonly document: ConfigDocument;
+  readonly presets: Preset[];
+  readonly showInactiveStatus?: boolean;
+  readonly warnings: ScopeWarnings;
+}
+
+/** Warnings grouped by the configuration section that produced them. */
+export interface ScopeWarnings {
+  readonly file: string[];
+  readonly settings: string[];
+  readonly presets: string[];
+  readonly policy: string[];
 }
 
 /**
@@ -125,8 +139,8 @@ export type ActivePresetState =
 
 /**
  * Origin scope for a loaded preset. `"user"` is the global file under
- * `<agent-dir>/presets-plus/presets.json`, `"project"` the per-cwd file
- * under `<cwd>/.pi/presets-plus/presets.json`.
+ * `<agent-dir>/presets-plus/config.json`, and `"project"` is the per-cwd file
+ * under `<cwd>/.pi/presets-plus/config.json`.
  */
 export type PresetScope = "user" | "project";
 

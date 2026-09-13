@@ -1,7 +1,7 @@
 /**
  * Covers the `/presets policy` report: which presets it lists as allowed
  * or prohibited, how it resolves the default, and how it leaves
- * `policy.json` untouched.
+ * `config.json` untouched.
  */
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -11,7 +11,7 @@ import {
   formatPolicy,
   runPolicy,
 } from "../../../src/commands/presets/policy.js";
-import { getGlobalPolicyPath } from "../../../src/store/paths.js";
+import { getGlobalConfigPath } from "../../../src/store/paths.js";
 import type {
   CompiledPolicyMatcher,
   CompiledPolicyRule,
@@ -169,13 +169,13 @@ describe("formatPolicy", () => {
 });
 
 describe("runPolicy", () => {
-  it("includes warnings in one report and does not modify policy.json", async () => {
+  it("includes warnings in one report and does not modify config.json", async () => {
     tempAgentDir = await mkdtemp(join(tmpdir(), "pi-policy-view-"));
     previousAgentDir = process.env.PI_CODING_AGENT_DIR;
     process.env.PI_CODING_AGENT_DIR = tempAgentDir;
 
-    const path = getGlobalPolicyPath(tempAgentDir);
-    const original = `${JSON.stringify({ rules: [{ allow: {}, match: "work" }], version: 1 }, null, 2)}\n`;
+    const path = getGlobalConfigPath(tempAgentDir);
+    const original = `${JSON.stringify({ policy: { rules: [{ allow: {}, match: "work" }] }, version: 2 }, null, 2)}\n`;
     const notify = vi.fn();
 
     await mkdir(join(tempAgentDir, "presets-plus"), { recursive: true });
