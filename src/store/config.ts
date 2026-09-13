@@ -1,75 +1,122 @@
 /**
- * Loads the optional user-global extension configuration and its inactive
- * footer preference.
+ * Loads and validates one consolidated version 2 configuration document.
+ * Section warnings preserve fail-open reads while marking the document unsafe to rewrite.
  */
 import { readFile } from "node:fs/promises";
 
-import { getGlobalConfigPath } from "./paths.js";
+import type {
+  Preset,
+  PresetScope,
+  ScopeConfig,
+  ScopeWarnings,
+} from "../types.js";
+import { parsePresetArray } from "./load.js";
+import { getGlobalConfigPath, getProjectConfigPath } from "./paths.js";
 
-/** Effective configuration and warnings produced while reading it. */
-export interface ConfigLoadResult extends ExtensionConfig {
-  readonly warnings: string[];
+/** File-system seam used by scope loading tests. */
+export interface ConfigFs {
+  readonly readFile: typeof readFile;
 }
 
-/** Effective extension preferences loaded from disk. */
-export interface ExtensionConfig {
-  readonly showInactiveStatus: boolean;
-}
+const defaultFs: ConfigFs = { readFile };
 
-const DEFAULT_CONFIG: ExtensionConfig = { showInactiveStatus: true };
-
-/** Read the user-global extension configuration, failing open on errors. */
-export async function loadConfig(agentDir?: string): Promise<ConfigLoadResult> {
-  const path = getGlobalConfigPath(agentDir);
+/** Load one scope's complete version 2 document and validated preset section. */
+export async function loadScope(
+  scope: PresetScope,
+  cwd: string,
+  agentDir?: string,
+  fs: ConfigFs = defaultFs,
+): Promise<ScopeConfig> {
+  const path =
+    scope === "user"
+      ? getGlobalConfigPath(agentDir)
+      : getProjectConfigPath(cwd);
   let rawData: string;
 
   try {
-    rawData = await readFile(path, "utf-8");
+    rawData = await fs.readFile(path, "utf-8");
   } catch (error) {
-    if (isNotFoundError(error)) return { ...DEFAULT_CONFIG, warnings: [] };
+    if (isNotFoundError(error)) {
+      return {
+        document: { version: 2 },
+        presets: [],
+        warnings: emptyWarnings(),
+      };
+    }
 
-    return invalidConfig(
+    return invalidScope(
       `The extension could not read config file ${path}: ${describeError(error)}.`,
     );
   }
 
-  let parsedData: unknown;
+  let parsed: unknown;
 
   try {
-    parsedData = JSON.parse(rawData);
+    parsed = JSON.parse(rawData);
   } catch (error) {
-    return invalidConfig(
+    return invalidScope(
       `The config file ${path} contains invalid JSON: ${describeError(error)}.`,
     );
   }
 
-  if (!isRecord(parsedData)) {
-    return invalidConfig(
+  if (!isRecord(parsed)) {
+    return invalidScope(
       `The config file ${path} top-level must be an object with a "version" field.`,
     );
   }
 
-  if (parsedData.version !== 1) {
-    return invalidConfig(
-      `The config file ${path} uses unsupported version ${JSON.stringify(parsedData.version)}; expected 1. The extension ignored the file and used defaults.`,
+  if (parsed.version !== 2) {
+    return invalidScope(
+      `The config file ${path} uses unsupported version ${JSON.stringify(parsed.version)}; expected 2. The extension ignored the file and used defaults.`,
     );
   }
 
-  if (
-    parsedData.showInactiveStatus !== undefined &&
-    typeof parsedData.showInactiveStatus !== "boolean"
-  ) {
-    return invalidConfig(
-      `The config file ${path} has an invalid "showInactiveStatus" value; expected a boolean. The extension used the default.`,
+  const document = parsed as ScopeConfig["document"];
+  const warnings = emptyWarnings();
+  let showInactiveStatus: boolean | undefined;
+
+  if (document.showInactiveStatus !== undefined) {
+    if (typeof document.showInactiveStatus !== "boolean") {
+      warnings.settings.push(
+        `The config file ${path} has an invalid "showInactiveStatus" value; expected a boolean.`,
+      );
+    } else {
+      showInactiveStatus = document.showInactiveStatus;
+    }
+  }
+
+  let presets: Preset[] = [];
+
+  if (document.presets !== undefined) {
+    if (!Array.isArray(document.presets)) {
+      warnings.presets.push(
+        `The config file ${path} has an invalid "presets" value; expected an array.`,
+      );
+    } else {
+      const result = parsePresetArray(document.presets, path);
+
+      presets = result.presets;
+      warnings.presets.push(...result.warnings);
+    }
+  }
+
+  if (scope === "project" && document.policy !== undefined) {
+    warnings.policy.push(
+      `The project config file ${path} contains policy, but policy is supported only in the user configuration.`,
     );
+  } else if (scope === "user" && document.policy !== undefined) {
+    if (!isRecord(document.policy) || !Array.isArray(document.policy.rules)) {
+      warnings.policy.push(
+        `The config file ${path} has an invalid "policy" section; expected an object with a "rules" array.`,
+      );
+    }
   }
 
   return {
-    showInactiveStatus:
-      typeof parsedData.showInactiveStatus === "boolean"
-        ? parsedData.showInactiveStatus
-        : true,
-    warnings: [],
+    document,
+    presets,
+    ...(showInactiveStatus === undefined ? {} : { showInactiveStatus }),
+    warnings,
   };
 }
 
@@ -77,8 +124,16 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function invalidConfig(warning: string): ConfigLoadResult {
-  return { ...DEFAULT_CONFIG, warnings: [warning] };
+function emptyWarnings(): ScopeWarnings {
+  return { file: [], settings: [], presets: [], policy: [] };
+}
+
+function invalidScope(warning: string): ScopeConfig {
+  return {
+    document: { version: 2 },
+    presets: [],
+    warnings: { ...emptyWarnings(), file: [warning] },
+  };
 }
 
 function isNotFoundError(error: unknown): boolean {

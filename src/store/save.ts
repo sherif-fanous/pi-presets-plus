@@ -12,7 +12,7 @@ import { dirname } from "node:path";
  * simulate rename failures, which vitest cannot spy on because Node's
  * native modules export frozen ESM bindings.
  */
-interface AtomicWriteFs {
+export interface AtomicWriteFs {
   mkdir: typeof mkdir;
   open: typeof open;
   rename: typeof rename;

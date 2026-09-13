@@ -1,13 +1,16 @@
 /**
- * Covers the access policy: loading and validating `policy.json`, matching
- * rules against a preset, deciding whether a preset is permitted, and
- * resolving the default preset for a directory.
+ * Covers access policy loaded from user config, including matcher validation,
+ * permission decisions, and default selection for a directory.
  */
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { getGlobalPolicyPath } from "../../src/store/paths.js";
+import { loadScope } from "../../src/store/config.js";
+import {
+  getGlobalConfigPath,
+  getProjectConfigPath,
+} from "../../src/store/paths.js";
 import {
   isPermitted,
   loadPolicy,
@@ -39,10 +42,15 @@ function preset(name: string, extra: Partial<LoadedPreset> = {}): LoadedPreset {
 }
 
 async function writePolicy(value: unknown): Promise<void> {
-  const path = getGlobalPolicyPath(agentDir);
+  const path = getGlobalConfigPath(agentDir);
+  const object = value as { rules?: unknown; version?: number };
+  const document =
+    object.version === 1
+      ? { version: 2, policy: { rules: object.rules } }
+      : value;
 
   await mkdir(join(agentDir, "presets-plus"), { recursive: true });
-  await writeFile(path, JSON.stringify(value));
+  await writeFile(path, JSON.stringify(document));
 }
 
 describe("loadPolicy", () => {
@@ -60,20 +68,28 @@ describe("loadPolicy", () => {
     });
   });
 
-  it("warns and fails open for unsupported versions and malformed JSON", async () => {
-    await writePolicy({ rules: [], version: 2 });
+  it("fails open for unsupported versions and malformed JSON and leaves the file warning to the scope loader", async () => {
+    await writePolicy({ rules: [], version: 3 });
 
     const unsupported = await loadPolicy(agentDir);
 
-    expect(unsupported.rules).toEqual([]);
-    expect(unsupported.warnings.join(" ")).toContain("unsupported version 2");
+    expect(unsupported).toEqual({ rules: [], warnings: [] });
+    expect(
+      (await loadScope("user", process.cwd(), agentDir)).warnings.file.join(
+        " ",
+      ),
+    ).toContain("unsupported version 3");
 
-    await writeFile(getGlobalPolicyPath(agentDir), "{");
+    await writeFile(getGlobalConfigPath(agentDir), "{");
 
     const malformed = await loadPolicy(agentDir);
 
-    expect(malformed.rules).toEqual([]);
-    expect(malformed.warnings.join(" ")).toContain("invalid JSON");
+    expect(malformed).toEqual({ rules: [], warnings: [] });
+    expect(
+      (await loadScope("user", process.cwd(), agentDir)).warnings.file.join(
+        " ",
+      ),
+    ).toContain("invalid JSON");
   });
 
   it("skips an invalid match while retaining other rules", async () => {
@@ -112,6 +128,25 @@ describe("loadPolicy", () => {
 });
 
 describe("policy matching and permissions", () => {
+  it("ignores project policy and reports the trust-boundary warning", async () => {
+    const cwd = join(agentDir, "project");
+    const path = getProjectConfigPath(cwd);
+
+    await mkdir(join(cwd, ".pi", "presets-plus"), { recursive: true });
+    await writeFile(
+      path,
+      JSON.stringify({ version: 2, policy: { rules: [{ match: ".*" }] } }),
+    );
+
+    const result = await loadScope("project", cwd, agentDir);
+
+    expect(result.presets).toEqual([]);
+    expect(result.warnings.policy).toHaveLength(1);
+    expect(result.warnings.policy[0]).toContain(
+      "only in the user configuration",
+    );
+  });
+
   it("uses raw regex semantics for name, provider, and combined model", async () => {
     await writePolicy({
       rules: [

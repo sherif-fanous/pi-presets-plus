@@ -3,10 +3,9 @@
  * evaluates them against the working directory to decide which presets a
  * directory permits and which one it defaults to.
  */
-import { readFile } from "node:fs/promises";
-
 import type { LoadedPreset } from "../types.js";
-import { getGlobalPolicyPath } from "./paths.js";
+import { loadScope } from "./config.js";
+import { getGlobalConfigPath } from "./paths.js";
 
 /** One allow, prohibit, or default pattern with its regex compiled. */
 export interface CompiledPolicyMatcher {
@@ -88,50 +87,24 @@ export function isPermitted(
 }
 
 /** Read and compile the global policy fresh on every call. */
-export async function loadPolicy(agentDir?: string): Promise<PolicyLoadResult> {
-  const path = getGlobalPolicyPath(agentDir);
-  let rawData: string;
+export async function loadPolicy(
+  agentDir?: string,
+  cwd: string = process.cwd(),
+): Promise<PolicyLoadResult> {
+  const loaded = await loadScope("user", cwd, agentDir);
+  const path = getGlobalConfigPath(agentDir);
+  const documentPolicy = loaded.document.policy;
 
-  try {
-    rawData = await readFile(path, "utf-8");
-  } catch (error) {
-    if (isNotFoundError(error)) return { rules: [], warnings: [] };
-
-    return emptyWithWarning(
-      `The extension could not read policy file ${path}: ${describeError(error)}.`,
-    );
+  if (documentPolicy === undefined) {
+    return { rules: [], warnings: policyWarnings(loaded) };
   }
 
-  let parsedData: unknown;
-
-  try {
-    parsedData = JSON.parse(rawData);
-  } catch (error) {
-    return emptyWithWarning(
-      `The policy file ${path} contains invalid JSON: ${describeError(error)}.`,
-    );
+  if (!isRecord(documentPolicy) || !Array.isArray(documentPolicy.rules)) {
+    return { rules: [], warnings: policyWarnings(loaded) };
   }
 
-  if (!isRecord(parsedData)) {
-    return emptyWithWarning(
-      `The policy file ${path} top-level must be an object with a "version" and "rules" field.`,
-    );
-  }
-
-  if (parsedData.version !== 1) {
-    return emptyWithWarning(
-      `The policy file ${path} uses unsupported version ${JSON.stringify(parsedData.version)}; expected 1. The extension ignored the file and left it unchanged.`,
-    );
-  }
-
-  if (!Array.isArray(parsedData.rules)) {
-    return emptyWithWarning(
-      `The policy file ${path} is missing a top-level "rules" array.`,
-    );
-  }
-
-  const rawRules: readonly unknown[] = parsedData.rules;
-  const warnings: string[] = [];
+  const rawRules: readonly unknown[] = documentPolicy.rules;
+  const warnings: string[] = policyWarnings(loaded);
   const rules: CompiledPolicyRule[] = [];
 
   for (let index = 0; index < rawRules.length; index++) {
@@ -346,18 +319,12 @@ function compileRegex(pattern: string): RegExp | undefined {
   }
 }
 
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function emptyWithWarning(warning: string): PolicyLoadResult {
-  return { rules: [], warnings: [warning] };
-}
-
-function isNotFoundError(error: unknown): boolean {
-  return isRecord(error) && error.code === "ENOENT";
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function policyWarnings(
+  loaded: Awaited<ReturnType<typeof loadScope>>,
+): string[] {
+  return [...loaded.warnings.policy];
 }

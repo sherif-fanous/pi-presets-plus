@@ -6,6 +6,7 @@ import {
   getGlobalConfigPath,
   getGlobalPolicyPath,
   getGlobalPresetsPath,
+  getProjectConfigPath,
   getProjectPresetsPath,
 } from "../../src/store/paths.js";
 import { describe, expect, it } from "vitest";
@@ -39,6 +40,14 @@ describe("getGlobalPolicyPath", () => {
   it("resolves under the provided agent dir", () => {
     expect(getGlobalPolicyPath("/tmp/fake-agent")).toBe(
       "/tmp/fake-agent/presets-plus/policy.json",
+    );
+  });
+});
+
+describe("getProjectConfigPath", () => {
+  it("resolves under <cwd>/.pi/presets-plus/", () => {
+    expect(getProjectConfigPath("/tmp/fake-project")).toBe(
+      "/tmp/fake-project/.pi/presets-plus/config.json",
     );
   });
 });
