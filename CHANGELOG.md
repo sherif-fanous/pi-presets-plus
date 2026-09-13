@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.10.0] - 2026-09-13
+
+### Added
+
+- Add an option to hide `Preset: none` from the footer when no preset is active ([#41](https://github.com/sherif-fanous/pi-presets-plus/pull/41))
+
 ## [0.9.0] - 2026-09-10
 
 ### Changed
@@ -126,6 +132,7 @@
 
 _Initial release._
 
+[0.10.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.10.0
 [0.9.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.9.0
 [0.8.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.8.0
 [0.7.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.7.1
