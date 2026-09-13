@@ -42,10 +42,17 @@ type SessionPi = Pick<ExtensionAPI, "appendEntry">;
 export class ActivePresetSession {
   private active: ActivePresetState | undefined;
   private selfTriggeredModelSetDepth = 0;
+  private showInactiveStatus = true;
 
   /** Return the current active-preset attachment, if any. */
   current(): ActivePresetState | undefined {
     return this.active;
+  }
+
+  /** Configure whether the inactive footer status remains visible. */
+  setShowInactiveStatus(show: boolean, ctx: SessionContext): void {
+    this.showInactiveStatus = show;
+    this.setStatus(ctx);
   }
 
   /** Start tracking a freshly-applied preset and persist its session marker. */
@@ -211,6 +218,9 @@ export class ActivePresetSession {
   }
 
   private setStatus(ctx: SessionContext): void {
-    ctx.ui.setStatus(STATUS_KEY, renderStatusBadge(this.active, ctx.ui.theme));
+    ctx.ui.setStatus(
+      STATUS_KEY,
+      renderStatusBadge(this.active, ctx.ui.theme, this.showInactiveStatus),
+    );
   }
 }

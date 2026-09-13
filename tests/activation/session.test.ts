@@ -97,6 +97,20 @@ describe("ActivePresetSession", () => {
     expect(session.current()).toBeUndefined();
   });
 
+  it("clears the footer when inactive status is disabled", () => {
+    const { ctx, pi, session, status } = harness();
+
+    session.setShowInactiveStatus(false, ctx);
+
+    expect(status["presets-plus"]).toBeUndefined();
+
+    startBaseline(session, ctx, pi);
+    expect(status["presets-plus"]).toBe("Preset: plan");
+
+    session.clear(ctx, pi);
+    expect(status["presets-plus"]).toBeUndefined();
+  });
+
   it("starts and clears active state with persisted markers", () => {
     const { ctx, entries, pi, session, status } = harness();
 
@@ -241,6 +255,24 @@ describe("ActivePresetSession", () => {
     session.restoreFromBranch(branch, [loadedPreset], ctx);
 
     expect(status["presets-plus"]).toBe("Preset: none");
+  });
+
+  it("clears disabled footer when restored preset is missing", () => {
+    const { ctx, session, status } = harness();
+
+    session.setShowInactiveStatus(false, ctx);
+
+    const branch = [
+      {
+        customType: "presets-plus:active",
+        data: { name: "missing", scope: "project" },
+        type: "custom",
+      },
+    ] as ReturnType<ExtensionContext["sessionManager"]["getBranch"]>;
+
+    session.restoreFromBranch(branch, [loadedPreset], ctx);
+
+    expect(status["presets-plus"]).toBeUndefined();
   });
 
   it("warns when restored preset is not loaded", () => {

@@ -57,6 +57,19 @@ The picker can also filter by name, switch scopes, reorder presets, make copies,
 
 If a project preset and a user preset share a name, the project preset wins while you're working in that project.
 
+## Showing the inactive status
+
+Pi shows `Preset: none` in the footer when no preset is active. If you prefer a quieter footer, create `config.json` in `~/.pi/agent/presets-plus/` with this setting:
+
+```json
+{
+  "version": 1,
+  "showInactiveStatus": false
+}
+```
+
+Leave the file out, or set the option to `true`, to keep showing the status. Run `/reload` after changing the file.
+
 ## Directory access policy
 
 An optional policy file at `<agent-dir>/presets-plus/policy.json` can warn you before you activate the wrong preset in a directory. It can also choose a default preset for fresh sessions. The extension reads this file but never creates or rewrites it.

@@ -12,8 +12,11 @@ export const STATUS_KEY = "presets-plus";
 export function renderStatusBadge(
   active: ActivePresetState | undefined,
   theme: Theme | undefined,
-): string {
-  if (!active) return dim(theme, "Preset: none");
+  showInactiveStatus = true,
+): string | undefined {
+  if (!active) {
+    return showInactiveStatus ? dim(theme, "Preset: none") : undefined;
+  }
 
   const label = dim(theme, `Preset: ${active.name}`);
 

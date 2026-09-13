@@ -1,9 +1,9 @@
 /**
- * Covers where the presets and policy files land for each scope, using
- * synthetic agent and cwd values so the results do not depend on the
- * developer's environment.
+ * Covers where the global configuration, presets, and policy files land for
+ * each scope, using synthetic agent and cwd values.
  */
 import {
+  getGlobalConfigPath,
   getGlobalPolicyPath,
   getGlobalPresetsPath,
   getProjectPresetsPath,
@@ -24,6 +24,14 @@ describe("getGlobalPresetsPath", () => {
 
     expect(resolved.endsWith("/presets-plus/presets.json")).toBe(true);
     expect(resolved.startsWith("/")).toBe(true);
+  });
+});
+
+describe("getGlobalConfigPath", () => {
+  it("resolves beside the global presets and policy files", () => {
+    expect(getGlobalConfigPath("/tmp/fake-agent")).toBe(
+      "/tmp/fake-agent/presets-plus/config.json",
+    );
   });
 });
 
