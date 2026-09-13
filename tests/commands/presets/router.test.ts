@@ -37,13 +37,16 @@ let prevAgentDirEnv: string | undefined;
  */
 function makeStubCtx() {
   const notify = vi.fn<(message: string, type?: string) => void>();
+  const setStatus = vi.fn();
 
   return {
     notify,
+    setStatus,
     ctx: {
       cwd: "/tmp/pi-presets-router-does-not-exist",
       ui: {
         notify,
+        setStatus,
         theme: {
           fg: (_color: string, text: string) => text,
           bold: (text: string) => text,
@@ -335,5 +338,28 @@ describe("handlePresetsCommand", () => {
     expect(notify).toHaveBeenCalledTimes(1);
     expect(notify.mock.calls[0]?.[0]).toContain("Reloaded 0 presets");
     expect(notify.mock.calls[0]?.[1]).toBe("info");
+  });
+
+  it("does not apply extension configuration during presets reload", async () => {
+    const { ctx, setStatus } = makeStubCtx();
+    const session = new ActivePresetSession();
+
+    session.setShowInactiveStatus(false, ctx);
+    await mkdir(join(agentDir, "presets-plus"), { recursive: true });
+    await writeFile(
+      join(agentDir, "presets-plus", "config.json"),
+      JSON.stringify({ version: 1, showInactiveStatus: true }),
+    );
+
+    await handlePresetsCommand(
+      "reload",
+      ctx,
+      undefined,
+      session,
+      new HotkeyRegistry(),
+    );
+
+    expect(setStatus).toHaveBeenCalledOnce();
+    expect(session.current()).toBeUndefined();
   });
 });

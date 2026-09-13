@@ -22,6 +22,7 @@ import {
 } from "./hotkey-registry.js";
 import { findPreset } from "./preset-identity.js";
 import { loadAll } from "./store/api.js";
+import { loadConfig } from "./store/config.js";
 import { registerCommandReportRenderer } from "./ui/command-report.js";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
@@ -62,6 +63,18 @@ export default function presetsPlus(pi: ExtensionAPI) {
     };
 
     try {
+      const { showInactiveStatus, warnings: configWarnings } =
+        await loadConfig();
+
+      if (configWarnings.length > 0) {
+        startupCtx.ui.notify(
+          `${configWarnings.length} configuration warning${configWarnings.length === 1 ? "" : "s"}:\n- ${configWarnings.join("\n- ")}`,
+          "warning",
+        );
+      }
+
+      session.setShowInactiveStatus(showInactiveStatus, startupCtx);
+
       const { hotkeyAnalysis, presets, warnings } = await loadAll(startupCtx);
 
       surfaceWarnings(startupCtx, warnings);

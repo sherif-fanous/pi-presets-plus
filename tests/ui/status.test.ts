@@ -29,12 +29,21 @@ describe("renderStatusBadge", () => {
     expect(renderStatusBadge(undefined, theme)).toBe("Preset: none");
   });
 
+  it("clears the inactive status when disabled", () => {
+    expect(renderStatusBadge(undefined, theme, false)).toBeUndefined();
+  });
+
   it("renders the active preset name", () => {
     expect(renderStatusBadge(active(false), theme)).toBe("Preset: plan");
   });
 
   it("appends a warning marker when the active preset is dirty", () => {
     expect(renderStatusBadge(active(true), theme)).toBe("Preset: plan!");
+  });
+
+  it("always renders an active preset when inactive status is disabled", () => {
+    expect(renderStatusBadge(active(false), theme, false)).toBe("Preset: plan");
+    expect(renderStatusBadge(active(true), theme, false)).toBe("Preset: plan!");
   });
 
   it("falls back when no theme is available", () => {
