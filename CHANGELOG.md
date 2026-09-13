@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.0] - 2026-09-13
+
+### Changed
+
+- Store presets, settings, and user policy in one configuration file per scope ([#43](https://github.com/sherif-fanous/pi-presets-plus/pull/43))
+- Automatically migrate valid legacy configuration, preset, and policy files into the new configuration, then delete the migrated legacy files ([#43](https://github.com/sherif-fanous/pi-presets-plus/pull/43))
+- Leave legacy files unchanged when migration cannot complete ([#43](https://github.com/sherif-fanous/pi-presets-plus/pull/43))
+
 ## [0.10.0] - 2026-09-13
 
 ### Added
