@@ -1,26 +1,41 @@
 ## Context
 
-This change is the storage layer for `pi-presets-plus`. It is intentionally separated from activation (change 3) so the read/write path can be unit-tested in isolation, without mocking pi runtime APIs. Once this change lands, users can hand-edit JSON files and view the parsed result via `/presets list` — a usable, if minimal, workflow that mirrors `pi list`.
+This change is the storage layer for `pi-presets-plus`. It is intentionally
+separated from activation (change 3) so the read/write path can be unit-tested
+in isolation, without mocking pi runtime APIs. Once this change lands, users can
+hand-edit JSON files and view the parsed result via `/presets list` — a usable,
+if minimal, workflow that mirrors `pi list`.
 
-The data model and file format are decisions whose rationale was captured during the original umbrella discussion (see `openspec/breakdown.md` for the cross-change rationale). This document captures the storage-specific decisions only.
+The data model and file format are decisions whose rationale was captured during
+the original umbrella discussion (see `openspec/breakdown.md` for the
+cross-change rationale). This document captures the storage-specific decisions
+only.
 
 ## Goals / Non-Goals
 
 **Goals**
 
-- Single load entry point (`loadAll`) that returns a deterministic, ordered, scope-tagged list of presets.
-- Atomic writes that survive process kill mid-write without corrupting the destination file.
-- Validation that distinguishes "broken file" (silent treat-as-empty + warning) from "broken individual preset" (skip + warning) so one bad preset never disables all of them.
-- Pure modules: `load`, `validate`, `save`, and `paths` must be testable without mocking pi.
-- Make all preset CRUD primitives available to later changes via a single `store/api.ts` module.
+- Single load entry point (`loadAll`) that returns a deterministic, ordered,
+  scope-tagged list of presets.
+- Atomic writes that survive process kill mid-write without corrupting the
+  destination file.
+- Validation that distinguishes "broken file" (silent treat-as-empty + warning)
+  from "broken individual preset" (skip + warning) so one bad preset never
+  disables all of them.
+- Pure modules: `load`, `validate`, `save`, and `paths` must be testable without
+  mocking pi.
+- Make all preset CRUD primitives available to later changes via a single
+  `store/api.ts` module.
 
 **Non-Goals**
 
 - Any apply/clear/restore behavior — change 3.
 - Any UI — changes 4 and 5.
 - Drift detection — change 6.
-- File-watching for live refresh. v1 reloads on `session_start` and `/reload` only.
-- Cross-process locking. Last-write-wins for concurrent edits is acceptable at human edit rates.
+- File-watching for live refresh. v1 reloads on `session_start` and `/reload`
+  only.
+- Cross-process locking. Last-write-wins for concurrent edits is acceptable at
+  human edit rates.
 
 ## Decisions
 
@@ -61,7 +76,10 @@ export interface LoadedPreset extends Preset {
 }
 ```
 
-`hotkey`, `order`, `instructions`, and `tools` are accepted by the loader and round-trip through save, but no behavior reads them in this change beyond the picker-less `/presets list` text output. That keeps each subsequent change focused on adding behavior, not extending the data shape.
+`hotkey`, `order`, `instructions`, and `tools` are accepted by the loader and
+round-trip through save, but no behavior reads them in this change beyond the
+picker-less `/presets list` text output. That keeps each subsequent change
+focused on adding behavior, not extending the data shape.
 
 ### File format
 
@@ -82,16 +100,23 @@ export interface LoadedPreset extends Preset {
 }
 ```
 
-**Why an array, not a `Record<name, preset>`**: preserves user-controlled order trivially, makes `hotkey` and `order` first-class, and diffs cleanly in version control. Cost is small: validation must check for duplicate names within a file.
+**Why an array, not a `Record<name, preset>`**: preserves user-controlled order
+trivially, makes `hotkey` and `order` first-class, and diffs cleanly in version
+control. Cost is small: validation must check for duplicate names within a file.
 
-**Why `version: 1`**: a future change may evolve the shape (e.g. `tools: string[] | { inherit, include, exclude }`). A version field lets us read v1 files in a v2 binary unambiguously. Unsupported versions are not rewritten — we treat them as empty and warn.
+**Why `version: 1`**: a future change may evolve the shape (e.g.
+`tools: string[] | { inherit, include, exclude }`). A version field lets us read
+v1 files in a v2 binary unambiguously. Unsupported versions are not rewritten —
+we treat them as empty and warn.
 
 ### Storage paths
 
-- Global: `getAgentDir()` + `/presets-plus/presets.json` — the agent dir is exposed by `@mariozechner/pi-coding-agent` so we don't hardcode `~/.pi/agent`.
+- Global: `getAgentDir()` + `/presets-plus/presets.json` — the agent dir is
+  exposed by `@mariozechner/pi-coding-agent` so we don't hardcode `~/.pi/agent`.
 - Project: `<ctx.cwd>/.pi/presets-plus/presets.json`.
 
-The `presets-plus/` subdirectory leaves room for future siblings (`history.json`, `hotkeys.json`) without polluting the parent.
+The `presets-plus/` subdirectory leaves room for future siblings
+(`history.json`, `hotkeys.json`) without polluting the parent.
 
 ### Merge and shadow semantics
 
@@ -108,7 +133,8 @@ The `presets-plus/` subdirectory leaves room for future siblings (`history.json`
    itself preserves file order.
 ```
 
-Shadowing is a feature, not a quirk: a user can ship a project-specific override of a personal preset. We surface it instead of hiding it.
+Shadowing is a feature, not a quirk: a user can ship a project-specific override
+of a personal preset. We surface it instead of hiding it.
 
 ### Atomic write recipe
 
@@ -128,10 +154,13 @@ async function atomicWrite(target: string, contents: string) {
 }
 ```
 
-- `process.pid` + timestamp in the tmp name prevents collision if two pi processes save concurrently.
+- `process.pid` + timestamp in the tmp name prevents collision if two pi
+  processes save concurrently.
 - `fsync` before rename ensures bytes are on disk before the rename is observed.
-- Rename is atomic on POSIX filesystems and on NTFS with `MOVEFILE_REPLACE_EXISTING` (Node's `fs.rename` does this).
-- Concurrent edits are last-write-wins. A future change could add a content hash check, but it's overkill at human edit rates.
+- Rename is atomic on POSIX filesystems and on NTFS with
+  `MOVEFILE_REPLACE_EXISTING` (Node's `fs.rename` does this).
+- Concurrent edits are last-write-wins. A future change could add a content hash
+  check, but it's overkill at human edit rates.
 
 ### Validation policy
 
@@ -159,7 +188,8 @@ hotkey present      keep preset; not parsed in this change
 order non-numeric   skip the field; preset still loads
 ```
 
-The "skip preset, don't fail load" rule means one broken preset never disables `/presets list` for the user. Loud-but-non-fatal warnings via `ctx.ui.notify`.
+The "skip preset, don't fail load" rule means one broken preset never disables
+`/presets list` for the user. Loud-but-non-fatal warnings via `ctx.ui.notify`.
 
 ### `presets-package` modification: command routing
 
@@ -194,11 +224,16 @@ pi.registerCommand("presets", {
 });
 ```
 
-Stub notice replaces the change-1 message with: "No UI yet — try `/presets list` to see loaded presets."
+Stub notice replaces the change-1 message with: "No UI yet — try `/presets list`
+to see loaded presets."
 
-`/presets list` formats the loaded presets as a multi-line text block (one preset per block), showing name, scope, provider/model, thinking, tools, hotkey, availability, shadowed flag. This is intentionally text — no `ctx.ui.custom` yet.
+`/presets list` formats the loaded presets as a multi-line text block (one
+preset per block), showing name, scope, provider/model, thinking, tools, hotkey,
+availability, shadowed flag. This is intentionally text — no `ctx.ui.custom`
+yet.
 
-`/presets reload` calls `loadAll(ctx)` again and reports the count of loaded presets and any warnings.
+`/presets reload` calls `loadAll(ctx)` again and reports the count of loaded
+presets and any warnings.
 
 ### API surface for later changes
 
@@ -241,12 +276,28 @@ export async function reorderWithinScope(
 ): Promise<void>;
 ```
 
-These APIs are used by changes 4 (picker reorder), 5 (editor + capture), and 6/7 don't need new storage. Each mutating operation re-loads, mutates, and atomically writes the affected scope file.
+These APIs are used by changes 4 (picker reorder), 5 (editor + capture), and 6/7
+don't need new storage. Each mutating operation re-loads, mutates, and
+atomically writes the affected scope file.
 
 ## Risks / Trade-offs
 
-- **Duplicate names across scopes** are intentional (shadowing). A user could be confused by "two `plan` presets in the list." Mitigation: list output marks shadowed entries clearly.
-- **Validation warnings can spam the UI** if a user has many broken presets after editing. Mitigation: collect warnings during `loadAll`, then surface a single rolled-up notification ("3 presets had issues; run `/presets list` for details").
-- **Tools list isn't validated against `pi.getAllTools()` at load time** — only at apply time in change 3. A user could save a preset with a typo and not see the warning until activation. Mitigation: deliberate; we don't want load-time validation to depend on pi runtime state more than necessary, and the picker (change 4) can re-check.
-- **`process.pid + timestamp` tmp file naming** isn't strictly collision-free across very fast concurrent saves. Mitigation: realistic concurrency on a human-edited file is zero; we just need to not leave half-written files behind.
-- **No file-watching** — users editing the JSON in another editor must `/presets reload` (or `/reload`) to pick up changes. Mitigation: documented in the `/presets list` help text.
+- **Duplicate names across scopes** are intentional (shadowing). A user could be
+  confused by "two `plan` presets in the list." Mitigation: list output marks
+  shadowed entries clearly.
+- **Validation warnings can spam the UI** if a user has many broken presets
+  after editing. Mitigation: collect warnings during `loadAll`, then surface a
+  single rolled-up notification ("3 presets had issues; run `/presets list` for
+  details").
+- **Tools list isn't validated against `pi.getAllTools()` at load time** — only
+  at apply time in change 3. A user could save a preset with a typo and not see
+  the warning until activation. Mitigation: deliberate; we don't want load-time
+  validation to depend on pi runtime state more than necessary, and the picker
+  (change 4) can re-check.
+- **`process.pid + timestamp` tmp file naming** isn't strictly collision-free
+  across very fast concurrent saves. Mitigation: realistic concurrency on a
+  human-edited file is zero; we just need to not leave half-written files
+  behind.
+- **No file-watching** — users editing the JSON in another editor must
+  `/presets reload` (or `/reload`) to pick up changes. Mitigation: documented in
+  the `/presets list` help text.

@@ -2,15 +2,28 @@
 
 ## Purpose
 
-The `preset-access-policy` capability helps users avoid activating the wrong preset in a directory and applies a configured, permitted default in fresh sessions. Users can override a warning when they intentionally need a preset that the policy does not permit.
+The `preset-access-policy` capability helps users avoid activating the wrong
+preset in a directory and applies a configured, permitted default in fresh
+sessions. Users can override a warning when they intentionally need a preset
+that the policy does not permit.
 
 ## Requirements
 
 ### Requirement: Policy file validation and visible fail-open
 
-The package SHALL validate `policy.rules` from the user version 2 configuration at load time. A missing `policy` section SHALL be treated as no policy. A `policy` value that is not an object or whose `rules` value is not an array SHALL emit a warning and apply no policy rules.
+The package SHALL validate `policy.rules` from the user version 2 configuration
+at load time. A missing `policy` section SHALL be treated as no policy. A
+`policy` value that is not an object or whose `rules` value is not an array
+SHALL emit a warning and apply no policy rules.
 
-For each rule, the package SHALL compile the `match` regex and every matcher `pattern` regex in `allow`, `prohibit`, and `default`. A regex that fails to compile SHALL cause that individual rule, for a bad `match`, or that individual matcher, for a bad matcher `pattern`, to be skipped. The package SHALL emit a warning naming the offending pattern. Skipping SHALL fail open, so a malformed rule or matcher SHALL NOT block activation. Any policy warning SHALL make the containing user configuration unsafe for a preset mutation until the warning is corrected.
+For each rule, the package SHALL compile the `match` regex and every matcher
+`pattern` regex in `allow`, `prohibit`, and `default`. A regex that fails to
+compile SHALL cause that individual rule, for a bad `match`, or that individual
+matcher, for a bad matcher `pattern`, to be skipped. The package SHALL emit a
+warning naming the offending pattern. Skipping SHALL fail open, so a malformed
+rule or matcher SHALL NOT block activation. Any policy warning SHALL make the
+containing user configuration unsafe for a preset mutation until the warning is
+corrected.
 
 #### Scenario: Unsupported version
 
@@ -39,14 +52,16 @@ For each rule, the package SHALL compile the `match` regex and every matcher `pa
 
 #### Scenario: Invalid matcher pattern skips the matcher
 
-- **WHEN** one matcher pattern in a rule's `allow`, `prohibit`, or `default` fails to compile
+- **WHEN** one matcher pattern in a rule's `allow`, `prohibit`, or `default`
+  fails to compile
 - **THEN** that matcher SHALL be skipped
 - **AND** a warning naming the bad pattern SHALL be surfaced
 - **AND** the rule's other valid matchers SHALL still apply
 
 #### Scenario: Invalid policy blocks preset editing
 
-- **WHEN** policy validation emits a warning and a preset mutation targets the user scope
+- **WHEN** policy validation emits a warning and a preset mutation targets the
+  user scope
 - **THEN** the mutation SHALL fail without rewriting the configuration file
 
 ### Requirement: Matchers use raw unanchored regex over the selected field
@@ -61,23 +76,31 @@ implicitly anchor patterns.
 
 #### Scenario: Unanchored substring match
 
-- **WHEN** a matcher `pattern` is `apple` and the candidate preset name is `apple-claude-opus-4-8`
+- **WHEN** a matcher `pattern` is `apple` and the candidate preset name is
+  `apple-claude-opus-4-8`
 - **THEN** the matcher SHALL match (substring semantics, no implicit anchoring)
 
 #### Scenario: Author-anchored match
 
-- **WHEN** a matcher `pattern` is `^ifanous-` and the candidate preset name is `apple-ifanous-test`
-- **THEN** the matcher SHALL NOT match because the anchored pattern requires the prefix
+- **WHEN** a matcher `pattern` is `^ifanous-` and the candidate preset name is
+  `apple-ifanous-test`
+- **THEN** the matcher SHALL NOT match because the anchored pattern requires the
+  prefix
 
 #### Scenario: Provider-field matcher
 
-- **WHEN** a matcher has `field: "provider"`, `pattern: "apple-genai"`, and the candidate preset's provider is `apple-genai-anthropic`
-- **THEN** the matcher SHALL match on the provider value regardless of the preset name
+- **WHEN** a matcher has `field: "provider"`, `pattern: "apple-genai"`, and the
+  candidate preset's provider is `apple-genai-anthropic`
+- **THEN** the matcher SHALL match on the provider value regardless of the
+  preset name
 
 #### Scenario: Model-field matcher spans a whole provider
 
-- **WHEN** a matcher has `field: "model"`, `pattern: "^anthropic/"`, and the candidate preset resolves to provider `anthropic` and model `claude-opus-4-8`
-- **THEN** the matcher SHALL match the combined identity `anthropic/claude-opus-4-8`, and SHALL likewise match any future model under the same provider
+- **WHEN** a matcher has `field: "model"`, `pattern: "^anthropic/"`, and the
+  candidate preset resolves to provider `anthropic` and model `claude-opus-4-8`
+- **THEN** the matcher SHALL match the combined identity
+  `anthropic/claude-opus-4-8`, and SHALL likewise match any future model under
+  the same provider
 
 ### Requirement: Permission is the union of matching rules
 
@@ -92,8 +115,8 @@ be considered _permitted_ when BOTH hold:
 - the candidate matches no prohibit matcher.
 
 When the effective allow set is non-empty, presets matching no allow matcher
-SHALL NOT be permitted (an allow set acts as a whitelist). A prohibit match SHALL
-override an allow match for the same candidate (prohibit wins).
+SHALL NOT be permitted (an allow set acts as a whitelist). A prohibit match
+SHALL override an allow match for the same candidate (prohibit wins).
 
 #### Scenario: No rules match the cwd
 
@@ -102,28 +125,35 @@ override an allow match for the same candidate (prohibit wins).
 
 #### Scenario: Prohibit blocks a candidate
 
-- **WHEN** a matching rule prohibits `^ifanous-` and the candidate name is `ifanous-anthropic-claude-opus-4-8`
+- **WHEN** a matching rule prohibits `^ifanous-` and the candidate name is
+  `ifanous-anthropic-claude-opus-4-8`
 - **THEN** the candidate SHALL NOT be permitted
 
 #### Scenario: Allow acts as a whitelist
 
-- **WHEN** a matching rule allows `^apple-` and no other rule matches, and the candidate name is `ifanous-codex-gpt-5.5`
-- **THEN** the candidate SHALL NOT be permitted because it matches no allow matcher
+- **WHEN** a matching rule allows `^apple-` and no other rule matches, and the
+  candidate name is `ifanous-codex-gpt-5.5`
+- **THEN** the candidate SHALL NOT be permitted because it matches no allow
+  matcher
 
 #### Scenario: Allow admits a matching candidate
 
-- **WHEN** a matching rule allows `^apple-` and the candidate name is `apple-claude-opus-4-8` and no prohibit matcher matches it
+- **WHEN** a matching rule allows `^apple-` and the candidate name is
+  `apple-claude-opus-4-8` and no prohibit matcher matches it
 - **THEN** the candidate SHALL be permitted
 
 #### Scenario: Prohibit wins over allow
 
-- **WHEN** one matching rule allows `^apple-` and another matching rule prohibits `sonnet`, and the candidate is `apple-claude-sonnet-4.6`
+- **WHEN** one matching rule allows `^apple-` and another matching rule
+  prohibits `sonnet`, and the candidate is `apple-claude-sonnet-4.6`
 - **THEN** the candidate SHALL NOT be permitted
 
 #### Scenario: Union across multiple matching rules
 
-- **WHEN** two rules match the cwd, one prohibiting `^apple-` and one prohibiting `^virtasant-`
-- **THEN** both prohibitions SHALL apply and a candidate matching either SHALL NOT be permitted
+- **WHEN** two rules match the cwd, one prohibiting `^apple-` and one
+  prohibiting `^virtasant-`
+- **THEN** both prohibitions SHALL apply and a candidate matching either SHALL
+  NOT be permitted
 
 ### Requirement: Non-permitted activation requires an explicit override
 
@@ -145,13 +175,16 @@ gate because it is drawn only from the permitted set.
 
 #### Scenario: Override proceeds with activation
 
-- **WHEN** a new activation targets a non-permitted preset and the user chooses override
+- **WHEN** a new activation targets a non-permitted preset and the user chooses
+  override
 - **THEN** the preset SHALL be applied through the standard apply flow
 
 #### Scenario: Cancel aborts activation
 
-- **WHEN** a new activation targets a non-permitted preset and the user chooses cancel
-- **THEN** no model, thinking, or tools change SHALL occur and no preset SHALL be attached
+- **WHEN** a new activation targets a non-permitted preset and the user chooses
+  cancel
+- **THEN** no model, thinking, or tools change SHALL occur and no preset SHALL
+  be attached
 
 #### Scenario: Flag activation is gated
 
@@ -165,34 +198,53 @@ gate because it is drawn only from the permitted set.
 
 #### Scenario: Session restore is exempt
 
-- **WHEN** a session is resumed re-attaching a preset that would be non-permitted
-- **THEN** NO warning overlay SHALL be shown and restore SHALL re-attach the preset as specified by the activation capability
+- **WHEN** a session is resumed re-attaching a preset that would be
+  non-permitted
+- **THEN** NO warning overlay SHALL be shown and restore SHALL re-attach the
+  preset as specified by the activation capability
 
 ### Requirement: Policy default selection
 
-The package SHALL resolve a policy default for a fresh session as follows. Among the rules whose `match` matches the cwd and that specify a `default` matcher, the package SHALL select the rule whose `match` consumes the longest substring of the cwd. File order SHALL break ties. The winning rule's `default` matcher SHALL select candidates from the merged user and project preset list restricted to permitted presets, and the package SHALL choose the first candidate in merged configuration order. Ordering is positional within each scope's `presets` array.
+The package SHALL resolve a policy default for a fresh session as follows. Among
+the rules whose `match` matches the cwd and that specify a `default` matcher,
+the package SHALL select the rule whose `match` consumes the longest substring
+of the cwd. File order SHALL break ties. The winning rule's `default` matcher
+SHALL select candidates from the merged user and project preset list restricted
+to permitted presets, and the package SHALL choose the first candidate in merged
+configuration order. Ordering is positional within each scope's `presets` array.
 
-If no rule specifies a default, or the winning rule's default matcher yields no permitted and available candidate, the package SHALL resolve no default and leave Pi on its baseline. A configured but unresolvable default SHALL emit a warning. Because default selection considers only permitted presets, an automatically applied default SHALL NOT trigger the permission overlay.
+If no rule specifies a default, or the winning rule's default matcher yields no
+permitted and available candidate, the package SHALL resolve no default and
+leave Pi on its baseline. A configured but unresolvable default SHALL emit a
+warning. Because default selection considers only permitted presets, an
+automatically applied default SHALL NOT trigger the permission overlay.
 
 #### Scenario: Longest-path rule wins the default
 
-- **WHEN** rule A `match: "^/work/"` sets default `^apple-` and rule B `match: "^/work/apple/"` sets default `^apple-claude-opus-`, and the cwd is `/work/apple/project`
-- **THEN** rule B SHALL win because its match consumes a longer substring of the cwd
+- **WHEN** rule A `match: "^/work/"` sets default `^apple-` and rule B
+  `match: "^/work/apple/"` sets default `^apple-claude-opus-`, and the cwd is
+  `/work/apple/project`
+- **THEN** rule B SHALL win because its match consumes a longer substring of the
+  cwd
 
 #### Scenario: File order breaks a span tie
 
-- **WHEN** two matching rules specify a default and their match regexes consume equal-length substrings of the cwd
+- **WHEN** two matching rules specify a default and their match regexes consume
+  equal-length substrings of the cwd
 - **THEN** the earlier rule in `policy.rules` SHALL win
 
 #### Scenario: Default is chosen by merged file order
 
 - **WHEN** the winning default matches multiple permitted presets
-- **THEN** the package SHALL choose the first match in merged user and project preset order
+- **THEN** the package SHALL choose the first match in merged user and project
+  preset order
 
 #### Scenario: Default excludes non-permitted candidates
 
-- **WHEN** the winning default matches a preset that another matching rule prohibits
-- **THEN** that candidate SHALL be excluded and the next permitted candidate in merged order SHALL be chosen if one exists
+- **WHEN** the winning default matches a preset that another matching rule
+  prohibits
+- **THEN** that candidate SHALL be excluded and the next permitted candidate in
+  merged order SHALL be chosen if one exists
 
 #### Scenario: No default configured
 
@@ -221,11 +273,11 @@ when BOTH of the following hold:
 The resulting precedence SHALL be:
 `--preset flag > session restore (if the named preset still exists) > policy default > baseline`.
 
-When the policy default is auto-activated, the package SHALL apply it through the
-existing apply flow, capturing a fresh baseline, producing one visible success
-outcome naming the preset, and refreshing the footer indicator. Any apply
-accompaniments SHALL be combined into that outcome. It SHALL NOT emit a second
-success notification for the same activation.
+When the policy default is auto-activated, the package SHALL apply it through
+the existing apply flow, capturing a fresh baseline, producing one visible
+success outcome naming the preset, and refreshing the footer indicator. Any
+apply accompaniments SHALL be combined into that outcome. It SHALL NOT emit a
+second success notification for the same activation.
 
 If the apply flow returns a refusal for the default (e.g. the model's key was
 revoked between load and apply), the package SHALL surface the refusal reason as
@@ -235,30 +287,41 @@ one startup warning where possible.
 
 #### Scenario: Fresh session applies the default
 
-- **WHEN** a fresh session starts, no `--preset` flag is passed, no prior active preset is restored, and a policy default resolves to a permitted available preset
+- **WHEN** a fresh session starts, no `--preset` flag is passed, no prior active
+  preset is restored, and a policy default resolves to a permitted available
+  preset
 - **THEN** the default SHALL be applied via the standard apply flow
-- **AND** exactly one visible success outcome naming the applied preset SHALL be emitted
+- **AND** exactly one visible success outcome naming the applied preset SHALL be
+  emitted
 - **AND** any apply accompaniments SHALL be included in that outcome
 - **AND** no second success notification naming the same preset SHALL be emitted
 
 #### Scenario: Flag overrides policy default
 
-- **WHEN** a session starts with `--preset other` passed and a policy default also resolves
-- **THEN** `other` SHALL be activated by the flag and the policy default SHALL NOT be applied
+- **WHEN** a session starts with `--preset other` passed and a policy default
+  also resolves
+- **THEN** `other` SHALL be activated by the flag and the policy default SHALL
+  NOT be applied
 - **AND** no policy-default success outcome SHALL be emitted
 
 #### Scenario: Restored session is not a fresh session
 
-- **WHEN** a session is resumed whose most recent `presets-plus:active` entry names a still-loadable preset
-- **THEN** that preset SHALL be re-attached by restore and the policy default SHALL NOT be applied
+- **WHEN** a session is resumed whose most recent `presets-plus:active` entry
+  names a still-loadable preset
+- **THEN** that preset SHALL be re-attached by restore and the policy default
+  SHALL NOT be applied
 - **AND** no activation success outcome SHALL be emitted for the restore
 
 #### Scenario: Failed restore falls through to policy default
 
-- **WHEN** a session is resumed whose most recent `presets-plus:active` entry names a preset that no longer loads, and a policy default resolves to a permitted available preset
-- **THEN** restore SHALL attach nothing and SHALL contribute its warning to the startup warning collection
+- **WHEN** a session is resumed whose most recent `presets-plus:active` entry
+  names a preset that no longer loads, and a policy default resolves to a
+  permitted available preset
+- **THEN** restore SHALL attach nothing and SHALL contribute its warning to the
+  startup warning collection
 - **AND** the policy default SHALL then be applied
-- **AND** the successful default activation SHALL emit only its single combined success outcome
+- **AND** the successful default activation SHALL emit only its single combined
+  success outcome
 
 #### Scenario: No notification when the default is preempted
 
@@ -274,33 +337,60 @@ one startup warning where possible.
 
 #### Scenario: Startup warnings are aggregated
 
-- **WHEN** startup produces multiple warnings from preset loading, hotkey registration, policy loading, restore, or default activation
-- **THEN** the package SHALL present one startup warning containing the individual warning messages where possible
+- **WHEN** startup produces multiple warnings from preset loading, hotkey
+  registration, policy loading, restore, or default activation
+- **THEN** the package SHALL present one startup warning containing the
+  individual warning messages where possible
 - **AND** the package SHALL preserve each warning's meaning
 
 ### Requirement: Read-only policy inspection view
 
-The `/presets` command SHALL accept a read-only `policy` subcommand that reports the effective policy outcome for the current working directory. The view SHALL help users identify which usable presets policy allows, which usable presets policy prohibits, and which preset policy selects as the default for a fresh session.
+The `/presets` command SHALL accept a read-only `policy` subcommand that reports
+the effective policy outcome for the current working directory. The view SHALL
+help users identify which usable presets policy allows, which usable presets
+policy prohibits, and which preset policy selects as the default for a fresh
+session.
 
-For this view, a usable preset is a loaded preset that is neither shadowed nor unavailable. The allowed and prohibited lists SHALL classify every usable preset by the same permission decision used when activation is attempted, and SHALL preserve merged preset order. A prohibited preset remains activatable through the existing explicit override flow.
+For this view, a usable preset is a loaded preset that is neither shadowed nor
+unavailable. The allowed and prohibited lists SHALL classify every usable preset
+by the same permission decision used when activation is attempted, and SHALL
+preserve merged preset order. A prohibited preset remains activatable through
+the existing explicit override flow.
 
-When one or more policy rules match the current directory, the report SHALL use the labeled-row presentation of `/presets status`:
+When one or more policy rules match the current directory, the report SHALL use
+the labeled-row presentation of `/presets status`:
 
 - An accent-colored bold title of `Preset Policy`.
 - A `Directory:` row containing the current working directory.
-- An `Allowed presets:` row containing the comma-separated names of usable permitted presets, or `none` when there are none.
-- A `Prohibited presets*:` row containing the comma-separated names of usable prohibited presets when at least one exists.
-- A `Prohibited presets:` row containing `none` when no usable preset is prohibited.
-- A `Default preset:` row containing the resolved default preset name, or `none` when no default resolves.
+- An `Allowed presets:` row containing the comma-separated names of usable
+  permitted presets, or `none` when there are none.
+- A `Prohibited presets*:` row containing the comma-separated names of usable
+  prohibited presets when at least one exists.
+- A `Prohibited presets:` row containing `none` when no usable preset is
+  prohibited.
+- A `Default preset:` row containing the resolved default preset name, or `none`
+  when no default resolves.
 - Aligned muted row labels, matching the visual treatment of `/presets status`.
 
-When the report contains one or more prohibited presets, it SHALL append a blank line followed by the exact footnote `* You can still activate a prohibited preset by confirming the override.`. When no usable preset is prohibited, the label SHALL omit the asterisk and the report SHALL omit the footnote.
+When the report contains one or more prohibited presets, it SHALL append a blank
+line followed by the exact footnote
+`* You can still activate a prohibited preset by confirming the override.`. When
+no usable preset is prohibited, the label SHALL omit the asterisk and the report
+SHALL omit the footnote.
 
-The report SHALL NOT display policy rule numbers, rule patterns, matcher expressions, match lengths, matched substrings, winning-rule details, or default-selection reasons.
+The report SHALL NOT display policy rule numbers, rule patterns, matcher
+expressions, match lengths, matched substrings, winning-rule details, or
+default-selection reasons.
 
-The view SHALL NOT modify the configuration file. In TUI mode, a prompt-invoked `/presets policy` SHALL appear as a durable TUI-only command report that does not enter LLM context. The picker SHALL show the same report text in the shared info-dialog overlay. In RPC mode, the package SHALL deliver the report through the RPC-compatible notification path. JSON and print modes are out of scope.
+The view SHALL NOT modify the configuration file. In TUI mode, a prompt-invoked
+`/presets policy` SHALL appear as a durable TUI-only command report that does
+not enter LLM context. The picker SHALL show the same report text in the shared
+info-dialog overlay. In RPC mode, the package SHALL deliver the report through
+the RPC-compatible notification path. JSON and print modes are out of scope.
 
-Warnings found while loading policy or presets SHALL be included in the command report where possible instead of appearing as a separate notification immediately before it.
+Warnings found while loading policy or presets SHALL be included in the command
+report where possible instead of appearing as a separate notification
+immediately before it.
 
 #### Scenario: Policy view from the prompt
 
@@ -323,7 +413,8 @@ Warnings found while loading policy or presets SHALL be included in the command 
 
 #### Scenario: Policy view with matching rules
 
-- **WHEN** the current directory has matching policy rules and usable presets that policy permits and prohibits
+- **WHEN** the current directory has matching policy rules and usable presets
+  that policy permits and prohibits
 - **THEN** the report SHALL list the permitted names under `Allowed presets:`
 - **AND** it SHALL list the prohibited names under `Prohibited presets*:`
 - **AND** both lists SHALL preserve merged preset order
@@ -332,7 +423,9 @@ Warnings found while loading policy or presets SHALL be included in the command 
 
 - **WHEN** policy prohibits at least one usable preset
 - **THEN** the prohibited label SHALL be `Prohibited presets*:`
-- **AND** the report SHALL end with `* You can still activate a prohibited preset by confirming the override.` after a blank line
+- **AND** the report SHALL end with
+  `* You can still activate a prohibited preset by confirming the override.`
+  after a blank line
 
 #### Scenario: No prohibited presets omits the footnote
 
@@ -365,12 +458,15 @@ Warnings found while loading policy or presets SHALL be included in the command 
 #### Scenario: Policy view with no matching rules
 
 - **WHEN** the cwd matches no policy rule
-- **THEN** the output SHALL be the sentence `No preset policy applies to <cwd>.` with `<cwd>` replaced by the current working directory
+- **THEN** the output SHALL be the sentence `No preset policy applies to <cwd>.`
+  with `<cwd>` replaced by the current working directory
 
 #### Scenario: Policy view hides policy-engine details
 
 - **WHEN** the user runs `/presets policy` in a directory with matching rules
-- **THEN** the report SHALL NOT display rule numbers, regular-expression patterns, matcher fields, match lengths, matched substrings, or default-source details
+- **THEN** the report SHALL NOT display rule numbers, regular-expression
+  patterns, matcher fields, match lengths, matched substrings, or default-source
+  details
 
 #### Scenario: Policy view never writes
 
@@ -379,11 +475,19 @@ Warnings found while loading policy or presets SHALL be included in the command 
 
 ### Requirement: User-only policy in consolidated configuration
 
-The package SHALL recognize optional access-policy rules only from `policy.rules` in `<agent-dir>/presets-plus/config.json` version 2. Each rule SHALL retain the existing `match`, `allow`, `prohibit`, and `default` fields and matcher semantics. An absent `policy` object or empty `rules` array SHALL apply no permission constraint or default.
+The package SHALL recognize optional access-policy rules only from
+`policy.rules` in `<agent-dir>/presets-plus/config.json` version 2. Each rule
+SHALL retain the existing `match`, `allow`, `prohibit`, and `default` fields and
+matcher semantics. An absent `policy` object or empty `rules` array SHALL apply
+no permission constraint or default.
 
-The package SHALL ignore a `policy` section in `<cwd>/.pi/presets-plus/config.json` and emit one startup warning. Project policy SHALL NOT contribute rules, prohibit activation, or select a default.
+The package SHALL ignore a `policy` section in
+`<cwd>/.pi/presets-plus/config.json` and emit one startup warning. Project
+policy SHALL NOT contribute rules, prohibit activation, or select a default.
 
-The package SHALL read user policy fresh whenever policy is loaded. Preset mutations MAY rewrite the containing user configuration file, but SHALL preserve the policy value unchanged.
+The package SHALL read user policy fresh whenever policy is loaded. Preset
+mutations MAY rewrite the containing user configuration file, but SHALL preserve
+the policy value unchanged.
 
 #### Scenario: No user policy present
 
@@ -404,9 +508,11 @@ The package SHALL read user policy fresh whenever policy is loaded. Preset mutat
 
 - **WHEN** a project configuration contains a `policy` section
 - **THEN** none of its rules SHALL apply
-- **AND** one startup warning SHALL state that policy is supported only in the user configuration
+- **AND** one startup warning SHALL state that policy is supported only in the
+  user configuration
 
 #### Scenario: Preset mutation preserves policy
 
-- **WHEN** the package updates user presets in a valid configuration that also contains policy
+- **WHEN** the package updates user presets in a valid configuration that also
+  contains policy
 - **THEN** the policy value SHALL remain unchanged

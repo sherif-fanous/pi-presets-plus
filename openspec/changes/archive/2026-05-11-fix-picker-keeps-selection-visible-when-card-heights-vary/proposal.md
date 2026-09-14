@@ -1,15 +1,16 @@
 ## Why
 
-The picker's vertical scroll math assumes a fixed `pageSize` — the count of cards
-rendered in the previous frame, cached on the component as `renderedPageSize`. The
-render itself, however, greedily packs cards into a fixed line budget. When a
-preset's card has more lines than the previous frame's tallest card (e.g. it
-carries an inline `Prompt:` row that an earlier card lacked, or it has a status
-row like `⚠ Hotkey shadows a Pi built-in.`, `(no key)`, `⚠ Dirty — …`, or a
-`Shadowing:` line that the previous frame didn't render), the new frame fits
-**fewer** cards into the same line budget. The state-layer scroll math, blind to
-this, computes `scrollOffset` against the stale (larger) `pageSize`, leaving the
-freshly-selected card outside the actual packed range.
+The picker's vertical scroll math assumes a fixed `pageSize` — the count of
+cards rendered in the previous frame, cached on the component as
+`renderedPageSize`. The render itself, however, greedily packs cards into a
+fixed line budget. When a preset's card has more lines than the previous frame's
+tallest card (e.g. it carries an inline `Prompt:` row that an earlier card
+lacked, or it has a status row like `⚠ Hotkey shadows a Pi built-in.`,
+`(no key)`, `⚠ Dirty — …`, or a `Shadowing:` line that the previous frame didn't
+render), the new frame fits **fewer** cards into the same line budget. The
+state-layer scroll math, blind to this, computes `scrollOffset` against the
+stale (larger) `pageSize`, leaving the freshly-selected card outside the actual
+packed range.
 
 User-visible symptom: pressing the Down arrow (or PgDn) at the boundary causes
 the selection marker to disappear; the next Down press appears to "skip" a card
@@ -19,8 +20,8 @@ the state was always correct — only the render dropped it.
 This change makes the picker's render self-correct: after the greedy pack, if
 the selected card was not actually packed, the render computes a corrected
 scroll offset that anchors the selected card to the bottom of the packed range,
-re-packs once, and propagates the corrected offset back into picker state so
-the next frame's scroll math starts from the corrected baseline.
+re-packs once, and propagates the corrected offset back into picker state so the
+next frame's scroll math starts from the corrected baseline.
 
 The fix is structural — it covers every existing source of variable card height
 (Prompt presence, `clampWarning`, `hotkeyConflict`, `hotkeyShadowsBuiltin`,
@@ -38,8 +39,9 @@ without needing to normalize card heights or introduce a height cache.
   transition — no rendering, no I/O.
 - **Have `renderList` return a corrected scroll offset alongside its lines**,
   rather than ever mutating state directly. Today `renderList(width): string[]`;
-  after this change, `renderList(width): { lines: string[]; correctedScrollOffset?: number }`.
-  When the greedy pack succeeds at including `state.selectedIndex` in the packed
+  after this change,
+  `renderList(width): { lines: string[]; correctedScrollOffset?: number }`. When
+  the greedy pack succeeds at including `state.selectedIndex` in the packed
   range, `correctedScrollOffset` is omitted. When it does not, the function
   computes the correction, re-packs once with the corrected offset, and returns
   both the re-packed lines and the corrected offset.
@@ -55,9 +57,9 @@ without needing to normalize card heights or introduce a height cache.
 - **Add a regression-test fixture with heterogeneous card heights.** The new
   tests run _without_ `fixedPageSize`, so they exercise the greedy packer. They
   assert that after `pageSize` consecutive Down presses (and after a PgDn) the
-  selected preset is in the rendered output. A parallel Up / PgUp test pins
-  the property that those directions remain unaffected (the bug is bottom-edge
-  only because `ensureSelectionVisible` advances `scrollOffset = selectedIndex
+  selected preset is in the rendered output. A parallel Up / PgUp test pins the
+  property that those directions remain unaffected (the bug is bottom-edge only
+  because `ensureSelectionVisible` advances `scrollOffset = selectedIndex
   - pageSize + 1`for downward motion but`scrollOffset = selectedIndex` for
     upward motion — the latter is by construction always visible).
 
@@ -77,15 +79,15 @@ requirement.)
 
 ## Impact
 
-- **The critical bug is fixed for every variable-height row, present and future.**
-  Today's reproduction (Down at the boundary drops the selection) and every
-  related boundary (PgDn at any selection, mixed Prompt/no-Prompt scroll
+- **The critical bug is fixed for every variable-height row, present and
+  future.** Today's reproduction (Down at the boundary drops the selection) and
+  every related boundary (PgDn at any selection, mixed Prompt/no-Prompt scroll
   windows, future status rows that fire on edge cases) all resolve.
 - **No card-height normalization.** The cards keep their current information
   density — clampWarning, hotkey-shadows-builtin, drift, and availability rows
   continue to appear only when relevant.
-- **No new state-layer API used externally.** `clampScrollToFit` is exported
-  for testability but is consumed only by the picker component.
+- **No new state-layer API used externally.** `clampScrollToFit` is exported for
+  testability but is consumed only by the picker component.
 - **The cosmetic "dialog breathes when scrolling" effect is not addressed.**
   That is a separate, lower-priority concern; addressing it would either waste
   vertical space (always render every conceivable status row with a placeholder)

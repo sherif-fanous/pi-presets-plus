@@ -49,13 +49,12 @@ live together in `<agent-dir>/presets-plus/policy.json`, keyed by path regex.
 Dropping the in-repo `project.json` eliminates the shared-repo dangling-warning
 problem entirely and lets the default be validated against the same permission
 model. `presets.json` keeps its two scopes for _definitions_; only _policy_
-unifies.
-_Alternatives considered:_ in-repo default file — rejected (personal names break
-teammates); two separate policy files — rejected (same concern, two schemas,
-duplicated cwd-matching logic).
+unifies. _Alternatives considered:_ in-repo default file — rejected (personal
+names break teammates); two separate policy files — rejected (same concern, two
+schemas, duplicated cwd-matching logic).
 
-**Default is drawn from the permitted set, tiebroken by file order.** The earlier
-"regex default sorted by name descending" idea was rejected because
+**Default is drawn from the permitted set, tiebroken by file order.** The
+earlier "regex default sorted by name descending" idea was rejected because
 lexicographic order is a poor proxy for intent (`sonnet` > `opus`; `4-8` >
 `4-10`) and it converts a safe, loud failure (dangling → warn → baseline) into a
 silent misfire. Selecting the first _permitted_ candidate in merged file order —
@@ -64,10 +63,10 @@ curation, bounded by `allow`, so it can never auto-activate a prohibited preset
 and never triggers the overlay at startup. Note: the `Preset.order` field is
 validated and round-tripped to disk but is not a live sort key; the extension
 orders presets by file position (which `reorderWithinScope` rewrites), and
-default selection reuses that same order for consistency.
-_Alternative considered:_ name-sort tiebreak — rejected (silent wrong-preset).
-_Alternative considered:_ literal single-name default — rejected (breaks on
-model version bumps; the user must re-pin each release).
+default selection reuses that same order for consistency. _Alternative
+considered:_ name-sort tiebreak — rejected (silent wrong-preset). _Alternative
+considered:_ literal single-name default — rejected (breaks on model version
+bumps; the user must re-pin each release).
 
 **Longest-path rule wins the default; file order breaks ties.** When multiple
 rules match a cwd and specify a default, the most specific rule should win.
@@ -75,10 +74,10 @@ Because `match` is a regex, "most specific" is defined operationally as the rule
 whose `match` consumes the longest substring of the cwd (`RegExp.exec(cwd)[0]`
 length). This rewards anchored, deep patterns (`^/work/apple/` beats `^/work/`
 beats a loose `apple`) and is deterministic and testable. Equal spans fall back
-to earliest rule in file order.
-_Alternative considered:_ file order alone — rejected (a broad rule declared
-first would shadow a specific one); _alternative considered:_ counting path
-segments — rejected as more complex with no clear advantage over match span.
+to earliest rule in file order. _Alternative considered:_ file order alone —
+rejected (a broad rule declared first would shadow a specific one); _alternative
+considered:_ counting path segments — rejected as more complex with no clear
+advantage over match span.
 
 **Allow/prohibit union across matching rules (not most-specific-wins).** For the
 _permission_ decision the package unions all matching rules' allow and prohibit
@@ -109,9 +108,10 @@ already given; no re-apply occurs). The policy default is exempt because it is
 selected only from the permitted set — a clean property that also dissolves the
 "blocking modal at session_start" concern.
 
-**Reuse the confirm-overlay pattern; `/presets policy` as pure formatter +
-thin runner.** The warning overlay is a two-outcome confirmation, matching
-`src/ui/confirm.ts`. The inspection view follows the project's exported-formatter
+**Reuse the confirm-overlay pattern; `/presets policy` as pure formatter + thin
+runner.** The warning overlay is a two-outcome confirmation, matching
+`src/ui/confirm.ts`. The inspection view follows the project's
+exported-formatter
 
 - thin-runner convention and is strictly read-only.
 

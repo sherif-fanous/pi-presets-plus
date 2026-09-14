@@ -20,22 +20,27 @@ specified by the existing restore requirement.
 #### Scenario: Permitted activation is unchanged
 
 - **WHEN** an activation targets a permitted preset
-- **THEN** the gate SHALL pass through and the apply flow SHALL run exactly as specified before this change
+- **THEN** the gate SHALL pass through and the apply flow SHALL run exactly as
+  specified before this change
 
 #### Scenario: Non-permitted activation gated before apply
 
 - **WHEN** an activation targets a non-permitted preset
-- **THEN** the warning overlay SHALL be shown and the apply flow SHALL run only on explicit override
+- **THEN** the warning overlay SHALL be shown and the apply flow SHALL run only
+  on explicit override
 
 #### Scenario: Cancel leaves state untouched
 
 - **WHEN** an activation targets a non-permitted preset and the user cancels
-- **THEN** no model, thinking, or tools change SHALL occur and no preset SHALL be attached
+- **THEN** no model, thinking, or tools change SHALL occur and no preset SHALL
+  be attached
 
 #### Scenario: Restore bypasses the gate
 
-- **WHEN** a session is resumed re-attaching a preset that would be non-permitted
-- **THEN** the gate SHALL NOT be consulted and restore SHALL re-attach the preset per the existing restore requirement
+- **WHEN** a session is resumed re-attaching a preset that would be
+  non-permitted
+- **THEN** the gate SHALL NOT be consulted and restore SHALL re-attach the
+  preset per the existing restore requirement
 
 ### Requirement: Session-start consults the policy default
 
@@ -55,15 +60,20 @@ policy default, Pi baseline.
 
 #### Scenario: Policy default step runs after flag and restore
 
-- **WHEN** a fresh session starts with no flag and nothing to restore, and a policy default resolves
-- **THEN** the policy-default step SHALL apply that preset through the standard apply flow
+- **WHEN** a fresh session starts with no flag and nothing to restore, and a
+  policy default resolves
+- **THEN** the policy-default step SHALL apply that preset through the standard
+  apply flow
 
 #### Scenario: Policy default step is skipped when a higher-precedence step wins
 
-- **WHEN** either the `--preset` flag activates a preset or session restore re-attaches a still-loadable preset
+- **WHEN** either the `--preset` flag activates a preset or session restore
+  re-attaches a still-loadable preset
 - **THEN** the policy-default step SHALL be a no-op
 
 #### Scenario: Existing apply, clear, and restore behavior is unchanged
 
 - **WHEN** a preset is applied, cleared, or restored through any existing path
-- **THEN** the baseline-overlay, user-override, instruction-injection, audit-trail, and footer behaviors SHALL behave exactly as specified before this change
+- **THEN** the baseline-overlay, user-override, instruction-injection,
+  audit-trail, and footer behaviors SHALL behave exactly as specified before
+  this change

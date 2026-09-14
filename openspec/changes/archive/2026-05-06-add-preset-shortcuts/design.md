@@ -1,23 +1,36 @@
 ## Context
 
-This change adds the muscle-memory layer on top of the now-feature-complete `pi-presets-plus`. Two entry points are introduced — CLI flag and per-preset hotkeys — neither of which adds new core capability. They both hook into the existing activation flow from change 3 without expanding the `/presets` subcommand surface.
+This change adds the muscle-memory layer on top of the now-feature-complete
+`pi-presets-plus`. Two entry points are introduced — CLI flag and per-preset
+hotkeys — neither of which adds new core capability. They both hook into the
+existing activation flow from change 3 without expanding the `/presets`
+subcommand surface.
 
-The most interesting design constraint here is the absence of `pi.unregisterShortcut`. We ship per-preset hotkeys anyway by deciding upfront how to live with that gap, and surfacing it honestly in the editor.
+The most interesting design constraint here is the absence of
+`pi.unregisterShortcut`. We ship per-preset hotkeys anyway by deciding upfront
+how to live with that gap, and surfacing it honestly in the editor.
 
 ## Goals / Non-Goals
 
 **Goals**
 
-- `--preset <name>` works at startup and overrides any session-restored attachment.
-- Per-preset hotkeys work without `/reload` for behavior changes; require `/reload` only for hotkey-string changes.
+- `--preset <name>` works at startup and overrides any session-restored
+  attachment.
+- Per-preset hotkeys work without `/reload` for behavior changes; require
+  `/reload` only for hotkey-string changes.
 - Conflict detection is honest: preset-vs-preset and preset-vs-pi-built-in.
 
 **Non-Goals**
 
-- A workaround for `unregisterShortcut`. Pi doesn't expose one; we don't fake one.
-- `/presets next` / `/presets prev` cycle commands. The dialog remains the command surface for browsing/switching presets; this change does not add cycling subcommands.
-- Global hotkey for opening the picker (`Ctrl+Shift+L` style). Easy to add later if users ask; not in v1.
-- Hotkey _re-registration_ on file edit. Even if we could detect a save, we can't unregister the old binding. Saves take effect on `/reload`.
+- A workaround for `unregisterShortcut`. Pi doesn't expose one; we don't fake
+  one.
+- `/presets next` / `/presets prev` cycle commands. The dialog remains the
+  command surface for browsing/switching presets; this change does not add
+  cycling subcommands.
+- Global hotkey for opening the picker (`Ctrl+Shift+L` style). Easy to add later
+  if users ask; not in v1.
+- Hotkey _re-registration_ on file edit. Even if we could detect a save, we
+  can't unregister the old binding. Saves take effect on `/reload`.
 
 ## Decisions
 
@@ -55,9 +68,15 @@ pi.on("session_start", async (event, ctx) => {
 });
 ```
 
-The override-on-restore behavior is important: if the user runs `pi --resume some-session --preset plan` and the restored session already had `plan` attached, restore would build a `priorUnknown` attachment, but the flag tells us the user wants the preset _actually applied_. So the flag wins and triggers a full apply that captures a real snapshot.
+The override-on-restore behavior is important: if the user runs
+`pi --resume some-session --preset plan` and the restored session already had
+`plan` attached, restore would build a `priorUnknown` attachment, but the flag
+tells us the user wants the preset _actually applied_. So the flag wins and
+triggers a full apply that captures a real snapshot.
 
-If two extensions register `--preset` (e.g. the example `preset.ts` is installed alongside this package), pi assigns numeric suffixes. We document this; the recommendation is to uninstall the example.
+If two extensions register `--preset` (e.g. the example `preset.ts` is installed
+alongside this package), pi assigns numeric suffixes. We document this; the
+recommendation is to uninstall the example.
 
 ### Per-preset hotkeys
 
@@ -135,20 +154,34 @@ export function registerHotkeys(
 
 Two key properties of this design:
 
-1. **Closure over `getPresets()`, not over `preset`.** The handler reads the current definition each time it fires. If the user edits the preset's model/thinking/tools/instructions, the next press of the hotkey applies the _new_ definition. No `/reload` needed.
-2. **Hotkey changes still need `/reload`.** Pi has no `unregisterShortcut`, so we cannot remove the old binding. The editor's notice (added in change 5; clarified in this change) makes this clear: "Hotkey takes effect after `/reload`. Existing binding (if any) remains until then."
+1. **Closure over `getPresets()`, not over `preset`.** The handler reads the
+   current definition each time it fires. If the user edits the preset's
+   model/thinking/tools/instructions, the next press of the hotkey applies the
+   _new_ definition. No `/reload` needed.
+2. **Hotkey changes still need `/reload`.** Pi has no `unregisterShortcut`, so
+   we cannot remove the old binding. The editor's notice (added in change 5;
+   clarified in this change) makes this clear: "Hotkey takes effect after
+   `/reload`. Existing binding (if any) remains until then."
 
 ### Conflict indicators
 
-`hotkeyConflict: true` is added to the in-memory `LoadedPreset` for any preset that lost a conflict. Add the field to the type extension list. The picker (change 4 with change 5 extensions) renders `⚠ hotkey conflict` in the right column similar to `⚠ no key`.
+`hotkeyConflict: true` is added to the in-memory `LoadedPreset` for any preset
+that lost a conflict. Add the field to the type extension list. The picker
+(change 4 with change 5 extensions) renders `⚠ hotkey conflict` in the right
+column similar to `⚠ no key`.
 
 ### Built-in conflict warning
 
-A static list of pi built-ins is maintained in `src/ui/hotkey-input.ts` (change 5). At registration time we cross-check; if the preset's hotkey matches a built-in, we emit an info-level notification once at session start. We do NOT refuse to register — the user has already confirmed in the editor at save time; reminding them is sufficient.
+A static list of pi built-ins is maintained in `src/ui/hotkey-input.ts` (change
+5). At registration time we cross-check; if the preset's hotkey matches a
+built-in, we emit an info-level notification once at session start. We do NOT
+refuse to register — the user has already confirmed in the editor at save time;
+reminding them is sufficient.
 
 ### Editor copy update (change-5 hold-over)
 
-Change 5 introduced a "/reload required" notice for hotkey changes. This change refines the wording to be precise:
+Change 5 introduced a "/reload required" notice for hotkey changes. This change
+refines the wording to be precise:
 
 ```
 Hotkey changed:
@@ -168,7 +201,16 @@ Takes effect after /reload. The old binding remains active until then.
 
 ## Risks / Trade-offs
 
-- **`--preset` flag collision** with the example `preset.ts`. Mitigation: documented; recommend uninstalling the example.
-- **Hotkey conflicts that the user resolves silently** (rename one preset's hotkey) still require `/reload` to take effect. Mitigation: documented; just one of the consequences of the no-unregister API.
-- **A preset can lose its conflict during edit**: e.g. preset A wins over B; user removes A's hotkey via the editor; `loadAll` rebuilds the in-memory list with B no longer marked as conflicting; but B's hotkey is still not registered until `/reload`. Mitigation: editor's notice covers this case ("Hotkey takes effect after /reload"); if needed, run `/reload`.
-- **Built-in conflict notification can be noisy** in sessions with multiple presets that override built-ins. Mitigation: emitted once per session at registration time; we do not re-emit per keypress.
+- **`--preset` flag collision** with the example `preset.ts`. Mitigation:
+  documented; recommend uninstalling the example.
+- **Hotkey conflicts that the user resolves silently** (rename one preset's
+  hotkey) still require `/reload` to take effect. Mitigation: documented; just
+  one of the consequences of the no-unregister API.
+- **A preset can lose its conflict during edit**: e.g. preset A wins over B;
+  user removes A's hotkey via the editor; `loadAll` rebuilds the in-memory list
+  with B no longer marked as conflicting; but B's hotkey is still not registered
+  until `/reload`. Mitigation: editor's notice covers this case ("Hotkey takes
+  effect after /reload"); if needed, run `/reload`.
+- **Built-in conflict notification can be noisy** in sessions with multiple
+  presets that override built-ins. Mitigation: emitted once per session at
+  registration time; we do not re-emit per keypress.

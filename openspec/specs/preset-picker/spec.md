@@ -10,91 +10,142 @@ without exposing exact-name command activation or textual list synonyms.
 
 ### Requirement: Picker UI lists every loaded preset
 
-The package SHALL provide a custom TUI picker (built on `ctx.ui.custom`) that lists every loaded preset across both scopes. Each list entry SHALL render as a multi-line key/value card showing: a status dot when the preset is currently active, the preset name, scope as `User` or `Project`, `provider / model`, thinking level, tool summary or `inherit`, optional prompt preview, explicit availability status when `unavailable`, an explicit Pi-builtin-shadow status when the preset's hotkey shadows a Pi built-in, and explicit shadowing status when shadowed.
+The package SHALL provide a custom TUI picker (built on `ctx.ui.custom`) that
+lists every loaded preset across both scopes. Each list entry SHALL render as a
+multi-line key/value card showing: a status dot when the preset is currently
+active, the preset name, scope as `User` or `Project`, `provider / model`,
+thinking level, tool summary or `inherit`, optional prompt preview, explicit
+availability status when `unavailable`, an explicit Pi-builtin-shadow status
+when the preset's hotkey shadows a Pi built-in, and explicit shadowing status
+when shadowed.
 
-Card field labels SHALL render in the `muted` color. Card field **values** SHALL NOT use the `muted` color: every value renders in either the theme's default text color (Scope, Model, Tools, Prompt) or a semantically meaningful color (Thinking — by level; Status — `warning`; Drift — `warning`; Shadowing — `dim`). This ensures every field has visible label-vs-value contrast.
+Card field labels SHALL render in the `muted` color. Card field **values** SHALL
+NOT use the `muted` color: every value renders in either the theme's default
+text color (Scope, Model, Tools, Prompt) or a semantically meaningful color
+(Thinking — by level; Status — `warning`; Drift — `warning`; Shadowing — `dim`).
+This ensures every field has visible label-vs-value contrast.
 
-When a preset is `unavailable`, the picker card SHALL render its `Status:` field with a `⚠` glyph and a sentence-cased explanatory message in `warning` color. The message SHALL match the cause:
+When a preset is `unavailable`, the picker card SHALL render its `Status:` field
+with a `⚠` glyph and a sentence-cased explanatory message in `warning` color.
+The message SHALL match the cause:
 
-- For `unavailable: "no-key"` (the resolved model's provider has no API key configured), the message SHALL read exactly `"This preset's provider has no API key configured."`.
-- For `unavailable: "no-model"` (the resolved model is not present in the model registry), the message SHALL read exactly `"This preset's model is no longer available."`.
+- For `unavailable: "no-key"` (the resolved model's provider has no API key
+  configured), the message SHALL read exactly
+  `"This preset's provider has no API key configured."`.
+- For `unavailable: "no-model"` (the resolved model is not present in the model
+  registry), the message SHALL read exactly
+  `"This preset's model is no longer available."`.
 
-The redundant `"Unavailable —"` prefix SHALL NOT appear in the message body; the surrounding `Status:` label and `⚠` glyph already convey the unavailability framing.
+The redundant `"Unavailable —"` prefix SHALL NOT appear in the message body; the
+surrounding `Status:` label and `⚠` glyph already convey the unavailability
+framing.
 
-When the preset is annotated `hotkeyShadowsBuiltin: true` (computed at load time when the preset's parsed hotkey matches a documented Pi built-in), the picker card SHALL render an additional `Status:` row reading exactly `"⚠ Hotkey shadows a Pi built-in."` in `warning` color. The row SHALL render alongside any other Status rows the preset already carries (clamp-warning, hotkey-conflict, availability) — multiple Status rows for a single preset are allowed and each independent condition contributes its own row.
+When the preset is annotated `hotkeyShadowsBuiltin: true` (computed at load time
+when the preset's parsed hotkey matches a documented Pi built-in), the picker
+card SHALL render an additional `Status:` row reading exactly
+`"⚠ Hotkey shadows a Pi built-in."` in `warning` color. The row SHALL render
+alongside any other Status rows the preset already carries (clamp-warning,
+hotkey-conflict, availability) — multiple Status rows for a single preset are
+allowed and each independent condition contributes its own row.
 
-Status rows SHALL render in the following canonical order when present: clamp warning, hotkey conflict, Pi-builtin-shadow warning, then availability. This keeps rows predictable across presets while grouping hotkey-related conditions before the broader availability condition.
+Status rows SHALL render in the following canonical order when present: clamp
+warning, hotkey conflict, Pi-builtin-shadow warning, then availability. This
+keeps rows predictable across presets while grouping hotkey-related conditions
+before the broader availability condition.
 
 #### Scenario: Open picker with several presets
 
 - **WHEN** the user invokes `/presets`
-- **THEN** every loaded preset SHALL appear with the fields above and no preset SHALL be hidden by default
+- **THEN** every loaded preset SHALL appear with the fields above and no preset
+  SHALL be hidden by default
 
 #### Scenario: Active preset highlighted
 
 - **WHEN** preset `plan` is currently active and the picker is opened
-- **THEN** the entry for `plan` SHALL display a filled status dot distinct from inactive entries
+- **THEN** the entry for `plan` SHALL display a filled status dot distinct from
+  inactive entries
 
 #### Scenario: Unavailable preset rendered with no-key reason
 
 - **WHEN** a preset is marked `unavailable: "no-key"`
-- **THEN** its card SHALL render the `Status:` field as `⚠ This preset's provider has no API key configured.`
+- **THEN** its card SHALL render the `Status:` field as
+  `⚠ This preset's provider has no API key configured.`
 
 #### Scenario: Unknown-model preset rendered with no-model reason
 
 - **WHEN** a preset is marked `unavailable: "no-model"`
-- **THEN** its card SHALL render the `Status:` field as `⚠ This preset's model is no longer available.`
+- **THEN** its card SHALL render the `Status:` field as
+  `⚠ This preset's model is no longer available.`
 
 #### Scenario: Shadowed global preset shown with marker
 
 - **WHEN** a global preset is shadowed by a same-named project preset
-- **THEN** both entries SHALL appear in the picker (with `Scope: All`), and the global one SHALL show `Shadowing: Overridden by project preset`
+- **THEN** both entries SHALL appear in the picker (with `Scope: All`), and the
+  global one SHALL show `Shadowing: Overridden by project preset`
 
 #### Scenario: Scope and Model values render in default text color
 
 - **WHEN** the picker renders a preset card
 - **THEN** the value cell of the `Scope:` field SHALL NOT use the `muted` color
 - **AND** the value cell of the `Model:` field SHALL NOT use the `muted` color
-- **AND** both `Scope:` and `Model:` labels SHALL continue to render in `muted` color so each field has label-vs-value contrast
+- **AND** both `Scope:` and `Model:` labels SHALL continue to render in `muted`
+  color so each field has label-vs-value contrast
 
 #### Scenario: Availability message body omits the legacy prefix
 
 - **WHEN** a preset is marked `unavailable`
-- **THEN** the rendered availability message SHALL NOT begin with the substring `"Unavailable —"` or `"Unavailable -"` in any form
+- **THEN** the rendered availability message SHALL NOT begin with the substring
+  `"Unavailable —"` or `"Unavailable -"` in any form
 
 #### Scenario: Picker renders the Pi-builtin-shadow status
 
 - **WHEN** a preset is annotated `hotkeyShadowsBuiltin: true`
-- **THEN** its card SHALL render a `Status:` row reading exactly `"⚠ Hotkey shadows a Pi built-in."`
+- **THEN** its card SHALL render a `Status:` row reading exactly
+  `"⚠ Hotkey shadows a Pi built-in."`
 
 #### Scenario: Multiple Status rows for one preset
 
-- **GIVEN** a preset is annotated with `clampWarning: true`, `hotkeyConflict: true`, `hotkeyShadowsBuiltin: true`, and `unavailable: "no-key"` simultaneously
+- **GIVEN** a preset is annotated with `clampWarning: true`,
+  `hotkeyConflict: true`, `hotkeyShadowsBuiltin: true`, and
+  `unavailable: "no-key"` simultaneously
 - **WHEN** the picker renders the card
-- **THEN** the card SHALL show four distinct `Status:` rows, one for each condition, each in `warning` color and each beginning with `⚠ `
+- **THEN** the card SHALL show four distinct `Status:` rows, one for each
+  condition, each in `warning` color and each beginning with `⚠ `
 
 ### Requirement: Picker renders inside a full bordered dialog
 
-The picker SHALL render inside a full bordered dialog that includes top, bottom, left, and right borders. The dialog SHALL include a header row with the user-facing title `Presets Plus` and the current scope filter, a filter row, a scrollable card list, and a footer hint row.
+The picker SHALL render inside a full bordered dialog that includes top, bottom,
+left, and right borders. The dialog SHALL include a header row with the
+user-facing title `Presets Plus` and the current scope filter, a filter row, a
+scrollable card list, and a footer hint row.
 
 #### Scenario: Full border visible
 
 - **WHEN** the picker is open
-- **THEN** the picker SHALL show left and right borders on every row in addition to top and bottom borders
+- **THEN** the picker SHALL show left and right borders on every row in addition
+  to top and bottom borders
 
 #### Scenario: Lines fit dialog width
 
 - **WHEN** card fields are longer than the dialog width
-- **THEN** rendered lines SHALL be truncated or otherwise fit within the bordered dialog without overflowing past the right border
+- **THEN** rendered lines SHALL be truncated or otherwise fit within the
+  bordered dialog without overflowing past the right border
 
 ### Requirement: Filter input with literal-substring-first ranking
 
-The picker SHALL include a free-text filter input (focused via `/`). Filtering SHALL produce two ordered groups concatenated in this order: first, presets whose `name` or `provider/model` contains the query as a case-insensitive literal substring; second, presets matched only by subsequence-fuzzy match. Within each group the input order SHALL be preserved.
+The picker SHALL include a free-text filter input (focused via `/`). Filtering
+SHALL produce two ordered groups concatenated in this order: first, presets
+whose `name` or `provider/model` contains the query as a case-insensitive
+literal substring; second, presets matched only by subsequence-fuzzy match.
+Within each group the input order SHALL be preserved.
 
 #### Scenario: Literal match precedence (the #3433-style example)
 
-- **WHEN** the user types `opus` and the loaded presets include some whose model contains the literal string `opus` and others matched only by subsequence on the letters `o`, `p`, `u`, `s` (e.g. via the substring `openrouter`)
-- **THEN** all literal-`opus` presets SHALL appear above any subsequence-only matches
+- **WHEN** the user types `opus` and the loaded presets include some whose model
+  contains the literal string `opus` and others matched only by subsequence on
+  the letters `o`, `p`, `u`, `s` (e.g. via the substring `openrouter`)
+- **THEN** all literal-`opus` presets SHALL appear above any subsequence-only
+  matches
 
 #### Scenario: No matches
 
@@ -104,12 +155,14 @@ The picker SHALL include a free-text filter input (focused via `/`). Filtering S
 #### Scenario: Empty filter
 
 - **WHEN** the filter input is empty
-- **THEN** all presets SHALL be shown in their natural order (per `loadAll`'s output)
+- **THEN** all presets SHALL be shown in their natural order (per `loadAll`'s
+  output)
 
 #### Scenario: Filter focus has visual cursor
 
 - **WHEN** the filter input is focused
-- **THEN** the filter row SHALL show a clear visual focus indicator and cursor position
+- **THEN** the filter row SHALL show a clear visual focus indicator and cursor
+  position
 
 #### Scenario: Filter focus returns to list
 
@@ -118,12 +171,16 @@ The picker SHALL include a free-text filter input (focused via `/`). Filtering S
 
 ### Requirement: Scope filter toggle in the header
 
-The picker SHALL show the current scope filter in the header (`Scope: All`, `Scope: User only`, or `Scope: Project only`) and SHALL allow cycling between the three states with `←` / `→`. The default scope is `All`.
+The picker SHALL show the current scope filter in the header (`Scope: All`,
+`Scope: User only`, or `Scope: Project only`) and SHALL allow cycling between
+the three states with `←` / `→`. The default scope is `All`.
 
 #### Scenario: User-only filter
 
 - **WHEN** the user cycles to `User only`
-- **THEN** only presets with `scope: "user"` SHALL appear; project presets SHALL be hidden; shadowed globals SHALL appear normally because their project shadows are hidden
+- **THEN** only presets with `scope: "user"` SHALL appear; project presets SHALL
+  be hidden; shadowed globals SHALL appear normally because their project
+  shadows are hidden
 
 #### Scenario: Project-only filter
 
@@ -137,15 +194,23 @@ The picker SHALL show the current scope filter in the header (`Scope: All`, `Sco
 
 ### Requirement: Activate from picker
 
-When the user presses `Enter` on a selected preset, the picker SHALL invoke the existing apply flow for that preset.
+When the user presses `Enter` on a selected preset, the picker SHALL invoke the
+existing apply flow for that preset.
 
 On `apply()` returning `{ ok: true }`, the picker SHALL close.
 
-On `apply()` returning `{ ok: false, reason }`, the picker SHALL stay open and SHALL render the `reason` in a shared info-dialog overlay (tone = `"error"`, title = `"Activation failed"`). The picker SHALL hide itself behind the dialog while the dialog is open and SHALL restore focus to the same selected row when the user dismisses the dialog with `Enter` or `Esc`. The picker SHALL NOT close as a side effect of the failure.
+On `apply()` returning `{ ok: false, reason }`, the picker SHALL stay open and
+SHALL render the `reason` in a shared info-dialog overlay (tone = `"error"`,
+title = `"Activation failed"`). The picker SHALL hide itself behind the dialog
+while the dialog is open and SHALL restore focus to the same selected row when
+the user dismisses the dialog with `Enter` or `Esc`. The picker SHALL NOT close
+as a side effect of the failure.
 
-The picker SHALL NOT call `ctx.ui.notify` to surface activation refusals — the info-dialog is the sole surface for picker-driven activation refusals.
+The picker SHALL NOT call `ctx.ui.notify` to surface activation refusals — the
+info-dialog is the sole surface for picker-driven activation refusals.
 
-Exact-name command activation (for example `/presets plan`) SHALL NOT be part of the command surface; picker selection is the activation path.
+Exact-name command activation (for example `/presets plan`) SHALL NOT be part of
+the command surface; picker selection is the activation path.
 
 #### Scenario: Activate available preset
 
@@ -155,22 +220,30 @@ Exact-name command activation (for example `/presets plan`) SHALL NOT be part of
 
 #### Scenario: Activate unavailable preset shows error dialog
 
-- **WHEN** the user selects a preset marked `unavailable: "no-key"` and presses `Enter`
+- **WHEN** the user selects a preset marked `unavailable: "no-key"` and presses
+  `Enter`
 - **AND** `apply()` returns `{ ok: false, reason: <text>, kind: "no-key" }`
 - **THEN** the picker SHALL remain open
-- **AND** an info-dialog overlay SHALL appear with tone `error`, title `"Activation failed"`, and body equal to `reason`
+- **AND** an info-dialog overlay SHALL appear with tone `error`, title
+  `"Activation failed"`, and body equal to `reason`
 - **AND** `ctx.ui.notify` SHALL NOT be called for the refusal
-- **AND** dismissing the dialog with `Enter` or `Esc` SHALL return focus to the picker without closing it
+- **AND** dismissing the dialog with `Enter` or `Esc` SHALL return focus to the
+  picker without closing it
 
 #### Scenario: Activation failure for unknown model shows error dialog
 
-- **WHEN** the user activates a preset whose `provider`/`model` does not resolve and `apply()` returns `{ ok: false, kind: "unknown-model" }`
-- **THEN** the picker SHALL remain open and an error info-dialog SHALL render the reason
+- **WHEN** the user activates a preset whose `provider`/`model` does not resolve
+  and `apply()` returns `{ ok: false, kind: "unknown-model" }`
+- **THEN** the picker SHALL remain open and an error info-dialog SHALL render
+  the reason
 
 #### Scenario: Activation failure for revoked key shows error dialog
 
-- **WHEN** activation reaches `setModel` which returns false (key revoked between load and apply) and `apply()` returns `{ ok: false, kind: "key-revoked" }`
-- **THEN** the picker SHALL remain open and an error info-dialog SHALL render the reason
+- **WHEN** activation reaches `setModel` which returns false (key revoked
+  between load and apply) and `apply()` returns
+  `{ ok: false, kind: "key-revoked" }`
+- **THEN** the picker SHALL remain open and an error info-dialog SHALL render
+  the reason
 
 #### Scenario: Cancel without activating
 
@@ -179,30 +252,56 @@ Exact-name command activation (for example `/presets plan`) SHALL NOT be part of
 
 ### Requirement: Picker opens with the active preset selected
 
-When the picker opens and a preset is active, the picker SHALL place the initial selection on that preset's card and SHALL render that card within the first visible viewport. The active preset is the one the session reports as attached, matched by name and scope.
+When the picker opens and a preset is active, the picker SHALL place the initial
+selection on that preset's card and SHALL render that card within the first
+visible viewport. The active preset is the one the session reports as attached,
+matched by name and scope.
 
-When enough loaded presets exist before and after the active preset to provide surrounding context, the picker SHALL choose the opening viewport whose selected-card midpoint is closest to the midpoint of the list pane, subject to keeping at least one later preset visible when one fits. Both midpoints are measured in rendered card lines and separator lines, not in preset counts, so cards of differing heights do not shift the result.
+When enough loaded presets exist before and after the active preset to provide
+surrounding context, the picker SHALL choose the opening viewport whose
+selected-card midpoint is closest to the midpoint of the list pane, subject to
+keeping at least one later preset visible when one fits. Both midpoints are
+measured in rendered card lines and separator lines, not in preset counts, so
+cards of differing heights do not shift the result.
 
-When the active preset is near the start or end of the loaded list, the opening viewport SHALL clamp to the natural list boundary instead of wrapping, inventing blank space, or hiding the selected card. If the selected card alone exceeds the available line budget, the picker SHALL render that card as the sole visible card.
+When the active preset is near the start or end of the loaded list, the opening
+viewport SHALL clamp to the natural list boundary instead of wrapping, inventing
+blank space, or hiding the selected card. If the selected card alone exceeds the
+available line budget, the picker SHALL render that card as the sole visible
+card.
 
-When no preset is active, or when the active preset is not among the presets the picker loaded for this open, the picker SHALL place the initial selection on the first visible card and SHALL start the viewport at the top of the list.
+When no preset is active, or when the active preset is not among the presets the
+picker loaded for this open, the picker SHALL place the initial selection on the
+first visible card and SHALL start the viewport at the top of the list.
 
-The initial selection and opening viewport SHALL be computed against the list the picker shows on open, which is every loaded preset under the `All` scope filter with an empty filter query. The active-preset status dot, the accent highlight on the active card, and every navigation, filter, and scope behavior after the first frame SHALL be unchanged: once the picker is open, the selection and viewport move only in response to user input and the existing layout correction rules.
+The initial selection and opening viewport SHALL be computed against the list
+the picker shows on open, which is every loaded preset under the `All` scope
+filter with an empty filter query. The active-preset status dot, the accent
+highlight on the active card, and every navigation, filter, and scope behavior
+after the first frame SHALL be unchanged: once the picker is open, the selection
+and viewport move only in response to user input and the existing layout
+correction rules.
 
 #### Scenario: Active preset is selected on open
 
-- **GIVEN** preset `plan` is active and is not the first preset in the picker's list order
+- **GIVEN** preset `plan` is active and is not the first preset in the picker's
+  list order
 - **WHEN** the user opens the picker
 - **THEN** the card for `plan` SHALL be the selected card
-- **AND** the card for `plan` SHALL carry both the active status dot and the selection highlight
+- **AND** the card for `plan` SHALL carry both the active status dot and the
+  selection highlight
 
 #### Scenario: Active preset below the fold is scrolled into view
 
-- **GIVEN** a preset is active and its card does not fit in the viewport packed from the top of the list
-- **AND** there are enough loaded presets before and after it to fill the viewport around it
+- **GIVEN** a preset is active and its card does not fit in the viewport packed
+  from the top of the list
+- **AND** there are enough loaded presets before and after it to fill the
+  viewport around it
 - **WHEN** the user opens the picker
-- **THEN** the first rendered frame SHALL include the active preset's card with at least one preset visible before it
-- **AND** the first rendered frame SHALL include at least one preset after the active preset
+- **THEN** the first rendered frame SHALL include the active preset's card with
+  at least one preset visible before it
+- **AND** the first rendered frame SHALL include at least one preset after the
+  active preset
 
 #### Scenario: Active preset near the start clamps to the top
 
@@ -215,7 +314,8 @@ The initial selection and opening viewport SHALL be computed against the list th
 
 - **GIVEN** a preset near the end of the loaded list is active
 - **WHEN** the user opens the picker
-- **THEN** the first rendered frame SHALL end at the last loaded preset when enough cards fit before it
+- **THEN** the first rendered frame SHALL end at the last loaded preset when
+  enough cards fit before it
 - **AND** the active preset's card SHALL be selected and visible
 
 #### Scenario: No active preset falls back to the first card
@@ -227,26 +327,32 @@ The initial selection and opening viewport SHALL be computed against the list th
 
 #### Scenario: Active preset missing from the loaded list falls back to the first card
 
-- **GIVEN** a preset is active and it was deleted on disk before the picker opened
+- **GIVEN** a preset is active and it was deleted on disk before the picker
+  opened
 - **WHEN** the user opens the picker
 - **THEN** the first visible card SHALL be the selected card
 - **AND** the viewport SHALL start at the first loaded preset
 
 #### Scenario: Active preset is matched by scope as well as name
 
-- **GIVEN** a user preset and a project preset share the name `plan`, and the project one is active
+- **GIVEN** a user preset and a project preset share the name `plan`, and the
+  project one is active
 - **WHEN** the user opens the picker
 - **THEN** the selected card SHALL be the project `plan` card
 
 #### Scenario: Pressing Enter immediately reconfirms the active preset
 
 - **GIVEN** a preset is active
-- **WHEN** the user opens the picker and presses `⏎` without moving the selection
-- **THEN** the activation SHALL target the active preset rather than the first preset in the list
+- **WHEN** the user opens the picker and presses `⏎` without moving the
+  selection
+- **THEN** the activation SHALL target the active preset rather than the first
+  preset in the list
 
 ### Requirement: Navigation wraps at list boundaries
 
-The picker SHALL treat vertical navigation as cyclic. Pressing down from the last visible preset SHALL select the first visible preset, and pressing up from the first visible preset SHALL select the last visible preset.
+The picker SHALL treat vertical navigation as cyclic. Pressing down from the
+last visible preset SHALL select the first visible preset, and pressing up from
+the first visible preset SHALL select the last visible preset.
 
 #### Scenario: Down wraps to first preset
 
@@ -262,55 +368,79 @@ The picker SHALL treat vertical navigation as cyclic. Pressing down from the las
 
 ### Requirement: Footer keybinding hints
 
-The picker SHALL render a footer hint row using readable title-case action labels and showing at minimum: activate (`⏎`), filter (`/`), movement (`↑/↓`), page movement (`PgUp/PgDn`), scope cycle (`←/→`), status (`s`), and exit (`Esc`).
+The picker SHALL render a footer hint row using readable title-case action
+labels and showing at minimum: activate (`⏎`), filter (`/`), movement (`↑/↓`),
+page movement (`PgUp/PgDn`), scope cycle (`←/→`), status (`s`), and exit
+(`Esc`).
 
 #### Scenario: Footer present
 
 - **WHEN** the picker is open
-- **THEN** a footer hint row SHALL be visible at the bottom of the picker showing the keybindings above
+- **THEN** a footer hint row SHALL be visible at the bottom of the picker
+  showing the keybindings above
 
 #### Scenario: Status hint listed
 
 - **WHEN** the picker is open
-- **THEN** the footer hint row SHALL include the `Status` entry bound to the `s` key
+- **THEN** the footer hint row SHALL include the `Status` entry bound to the `s`
+  key
 
 ### Requirement: Picker exposes a Status action
 
-The picker SHALL expose a `Status` action bound to the `s` key while the list is focused. Pressing `s` SHALL open an info-dialog overlay rendering the same payload that `/presets status` produces (including the empty "no preset is active" case). After the user dismisses the dialog with `Enter` or `Esc`, the picker SHALL remain open with list focus restored.
+The picker SHALL expose a `Status` action bound to the `s` key while the list is
+focused. Pressing `s` SHALL open an info-dialog overlay rendering the same
+payload that `/presets status` produces (including the empty "no preset is
+active" case). After the user dismisses the dialog with `Enter` or `Esc`, the
+picker SHALL remain open with list focus restored.
 
 #### Scenario: Status from picker with active preset
 
-- **WHEN** the user opens the picker, a preset is active, and the user presses `s`
-- **THEN** an info-dialog overlay SHALL appear rendering the active-preset diagnostic produced by `formatStatus`
+- **WHEN** the user opens the picker, a preset is active, and the user presses
+  `s`
+- **THEN** an info-dialog overlay SHALL appear rendering the active-preset
+  diagnostic produced by `formatStatus`
 - **AND** the picker SHALL remain open behind the dialog
 - **AND** dismissing the dialog SHALL return list focus to the picker
 
 #### Scenario: Status from picker with no active preset
 
-- **WHEN** the user opens the picker, no preset is active, and the user presses `s`
-- **THEN** an info-dialog overlay SHALL appear with the same "no preset is active" body that `/presets status` emits today
+- **WHEN** the user opens the picker, no preset is active, and the user presses
+  `s`
+- **THEN** an info-dialog overlay SHALL appear with the same "no preset is
+  active" body that `/presets status` emits today
 - **AND** dismissing the dialog SHALL return list focus to the picker
 
 ### Requirement: Picker routes Clear and Status output through an info-dialog overlay
 
-When the picker triggers `clear` (via the `c` action) or `status` (via the `s` action), the package SHALL render the resulting payload in a shared info-dialog overlay rather than via `ctx.ui.notify`. The dialog SHALL display a title, the rendered body verbatim, and a dismissal hint, and SHALL resolve on `Enter` or `Esc`. The dialog SHALL anchor center, max height ≤ the surrounding overlay viewport, and width ≤ 90 % of the viewport.
+When the picker triggers `clear` (via the `c` action) or `status` (via the `s`
+action), the package SHALL render the resulting payload in a shared info-dialog
+overlay rather than via `ctx.ui.notify`. The dialog SHALL display a title, the
+rendered body verbatim, and a dismissal hint, and SHALL resolve on `Enter` or
+`Esc`. The dialog SHALL anchor center, max height ≤ the surrounding overlay
+viewport, and width ≤ 90 % of the viewport.
 
 #### Scenario: Clear from picker shows summary in dialog
 
-- **WHEN** the user presses `c` in the picker, confirms the prompt, and the clear flow runs
-- **THEN** the rendered clear summary SHALL appear in an info-dialog overlay above the picker
-- **AND** `ctx.ui.notify` SHALL NOT be called for the summary on the picker-driven path
+- **WHEN** the user presses `c` in the picker, confirms the prompt, and the
+  clear flow runs
+- **THEN** the rendered clear summary SHALL appear in an info-dialog overlay
+  above the picker
+- **AND** `ctx.ui.notify` SHALL NOT be called for the summary on the
+  picker-driven path
 
 #### Scenario: Clear cancelled does not open info-dialog
 
-- **WHEN** the user presses `c` in the picker and dismisses the confirm prompt with No
+- **WHEN** the user presses `c` in the picker and dismisses the confirm prompt
+  with No
 - **THEN** no info-dialog overlay SHALL appear
 
 #### Scenario: Status from picker shows diagnostic in dialog
 
 - **WHEN** the user presses `s` in the picker
-- **THEN** the diagnostic produced by `formatStatus` SHALL appear in an info-dialog overlay above the picker
-- **AND** `ctx.ui.notify` SHALL NOT be called for the diagnostic on the picker-driven path
+- **THEN** the diagnostic produced by `formatStatus` SHALL appear in an
+  info-dialog overlay above the picker
+- **AND** `ctx.ui.notify` SHALL NOT be called for the diagnostic on the
+  picker-driven path
 
 #### Scenario: Dialog dismissal returns focus
 
@@ -320,49 +450,68 @@ When the picker triggers `clear` (via the `c` action) or `status` (via the `s` a
 
 ### Requirement: Picker clear short-circuits when no preset is active
 
-When the user presses `c` (clear) inside the picker and no preset is currently active, the package SHALL NOT open the "Clear active preset?" confirm dialog. Instead, the package SHALL open an info-dialog overlay (using the same shared overlay surface as the existing clear-summary and status dialogs) with the title "Clear Unavailable" and the body "No preset is active.", then return to the picker without invoking any clear flow.
+When the user presses `c` (clear) inside the picker and no preset is currently
+active, the package SHALL NOT open the "Clear active preset?" confirm dialog.
+Instead, the package SHALL open an info-dialog overlay (using the same shared
+overlay surface as the existing clear-summary and status dialogs) with the title
+"Clear Unavailable" and the body "No preset is active.", then return to the
+picker without invoking any clear flow.
 
-When a preset is currently active, the existing confirm-then-clear-then-summary flow SHALL run unchanged.
+When a preset is currently active, the existing confirm-then-clear-then-summary
+flow SHALL run unchanged.
 
-The check for "is a preset active" SHALL consult the active-preset session (i.e., `session.current()` is `undefined`); the check SHALL NOT re-read the preset files or otherwise reach beyond the already-loaded session state.
+The check for "is a preset active" SHALL consult the active-preset session
+(i.e., `session.current()` is `undefined`); the check SHALL NOT re-read the
+preset files or otherwise reach beyond the already-loaded session state.
 
 #### Scenario: Press `c` with no preset active
 
-- **GIVEN** the picker is open and no preset is currently active (`session.current()` is `undefined`)
+- **GIVEN** the picker is open and no preset is currently active
+  (`session.current()` is `undefined`)
 - **WHEN** the user presses `c`
-- **THEN** an info-dialog SHALL appear with the title "Clear Unavailable" and the body "No preset is active."
+- **THEN** an info-dialog SHALL appear with the title "Clear Unavailable" and
+  the body "No preset is active."
 - **AND** the "Clear active preset?" confirm dialog SHALL NOT be opened
 - **AND** the underlying clear engine SHALL NOT be invoked
-- **AND** dismissing the info-dialog with `Enter` or `Esc` SHALL return focus to the picker without closing the picker
+- **AND** dismissing the info-dialog with `Enter` or `Esc` SHALL return focus to
+  the picker without closing the picker
 
 #### Scenario: Press `c` with a preset active
 
-- **GIVEN** the picker is open and a preset is currently active (`session.current()` returns an attachment)
+- **GIVEN** the picker is open and a preset is currently active
+  (`session.current()` returns an attachment)
 - **WHEN** the user presses `c`
 - **THEN** the "Clear active preset?" confirm dialog SHALL open as today
 - **AND** the existing confirm-then-clear-then-summary flow SHALL run unchanged
 
 ### Requirement: CRUD action keys are reserved with hints
 
-When the user presses any of `n`, `e`, `d`, or `x` inside the picker, the package SHALL show an info hint stating that the editor arrives in the next change, and SHALL keep the picker open.
+When the user presses any of `n`, `e`, `d`, or `x` inside the picker, the
+package SHALL show an info hint stating that the editor arrives in the next
+change, and SHALL keep the picker open.
 
 #### Scenario: Reserved key pressed
 
 - **WHEN** the user presses `n`, `e`, `d`, or `x`
-- **THEN** an info notification SHALL state "Editor coming in next change" (or equivalent) and the picker SHALL remain open
+- **THEN** an info notification SHALL state "Editor coming in next change" (or
+  equivalent) and the picker SHALL remain open
 
 ### Requirement: Picker reads fresh data on each open
 
-Each time the picker opens, the package SHALL call `loadAll(ctx)` so that external edits between opens are reflected without requiring `/reload`.
+Each time the picker opens, the package SHALL call `loadAll(ctx)` so that
+external edits between opens are reflected without requiring `/reload`.
 
 #### Scenario: External edit between picker opens
 
-- **WHEN** the user opens the picker, closes it, edits the JSON file, and reopens the picker
+- **WHEN** the user opens the picker, closes it, edits the JSON file, and
+  reopens the picker
 - **THEN** the new contents SHALL be reflected without an explicit reload step
 
 ### Requirement: /presets opens the picker
 
-The `/presets` command (with no arguments) SHALL open the picker. `/presets list`, `/presets list --text`, and `/presets <preset-name>` exact-name activation SHALL NOT be part of this change's user-facing command surface.
+The `/presets` command (with no arguments) SHALL open the picker.
+`/presets list`, `/presets list --text`, and `/presets <preset-name>` exact-name
+activation SHALL NOT be part of this change's user-facing command surface.
 
 #### Scenario: Bare /presets opens picker
 
@@ -373,40 +522,60 @@ The `/presets` command (with no arguments) SHALL open the picker. `/presets list
 
 - **WHEN** the user runs `/presets list`
 - **THEN** the package SHALL NOT open the picker as a `list` synonym
-- **AND** the package SHALL report that `list` is not a supported subcommand or otherwise leave the command unhandled according to the router's unknown-subcommand behavior
+- **AND** the package SHALL report that `list` is not a supported subcommand or
+  otherwise leave the command unhandled according to the router's
+  unknown-subcommand behavior
 
 #### Scenario: /presets list --text is not supported
 
 - **WHEN** the user runs `/presets list --text`
 - **THEN** the package SHALL NOT print a textual preset list
-- **AND** the package SHALL report that `list` is not a supported subcommand or otherwise leave the command unhandled according to the router's unknown-subcommand behavior
+- **AND** the package SHALL report that `list` is not a supported subcommand or
+  otherwise leave the command unhandled according to the router's
+  unknown-subcommand behavior
 
 #### Scenario: Exact-name activation is not supported
 
 - **WHEN** the user runs `/presets plan`
 - **THEN** the package SHALL NOT activate the preset named `plan`
-- **AND** the package SHALL report `plan` as an unknown or unsupported subcommand
+- **AND** the package SHALL report `plan` as an unknown or unsupported
+  subcommand
 
 ### Requirement: Picker lays out variable-height cards around the selection
 
-The picker SHALL guarantee that the currently selected preset's card is included in the rendered output on every frame, regardless of card-height variation across the visible list. Card height varies with optional preset rows and status annotations.
+The picker SHALL guarantee that the currently selected preset's card is included
+in the rendered output on every frame, regardless of card-height variation
+across the visible list. Card height varies with optional preset rows and status
+annotations.
 
-The picker SHALL calculate each viewport from the item count, selected index, current scroll offset, available line budget, and measured card heights. It SHALL pack consecutive cards and their separator lines without exceeding the line budget, except that it SHALL render one selected card even when that card alone exceeds the budget.
+The picker SHALL calculate each viewport from the item count, selected index,
+current scroll offset, available line budget, and measured card heights. It
+SHALL pack consecutive cards and their separator lines without exceeding the
+line budget, except that it SHALL render one selected card even when that card
+alone exceeds the budget.
 
-If the selection is above the current viewport, the picker SHALL anchor the viewport at the selected card. If the selection is below the packed range, the picker SHALL move the viewport backward from the selected card to include as many preceding cards as the line budget permits. The resulting scroll offset and measured page size SHALL update picker state before the next user input.
+If the selection is above the current viewport, the picker SHALL anchor the
+viewport at the selected card. If the selection is below the packed range, the
+picker SHALL move the viewport backward from the selected card to include as
+many preceding cards as the line budget permits. The resulting scroll offset and
+measured page size SHALL update picker state before the next user input.
 
-Card heights SHALL be measured only as needed to determine the visible range. An empty preset list SHALL produce an empty viewport without measuring any card.
+Card heights SHALL be measured only as needed to determine the visible range. An
+empty preset list SHALL produce an empty viewport without measuring any card.
 
 #### Scenario: Mixed card heights fit within the line budget
 
 - **WHEN** the visible list contains cards with different measured heights
-- **THEN** the picker SHALL include consecutive cards and separator lines while they fit within the available line budget
+- **THEN** the picker SHALL include consecutive cards and separator lines while
+  they fit within the available line budget
 - **AND** the measured page size SHALL equal the number of included cards
 
 #### Scenario: Selection moves below the current viewport
 
-- **WHEN** the selected index is below the range that fits from the current scroll offset
-- **THEN** the picker SHALL choose a new scroll offset whose packed range includes the selected card
+- **WHEN** the selected index is below the range that fits from the current
+  scroll offset
+- **THEN** the picker SHALL choose a new scroll offset whose packed range
+  includes the selected card
 - **AND** the rendered output SHALL include the selected card
 
 #### Scenario: Selection moves above the current viewport
@@ -429,119 +598,119 @@ Card heights SHALL be measured only as needed to determine the visible range. An
 #### Scenario: Page navigation uses the measured page size
 
 - **WHEN** a rendered viewport has measured the number of cards that fit
-- **THEN** subsequent Page Up and Page Down navigation SHALL use that measured page size
+- **THEN** subsequent Page Up and Page Down navigation SHALL use that measured
+  page size
 - **AND** the next rendered viewport SHALL include the new selection
 
 #### Scenario: Repeated downward navigation does not skip presets
 
-- **WHEN** the picker contains 18 presets with variable card heights and the user presses Down 12 times from the first preset
+- **WHEN** the picker contains 18 presets with variable card heights and the
+  user presses Down 12 times from the first preset
 - **THEN** each press SHALL advance the selected index by one
 - **AND** every rendered viewport SHALL include the selected preset
 
 ### Requirement: Picker displays a permanent active-preset status row
 
-The picker SHALL render a permanent status row, on its own line within
-the picker chrome (distinct from the bordered header line and the filter
-input row), that names the currently active preset. The row's visibility
-SHALL be a function of session state ONLY: it SHALL render in every
-picker state, independent of focus mode, scope filter, filter query,
-scroll position, and reorder.
+The picker SHALL render a permanent status row, on its own line within the
+picker chrome (distinct from the bordered header line and the filter input row),
+that names the currently active preset. The row's visibility SHALL be a function
+of session state ONLY: it SHALL render in every picker state, independent of
+focus mode, scope filter, filter query, scroll position, and reorder.
 
-When a preset is active, the row SHALL read `Active: <name> (<Scope>)`,
-where `<name>` is the active preset's name and `<Scope>` is `User` or
-`Project`. The scope suffix SHALL render in the `dim` color and exists to
-disambiguate presets that share a name across scopes, matching the
-in-list dot's name + scope identity. When no preset is active, the row
-SHALL read `Active: none` with the `none` sentinel rendered in the `dim`
-color so it stays distinct from an active preset literally named `none`.
-The row SHALL always be present, so only its text varies between these
-two cases.
+When a preset is active, the row SHALL read `Active: <name> (<Scope>)`, where
+`<name>` is the active preset's name and `<Scope>` is `User` or `Project`. The
+scope suffix SHALL render in the `dim` color and exists to disambiguate presets
+that share a name across scopes, matching the in-list dot's name + scope
+identity. When no preset is active, the row SHALL read `Active: none` with the
+`none` sentinel rendered in the `dim` color so it stays distinct from an active
+preset literally named `none`. The row SHALL always be present, so only its text
+varies between these two cases.
 
-The status row SHALL show the active preset's name only and SHALL NOT
-append a drift or `(modified)` indicator; drift signaling remains the
-responsibility of the in-list card. The status row SHALL NOT replace the
-in-list active-preset dot and accent highlight; both SHALL continue to
-render so the row provides always-visible identity while the dot
-provides the in-list locator.
+The status row SHALL show the active preset's name only and SHALL NOT append a
+drift or `(modified)` indicator; drift signaling remains the responsibility of
+the in-list card. The status row SHALL NOT replace the in-list active-preset dot
+and accent highlight; both SHALL continue to render so the row provides
+always-visible identity while the dot provides the in-list locator.
 
-When the active preset name is too long for the interior width, the row
-SHALL middle-ellipsize the name so that both the leading and trailing
-portions remain visible.
+When the active preset name is too long for the interior width, the row SHALL
+middle-ellipsize the name so that both the leading and trailing portions remain
+visible.
 
 #### Scenario: Active preset shown on open with the active card off-screen
 
-- **WHEN** a preset is active and the picker opens with that preset
-  scrolled below the visible list region
-- **THEN** the status row SHALL read `Active: <name> (<Scope>)` for the
-  active preset even though no active dot is visible in the list
+- **WHEN** a preset is active and the picker opens with that preset scrolled
+  below the visible list region
+- **THEN** the status row SHALL read `Active: <name> (<Scope>)` for the active
+  preset even though no active dot is visible in the list
 
 #### Scenario: No preset active
 
 - **WHEN** the picker is open and no preset is active
-- **THEN** the status row SHALL read `Active: none` with the `none`
-  sentinel rendered in the `dim` color
+- **THEN** the status row SHALL read `Active: none` with the `none` sentinel
+  rendered in the `dim` color
 
 #### Scenario: Scope suffix disambiguates same-named presets
 
-- **WHEN** the active preset shares its name with a preset in the other
-  scope
-- **THEN** the status row SHALL append the active preset's scope as
-  `(User)` or `(Project)` so the row identifies the same preset the
-  in-list dot marks
+- **WHEN** the active preset shares its name with a preset in the other scope
+- **THEN** the status row SHALL append the active preset's scope as `(User)` or
+  `(Project)` so the row identifies the same preset the in-list dot marks
 
 #### Scenario: Status row invariant under filter query
 
-- **WHEN** a preset is active and the user types a filter query that
-  excludes the active preset from the visible list
-- **THEN** the status row SHALL continue to read
-  `Active: <name> (<Scope>)` for the active preset
+- **WHEN** a preset is active and the user types a filter query that excludes
+  the active preset from the visible list
+- **THEN** the status row SHALL continue to read `Active: <name> (<Scope>)` for
+  the active preset
 
 #### Scenario: Status row invariant under scope filter
 
-- **WHEN** a user-scope preset is active and the user toggles the scope
-  filter to project-only so the active preset is no longer in the list
-- **THEN** the status row SHALL continue to read
-  `Active: <name> (<Scope>)` for the active preset
+- **WHEN** a user-scope preset is active and the user toggles the scope filter
+  to project-only so the active preset is no longer in the list
+- **THEN** the status row SHALL continue to read `Active: <name> (<Scope>)` for
+  the active preset
 
 #### Scenario: Status row invariant under focus mode
 
-- **WHEN** a preset is active and the user switches between list focus
-  and filter focus
-- **THEN** the status row text SHALL remain unchanged across both focus
-  modes
+- **WHEN** a preset is active and the user switches between list focus and
+  filter focus
+- **THEN** the status row text SHALL remain unchanged across both focus modes
 
 #### Scenario: Status row omits drift indicator
 
 - **WHEN** the active preset is dirty/drifted
-- **THEN** the status row SHALL read `Active: <name> (<Scope>)` with no
-  drift or `(modified)` suffix, and the in-list card SHALL retain its
-  drift signaling
+- **THEN** the status row SHALL read `Active: <name> (<Scope>)` with no drift or
+  `(modified)` suffix, and the in-list card SHALL retain its drift signaling
 
 #### Scenario: Long active preset name is middle-ellipsized
 
-- **WHEN** the active preset's name exceeds the interior width of the
-  status row
-- **THEN** the row SHALL render the name middle-ellipsized so both the
-  leading and trailing portions remain visible
+- **WHEN** the active preset's name exceeds the interior width of the status row
+- **THEN** the row SHALL render the name middle-ellipsized so both the leading
+  and trailing portions remain visible
 
 ### Requirement: Picker renders the max thinking level compatibly
 
-The picker SHALL render a preset with `thinkingLevel: "max"` as `Max` using the `thinkingMax` theme color. If the active Pi theme API reports that `thinkingMax` is unknown, the picker SHALL render the value using `thinkingXhigh` instead. The fallback SHALL NOT hide unrelated theme errors.
+The picker SHALL render a preset with `thinkingLevel: "max"` as `Max` using the
+`thinkingMax` theme color. If the active Pi theme API reports that `thinkingMax`
+is unknown, the picker SHALL render the value using `thinkingXhigh` instead. The
+fallback SHALL NOT hide unrelated theme errors.
 
 #### Scenario: Max uses its theme color
 
-- **WHEN** the picker renders a max preset and the active theme supports `thinkingMax`
+- **WHEN** the picker renders a max preset and the active theme supports
+  `thinkingMax`
 - **THEN** the Thinking value SHALL read `Max`
 - **AND** it SHALL use `thinkingMax`
 
 #### Scenario: Older theme API uses the fallback
 
-- **WHEN** the picker renders a max preset and the active theme reports that `thinkingMax` is unknown
+- **WHEN** the picker renders a max preset and the active theme reports that
+  `thinkingMax` is unknown
 - **THEN** the Thinking value SHALL read `Max`
 - **AND** it SHALL use `thinkingXhigh`
 - **AND** rendering SHALL NOT throw
 
 #### Scenario: Unrelated theme error propagates
 
-- **WHEN** rendering a max preset fails for a reason other than an unknown `thinkingMax` color
+- **WHEN** rendering a max preset fails for a reason other than an unknown
+  `thinkingMax` color
 - **THEN** the picker SHALL propagate the error

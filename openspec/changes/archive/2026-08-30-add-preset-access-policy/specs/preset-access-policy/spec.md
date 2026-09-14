@@ -35,7 +35,8 @@ The package SHALL read this file fresh on every load (no module-level cache).
 #### Scenario: No policy file present
 
 - **WHEN** an activation occurs and no `policy.json` exists
-- **THEN** no permission constraint and no default SHALL apply and activation SHALL proceed unchanged
+- **THEN** no permission constraint and no default SHALL apply and activation
+  SHALL proceed unchanged
 
 #### Scenario: Empty rules array
 
@@ -45,7 +46,8 @@ The package SHALL read this file fresh on every load (no module-level cache).
 #### Scenario: Field defaults to name
 
 - **WHEN** a matcher omits `field`
-- **THEN** the matcher's `pattern` SHALL be tested against the candidate preset's `name`
+- **THEN** the matcher's `pattern` SHALL be tested against the candidate
+  preset's `name`
 
 ### Requirement: Policy file validation and visible fail-open
 
@@ -75,12 +77,15 @@ the weakening is visible rather than silent.
 #### Scenario: Invalid match regex skips the rule
 
 - **WHEN** a rule's `match` regex fails to compile
-- **THEN** that rule SHALL be skipped, a warning naming the bad pattern SHALL be surfaced, and other rules SHALL still apply
+- **THEN** that rule SHALL be skipped, a warning naming the bad pattern SHALL be
+  surfaced, and other rules SHALL still apply
 
 #### Scenario: Invalid matcher pattern skips the matcher
 
-- **WHEN** one matcher `pattern` in a rule's `allow`, `prohibit`, or `default` fails to compile
-- **THEN** that matcher SHALL be skipped, a warning naming the bad pattern SHALL be surfaced, and the rule's other matchers SHALL still apply
+- **WHEN** one matcher `pattern` in a rule's `allow`, `prohibit`, or `default`
+  fails to compile
+- **THEN** that matcher SHALL be skipped, a warning naming the bad pattern SHALL
+  be surfaced, and the rule's other matchers SHALL still apply
 
 ### Requirement: Matchers use raw unanchored regex over the selected field
 
@@ -94,23 +99,31 @@ implicitly anchor patterns.
 
 #### Scenario: Unanchored substring match
 
-- **WHEN** a matcher `pattern` is `apple` and the candidate preset name is `apple-claude-opus-4-8`
+- **WHEN** a matcher `pattern` is `apple` and the candidate preset name is
+  `apple-claude-opus-4-8`
 - **THEN** the matcher SHALL match (substring semantics, no implicit anchoring)
 
 #### Scenario: Author-anchored match
 
-- **WHEN** a matcher `pattern` is `^ifanous-` and the candidate preset name is `apple-ifanous-test`
-- **THEN** the matcher SHALL NOT match because the anchored pattern requires the prefix
+- **WHEN** a matcher `pattern` is `^ifanous-` and the candidate preset name is
+  `apple-ifanous-test`
+- **THEN** the matcher SHALL NOT match because the anchored pattern requires the
+  prefix
 
 #### Scenario: Provider-field matcher
 
-- **WHEN** a matcher has `field: "provider"`, `pattern: "apple-genai"`, and the candidate preset's provider is `apple-genai-anthropic`
-- **THEN** the matcher SHALL match on the provider value regardless of the preset name
+- **WHEN** a matcher has `field: "provider"`, `pattern: "apple-genai"`, and the
+  candidate preset's provider is `apple-genai-anthropic`
+- **THEN** the matcher SHALL match on the provider value regardless of the
+  preset name
 
 #### Scenario: Model-field matcher spans a whole provider
 
-- **WHEN** a matcher has `field: "model"`, `pattern: "^anthropic/"`, and the candidate preset resolves to provider `anthropic` and model `claude-opus-4-8`
-- **THEN** the matcher SHALL match the combined identity `anthropic/claude-opus-4-8`, and SHALL likewise match any future model under the same provider
+- **WHEN** a matcher has `field: "model"`, `pattern: "^anthropic/"`, and the
+  candidate preset resolves to provider `anthropic` and model `claude-opus-4-8`
+- **THEN** the matcher SHALL match the combined identity
+  `anthropic/claude-opus-4-8`, and SHALL likewise match any future model under
+  the same provider
 
 ### Requirement: Permission is the union of matching rules
 
@@ -125,8 +138,8 @@ be considered _permitted_ when BOTH hold:
 - the candidate matches no prohibit matcher.
 
 When the effective allow set is non-empty, presets matching no allow matcher
-SHALL NOT be permitted (an allow set acts as a whitelist). A prohibit match SHALL
-override an allow match for the same candidate (prohibit wins).
+SHALL NOT be permitted (an allow set acts as a whitelist). A prohibit match
+SHALL override an allow match for the same candidate (prohibit wins).
 
 #### Scenario: No rules match the cwd
 
@@ -135,28 +148,35 @@ override an allow match for the same candidate (prohibit wins).
 
 #### Scenario: Prohibit blocks a candidate
 
-- **WHEN** a matching rule prohibits `^ifanous-` and the candidate name is `ifanous-anthropic-claude-opus-4-8`
+- **WHEN** a matching rule prohibits `^ifanous-` and the candidate name is
+  `ifanous-anthropic-claude-opus-4-8`
 - **THEN** the candidate SHALL NOT be permitted
 
 #### Scenario: Allow acts as a whitelist
 
-- **WHEN** a matching rule allows `^apple-` and no other rule matches, and the candidate name is `ifanous-codex-gpt-5.5`
-- **THEN** the candidate SHALL NOT be permitted because it matches no allow matcher
+- **WHEN** a matching rule allows `^apple-` and no other rule matches, and the
+  candidate name is `ifanous-codex-gpt-5.5`
+- **THEN** the candidate SHALL NOT be permitted because it matches no allow
+  matcher
 
 #### Scenario: Allow admits a matching candidate
 
-- **WHEN** a matching rule allows `^apple-` and the candidate name is `apple-claude-opus-4-8` and no prohibit matcher matches it
+- **WHEN** a matching rule allows `^apple-` and the candidate name is
+  `apple-claude-opus-4-8` and no prohibit matcher matches it
 - **THEN** the candidate SHALL be permitted
 
 #### Scenario: Prohibit wins over allow
 
-- **WHEN** one matching rule allows `^apple-` and another matching rule prohibits `sonnet`, and the candidate is `apple-claude-sonnet-4.6`
+- **WHEN** one matching rule allows `^apple-` and another matching rule
+  prohibits `sonnet`, and the candidate is `apple-claude-sonnet-4.6`
 - **THEN** the candidate SHALL NOT be permitted
 
 #### Scenario: Union across multiple matching rules
 
-- **WHEN** two rules match the cwd, one prohibiting `^apple-` and one prohibiting `^virtasant-`
-- **THEN** both prohibitions SHALL apply and a candidate matching either SHALL NOT be permitted
+- **WHEN** two rules match the cwd, one prohibiting `^apple-` and one
+  prohibiting `^virtasant-`
+- **THEN** both prohibitions SHALL apply and a candidate matching either SHALL
+  NOT be permitted
 
 ### Requirement: Non-permitted activation requires an explicit override
 
@@ -178,13 +198,16 @@ gate because it is drawn only from the permitted set.
 
 #### Scenario: Override proceeds with activation
 
-- **WHEN** a new activation targets a non-permitted preset and the user chooses override
+- **WHEN** a new activation targets a non-permitted preset and the user chooses
+  override
 - **THEN** the preset SHALL be applied through the standard apply flow
 
 #### Scenario: Cancel aborts activation
 
-- **WHEN** a new activation targets a non-permitted preset and the user chooses cancel
-- **THEN** no model, thinking, or tools change SHALL occur and no preset SHALL be attached
+- **WHEN** a new activation targets a non-permitted preset and the user chooses
+  cancel
+- **THEN** no model, thinking, or tools change SHALL occur and no preset SHALL
+  be attached
 
 #### Scenario: Flag activation is gated
 
@@ -198,8 +221,10 @@ gate because it is drawn only from the permitted set.
 
 #### Scenario: Session restore is exempt
 
-- **WHEN** a session is resumed re-attaching a preset that would be non-permitted
-- **THEN** NO warning overlay SHALL be shown and restore SHALL re-attach the preset as specified by the activation capability
+- **WHEN** a session is resumed re-attaching a preset that would be
+  non-permitted
+- **THEN** NO warning overlay SHALL be shown and restore SHALL re-attach the
+  preset as specified by the activation capability
 
 ### Requirement: Policy default selection
 
@@ -224,33 +249,45 @@ overlay.
 
 #### Scenario: Longest-path rule wins the default
 
-- **WHEN** rule A `match: "^/work/"` sets `default` `^apple-` and rule B `match: "^/work/apple/"` sets `default` `^apple-claude-opus-`, and the cwd is `/work/apple/project`
-- **THEN** rule B SHALL win because its `match` consumes a longer substring of the cwd, and its default matcher SHALL be used
+- **WHEN** rule A `match: "^/work/"` sets `default` `^apple-` and rule B
+  `match: "^/work/apple/"` sets `default` `^apple-claude-opus-`, and the cwd is
+  `/work/apple/project`
+- **THEN** rule B SHALL win because its `match` consumes a longer substring of
+  the cwd, and its default matcher SHALL be used
 
 #### Scenario: File order breaks a span tie
 
-- **WHEN** two matching rules specify a default and their `match` regexes consume equal-length substrings of the cwd
+- **WHEN** two matching rules specify a default and their `match` regexes
+  consume equal-length substrings of the cwd
 - **THEN** the earlier rule in file order SHALL win
 
 #### Scenario: Default is chosen by merged file order
 
-- **WHEN** the winning rule's default matcher is `^apple-claude-opus-` and the permitted merged list contains `apple-claude-opus-4-7` before `apple-claude-opus-4-8` in file order
-- **THEN** the package SHALL choose `apple-claude-opus-4-7` (the first in merged file order)
+- **WHEN** the winning rule's default matcher is `^apple-claude-opus-` and the
+  permitted merged list contains `apple-claude-opus-4-7` before
+  `apple-claude-opus-4-8` in file order
+- **THEN** the package SHALL choose `apple-claude-opus-4-7` (the first in merged
+  file order)
 
 #### Scenario: Default excludes non-permitted candidates
 
-- **WHEN** the winning rule's default matcher matches `apple-claude-sonnet-4.6` but another matching rule prohibits `sonnet`
-- **THEN** that candidate SHALL be excluded from default selection and the next permitted candidate in file order (if any) SHALL be chosen
+- **WHEN** the winning rule's default matcher matches `apple-claude-sonnet-4.6`
+  but another matching rule prohibits `sonnet`
+- **THEN** that candidate SHALL be excluded from default selection and the next
+  permitted candidate in file order (if any) SHALL be chosen
 
 #### Scenario: No default configured
 
 - **WHEN** no matching rule specifies a default
-- **THEN** no policy default SHALL be resolved and the session SHALL continue on the Pi baseline
+- **THEN** no policy default SHALL be resolved and the session SHALL continue on
+  the Pi baseline
 
 #### Scenario: Default resolves to nothing available
 
-- **WHEN** the winning rule's default matcher matches no permitted, available preset
-- **THEN** no auto-activation SHALL occur, the session SHALL continue on the Pi baseline, and a warning SHALL be surfaced
+- **WHEN** the winning rule's default matcher matches no permitted, available
+  preset
+- **THEN** no auto-activation SHALL occur, the session SHALL continue on the Pi
+  baseline, and a warning SHALL be surfaced
 
 ### Requirement: Policy default auto-activates only on a fresh session
 
@@ -266,8 +303,8 @@ when BOTH of the following hold:
 The resulting precedence SHALL be:
 `--preset flag > session restore (if the named preset still exists) > policy default > baseline`.
 
-When the policy default is auto-activated, the package SHALL apply it through the
-existing apply flow (capturing a fresh baseline, emitting the activation
+When the policy default is auto-activated, the package SHALL apply it through
+the existing apply flow (capturing a fresh baseline, emitting the activation
 audit-trail message, and refreshing the footer indicator), and SHALL emit
 exactly one additional informational notification via `ctx.ui.notify` naming the
 applied preset (e.g. `Applied default preset "apple-claude-opus-4-8".`) so the
@@ -280,23 +317,33 @@ session.
 
 #### Scenario: Fresh session applies the default
 
-- **WHEN** a fresh session starts, no `--preset` flag is passed, no prior active preset is restored, and a policy default resolves to a permitted available preset
-- **THEN** the default SHALL be applied via the standard apply flow and one info notification naming it SHALL be emitted
+- **WHEN** a fresh session starts, no `--preset` flag is passed, no prior active
+  preset is restored, and a policy default resolves to a permitted available
+  preset
+- **THEN** the default SHALL be applied via the standard apply flow and one info
+  notification naming it SHALL be emitted
 
 #### Scenario: Flag overrides policy default
 
-- **WHEN** a session starts with `--preset other` passed and a policy default also resolves
-- **THEN** `other` SHALL be activated by the flag and the policy default SHALL NOT be applied
+- **WHEN** a session starts with `--preset other` passed and a policy default
+  also resolves
+- **THEN** `other` SHALL be activated by the flag and the policy default SHALL
+  NOT be applied
 
 #### Scenario: Restored session is not a fresh session
 
-- **WHEN** a session is resumed whose most recent `presets-plus:active` entry names a still-loadable preset
-- **THEN** that preset SHALL be re-attached by restore and the policy default SHALL NOT be applied
+- **WHEN** a session is resumed whose most recent `presets-plus:active` entry
+  names a still-loadable preset
+- **THEN** that preset SHALL be re-attached by restore and the policy default
+  SHALL NOT be applied
 
 #### Scenario: Failed restore falls through to policy default
 
-- **WHEN** a session is resumed whose most recent `presets-plus:active` entry names a preset that no longer loads, and a policy default resolves to a permitted available preset
-- **THEN** restore SHALL attach nothing (and warn per the restore requirement) and the policy default SHALL then be applied
+- **WHEN** a session is resumed whose most recent `presets-plus:active` entry
+  names a preset that no longer loads, and a policy default resolves to a
+  permitted available preset
+- **THEN** restore SHALL attach nothing (and warn per the restore requirement)
+  and the policy default SHALL then be applied
 
 #### Scenario: No notification when the default is preempted
 
@@ -306,7 +353,8 @@ session.
 #### Scenario: Apply refusal on the default is non-fatal
 
 - **WHEN** the resolved default's apply flow returns a refusal
-- **THEN** a warning SHALL be surfaced, no preset SHALL be attached, and the session SHALL continue on the Pi baseline
+- **THEN** a warning SHALL be surfaced, no preset SHALL be attached, and the
+  session SHALL continue on the Pi baseline
 
 ### Requirement: Read-only policy inspection view
 
@@ -326,7 +374,8 @@ default?".
 #### Scenario: Policy view with matching rules
 
 - **WHEN** the user runs `/presets policy` in a cwd matched by one or more rules
-- **THEN** the output SHALL list those rules, the effective allow/prohibit sets, and the resolved default, delivered via `ctx.ui.notify`
+- **THEN** the output SHALL list those rules, the effective allow/prohibit sets,
+  and the resolved default, delivered via `ctx.ui.notify`
 
 #### Scenario: Policy view with no matching rules
 
