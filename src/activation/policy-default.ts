@@ -7,6 +7,10 @@ import type { LoadedPreset } from "../types.js";
 import { notifyApplyResult } from "../ui/apply-result.js";
 import { apply } from "./apply.js";
 import type { ActivePresetSession } from "./session.js";
+import {
+  isAutomaticDefaultEligible,
+  type StartupSelection,
+} from "./startup-selection.js";
 import type {
   ExtensionAPI,
   ExtensionContext,
@@ -18,19 +22,22 @@ export interface PolicyDefaultPrecedence {
   readonly restored: boolean;
 }
 
-/** Apply a permitted policy default only when flag and restore did not win. */
+/** Apply a permitted policy default only when startup eligibility allows it. */
 export async function maybeApplyPolicyDefault(
   presets: readonly LoadedPreset[],
   ctx: ExtensionContext,
   pi: ExtensionAPI,
   session: ActivePresetSession,
   precedence: PolicyDefaultPrecedence,
+  startup: StartupSelection,
 ): Promise<boolean> {
   if (precedence.flagApplied || precedence.restored) return false;
 
   const { rules, warnings } = await loadPolicy();
 
   if (warnings.length > 0) ctx.ui.notify(warnings.join("\n"), "warning");
+
+  if (!isAutomaticDefaultEligible(startup, ctx)) return false;
 
   const resolved = resolvePolicyDefault(ctx.cwd, presets, rules);
 
