@@ -10,6 +10,7 @@ import {
 } from "./activation/drift-handlers.js";
 import { maybeApplyPolicyDefault } from "./activation/policy-default.js";
 import { ActivePresetSession } from "./activation/session.js";
+import { captureStartupSelection } from "./activation/startup-selection.js";
 import {
   getArgumentCompletions,
   handlePresetsCommand,
@@ -47,6 +48,7 @@ export default function presetsPlus(pi: ExtensionAPI) {
   });
 
   pi.on("session_start", async (_event, ctx) => {
+    const startupSelection = captureStartupSelection(ctx, pi);
     const startupWarnings: string[] = [];
     const startupCtx = {
       ...ctx,
@@ -96,10 +98,17 @@ export default function presetsPlus(pi: ExtensionAPI) {
         session,
       );
 
-      await maybeApplyPolicyDefault(presets, startupCtx, pi, session, {
-        flagApplied,
-        restored: restoreResult.state !== undefined,
-      });
+      await maybeApplyPolicyDefault(
+        presets,
+        startupCtx,
+        pi,
+        session,
+        {
+          flagApplied,
+          restored: restoreResult.state !== undefined,
+        },
+        startupSelection,
+      );
 
       presetNamesLoader.fn = async () => {
         try {
