@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.0] - 2026-09-15
+
+### Changed
+
+- **Breaking:** Stop applying directory defaults automatically in print, JSON, and RPC sessions; keep explicit `--preset` activation and preset restoration available ([#45](https://github.com/sherif-fanous/pi-presets-plus/pull/45))
+- **Breaking:** Apply automatic directory defaults in interactive sessions only when the startup provider, model, and thinking level match saved Pi defaults, including trusted project overrides ([#45](https://github.com/sherif-fanous/pi-presets-plus/pull/45))
+- Skip automatic directory defaults without a warning when saved defaults cannot be read or resolved ([#45](https://github.com/sherif-fanous/pi-presets-plus/pull/45))
+
 ## [0.11.0] - 2026-09-13
 
 ### Changed
@@ -140,6 +148,8 @@
 
 _Initial release._
 
+[0.12.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.12.0
+[0.11.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.11.0
 [0.10.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.10.0
 [0.9.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.9.0
 [0.8.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.8.0
