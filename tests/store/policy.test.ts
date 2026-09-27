@@ -233,7 +233,6 @@ describe("resolvePolicyDefault", () => {
       "apple-opus-4-8",
     ]);
     expect(result.winner.rule.index).toBe(1);
-    expect(result.reason).toBe("longest match");
   });
 
   it("uses the first rule on equal spans", async () => {
@@ -254,7 +253,7 @@ describe("resolvePolicyDefault", () => {
     expect(result.kind).toBe("resolved");
     if (result.kind !== "resolved") return;
     expect(result.candidates[0].name).toBe("first");
-    expect(result.reason).toBe("file-order tie");
+    expect(result.winner.rule.index).toBe(0);
   });
 
   it("lists several default candidates in preset order", async () => {

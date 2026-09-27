@@ -53,13 +53,11 @@ export type PolicyDefaultResult =
       readonly kind: "resolved";
       readonly candidates: readonly [LoadedPreset, ...LoadedPreset[]];
       readonly matchedRules: readonly MatchedPolicyRule[];
-      readonly reason: "file-order tie" | "longest match";
       readonly winner: MatchedPolicyRule;
     }
   | {
       readonly kind: "unresolvable";
       readonly matchedRules: readonly MatchedPolicyRule[];
-      readonly reason: "file-order tie" | "longest match";
       readonly winner: MatchedPolicyRule;
     };
 
@@ -206,12 +204,6 @@ export function resolvePolicyDefault(
   const winner = defaultRules.reduce((best, candidate) =>
     candidate.matchLength > best.matchLength ? candidate : best,
   );
-  const reason = defaultRules.some(
-    (candidate) =>
-      candidate !== winner && candidate.matchLength === winner.matchLength,
-  )
-    ? "file-order tie"
-    : "longest match";
   const defaultMatcher = winner.rule.default;
 
   if (!defaultMatcher) return { kind: "none", matchedRules };
@@ -225,14 +217,8 @@ export function resolvePolicyDefault(
   );
 
   return preset
-    ? {
-        kind: "resolved",
-        candidates: [preset, ...rest],
-        matchedRules,
-        reason,
-        winner,
-      }
-    : { kind: "unresolvable", matchedRules, reason, winner };
+    ? { kind: "resolved", candidates: [preset, ...rest], matchedRules, winner }
+    : { kind: "unresolvable", matchedRules, winner };
 }
 
 /** Compile one matcher, or warn and return undefined when it is invalid. */

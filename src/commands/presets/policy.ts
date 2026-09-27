@@ -6,7 +6,6 @@ import { loadAll } from "../../store/api.js";
 import {
   isPermitted,
   loadPolicy,
-  resolveMatchingRules,
   resolvePolicyDefault,
   type CompiledPolicyRule,
 } from "../../store/policy.js";
@@ -60,7 +59,8 @@ export function formatPolicy(
   rules: readonly CompiledPolicyRule[],
   styler: Pick<Theme, "bold" | "fg"> = IDENTITY_STYLER,
 ): string {
-  const matchedRules = resolveMatchingRules(cwd, rules);
+  const resolvedDefault = resolvePolicyDefault(cwd, presets, rules);
+  const { matchedRules } = resolvedDefault;
 
   if (matchedRules.length === 0) {
     return `No preset policy applies to ${cwd}.`;
@@ -78,7 +78,6 @@ export function formatPolicy(
     );
   }
 
-  const resolvedDefault = resolvePolicyDefault(cwd, presets, rules);
   const defaultNames =
     resolvedDefault.kind === "resolved"
       ? resolvedDefault.candidates.map(({ name }) => name)
