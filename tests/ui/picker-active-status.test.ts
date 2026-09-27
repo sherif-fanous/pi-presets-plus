@@ -3,10 +3,15 @@
  * scope it shows, its place above the filter, and how it truncates long
  * names while the filter, scope, and focus change around it.
  */
-import { ActivePresetSession } from "../../src/activation/session.js";
-import { HotkeyRegistry } from "../../src/hotkey-registry.js";
 import type { ActivePresetState, LoadedPreset } from "../../src/types.js";
-import type { openPicker as openPickerType } from "../../src/ui/picker.js";
+import { stripAnsi } from "../helpers/ansi.js";
+import {
+  makeLoadedPreset,
+  pickerMounter,
+  plainTheme,
+  renderLines,
+  type PickerTheme,
+} from "../helpers/picker.js";
 import { Key, type Component } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -31,29 +36,18 @@ vi.mock("../../src/store/api.js", async (importOriginal) => {
   };
 });
 
-const { openPicker } = await import("../../src/ui/picker.js");
+const mount = pickerMounter(loadAll);
 
 interface MountOptions {
   readonly active?: ActivePresetState;
   readonly presets?: readonly LoadedPreset[];
 }
 
-type FakeTheme = {
-  bold(value: string): string;
-  fg(name: string, value: string): string;
-};
-
-/** Theme that returns text unchanged so assertions can match plain text. */
-const plainTheme: FakeTheme = {
-  bold: (value: string) => value,
-  fg: (_name: string, value: string) => value,
-};
-
 /**
  * Theme that wraps every fragment in a real SGR sequence, so width math
  * runs against the escapes a production theme emits.
  */
-const ansiTheme: FakeTheme = {
+const ansiTheme: PickerTheme = {
   bold: (value: string) => `\u001B[1m${value}\u001B[22m`,
   fg: (_name: string, value: string) => `\u001B[38;5;42m${value}\u001B[39m`,
 };
@@ -72,18 +66,6 @@ function activeState(
   };
 }
 
-function makeLoadedPreset(
-  name: string,
-  scope: LoadedPreset["scope"] = "user",
-): LoadedPreset {
-  return {
-    model: "claude-opus-4.5",
-    name,
-    provider: "anthropic",
-    scope,
-  };
-}
-
 /** Mounts the picker with the ANSI theme. */
 async function mountAnsiPicker(options: MountOptions = {}): Promise<Component> {
   return mountPickerWithTheme(ansiTheme, options);
@@ -99,91 +81,34 @@ async function mountPicker(options: MountOptions = {}): Promise<Component> {
  * restoring the session to the requested active preset first.
  */
 async function mountPickerWithTheme(
-  theme: FakeTheme,
+  theme: PickerTheme,
   options: MountOptions = {},
 ): Promise<Component> {
-  let component: Component | undefined;
-  const session = new ActivePresetSession();
-  const ctx = {
-    getActiveTools: () => [],
-    ui: {
-      custom: vi.fn(
-        (
-          factory: (
-            tui: { requestRender(): void; terminal: { rows: number } },
-            theme: unknown,
-            keybindings: unknown,
-            done: (result: unknown) => void,
-          ) => Component,
-        ) => {
-          component = factory(
-            { requestRender: vi.fn(), terminal: { rows: 24 } },
-            theme,
-            {},
-            vi.fn(),
-          );
+  const presets = options.presets ?? [];
+  const active = options.active
+    ? presets.find(
+        (candidate) =>
+          candidate.name === options.active?.name &&
+          candidate.scope === options.active.scope,
+      )
+    : undefined;
 
-          return undefined;
-        },
-      ),
-      notify: vi.fn(),
-      setStatus: vi.fn(),
-      theme: {
-        fg: (_color: string, value: string) => value,
-      },
-    },
-  } as unknown as Parameters<typeof openPickerType>[0];
-
-  loadAll.mockResolvedValue({ presets: options.presets ?? [], warnings: [] });
-
-  if (options.active) {
-    const preset = options.presets?.find(
-      (candidate) =>
-        candidate.name === options.active?.name &&
-        candidate.scope === options.active.scope,
-    );
-
-    if (!preset) throw new Error("Expected the active preset to be loaded.");
-
-    session.restoreFromBranch(
-      [
-        {
-          customType: "presets-plus:active",
-          data: { name: preset.name, scope: preset.scope },
-          type: "custom",
-        },
-      ] as never,
-      [preset],
-      ctx,
-    );
-
-    if (options.active.dirty) session.markDirty(ctx);
+  if (options.active && !active) {
+    throw new Error("Expected the active preset to be loaded.");
   }
 
-  await openPicker(ctx, {
-    hotkeys: new HotkeyRegistry(),
-    onActivate: () => Promise.resolve({ ok: true } as const),
-    session,
+  const { component } = await mount({
+    active,
+    dirty: options.active?.dirty,
+    presets,
+    theme,
   });
-
-  if (!component) throw new Error("Picker component was not mounted.");
 
   return component;
 }
 
-function renderLines(component: Component, width = 100): string[] {
-  return component.render(width).map(stripAnsi);
-}
-
 function renderText(component: Component, width = 100): string {
   return component.render(width).join("\n");
-}
-
-function stripAnsi(text: string): string {
-  const escapeCharacter = String.fromCharCode(27);
-  const ansiPattern = new RegExp(`${escapeCharacter}\\[[0-9;]*m`, "g");
-
-  return text.replace(ansiPattern, "");
 }
 
 describe("picker active-preset status row", () => {

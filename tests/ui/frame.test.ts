@@ -10,14 +10,8 @@ import {
   padToWidth,
   wrapBody,
 } from "../../src/ui/frame.js";
+import { stripAnsi } from "../helpers/ansi.js";
 import { describe, expect, it } from "vitest";
-
-function stripAnsi(text: string): string {
-  const escapeCharacter = String.fromCharCode(27);
-  const ansiPattern = new RegExp(`${escapeCharacter}\\[[0-9;]*m`, "g");
-
-  return text.replaceAll(ansiPattern, "");
-}
 
 describe("frame helpers", () => {
   it("pads content to the requested visible width", () => {

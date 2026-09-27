@@ -2,10 +2,8 @@
  * Covers picker navigation over cards of different heights: the selected
  * card stays rendered through repeated Down, Up, PgDn, and PgUp presses.
  */
-import { ActivePresetSession } from "../../src/activation/session.js";
-import { HotkeyRegistry } from "../../src/hotkey-registry.js";
 import type { LoadedPreset } from "../../src/types.js";
-import type { openPicker as openPickerType } from "../../src/ui/picker.js";
+import { pickerMounter } from "../helpers/picker.js";
 import { Key, type Component } from "@earendil-works/pi-tui";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -41,7 +39,7 @@ vi.mock("../../src/store/api.js", async (importOriginal) => {
   };
 });
 
-const { openPicker } = await import("../../src/ui/picker.js");
+const mount = pickerMounter(loadAll);
 
 interface PresetFixtureOptions {
   readonly availability?: LoadedPreset["unavailable"];
@@ -96,55 +94,11 @@ function makePresets(count: number): LoadedPreset[] {
   return Array.from({ length: count }, (_unused, index) => makePreset(index));
 }
 
-/** Opens the picker over the given presets and returns its component. */
+/** Opens the picker over the given presets in a tall terminal. */
 async function mountPicker(
   presets: readonly LoadedPreset[],
 ): Promise<Component> {
-  let component: Component | undefined;
-  const ctx = {
-    getActiveTools: () => [],
-    ui: {
-      custom: vi.fn(
-        (
-          factory: (
-            tui: { requestRender(): void; terminal: { rows: number } },
-            theme: unknown,
-            keybindings: unknown,
-            done: (result: unknown) => void,
-          ) => Component,
-        ) => {
-          component = factory(
-            { requestRender: vi.fn(), terminal: { rows: 86 } },
-            {
-              bold: (value: string) => value,
-              fg: (_name: string, value: string) => value,
-            },
-            {},
-            vi.fn(),
-          );
-
-          return undefined;
-        },
-      ),
-      notify: vi.fn(),
-      setStatus: vi.fn(),
-      theme: {
-        fg: (_color: string, value: string) => value,
-      },
-    },
-  } as unknown as Parameters<typeof openPickerType>[0];
-
-  loadAll.mockResolvedValue({ presets, warnings: [] });
-
-  await openPicker(ctx, {
-    hotkeys: new HotkeyRegistry(),
-    onActivate: () => Promise.resolve({ ok: true } as const),
-    session: new ActivePresetSession(),
-  });
-
-  if (!component) throw new Error("Picker component was not mounted.");
-
-  return component;
+  return (await mount({ presets, terminalRows: 86 })).component;
 }
 
 /** Names the preset at an index with a zero-padded suffix. */
