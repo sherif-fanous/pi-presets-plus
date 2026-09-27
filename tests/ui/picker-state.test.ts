@@ -126,11 +126,17 @@ describe("picker state", () => {
   it("jumps to first visible preset when prior selection is hidden", () => {
     const presets = [
       makePreset("global", "user"),
+      makePreset("other", "user"),
       makePreset("project", "project"),
     ];
-    const userOnly = cycleScope(initialPickerState(), presets, "", 1, 4);
+    const onProject = moveSelection(initialPickerState(), presets, "", 2, 4);
+
+    expect(selectedPreset(onProject, presets, "")?.name).toBe("project");
+
+    const userOnly = cycleScope(onProject, presets, "", 1, 4);
 
     expect(userOnly.scopeFilter).toBe("user");
+    expect(userOnly.selectedIndex).toBe(0);
     expect(selectedPreset(userOnly, presets, "")?.name).toBe("global");
   });
 
