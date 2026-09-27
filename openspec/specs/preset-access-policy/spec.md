@@ -501,7 +501,7 @@ immediately before it.
 - **AND** it SHALL list the prohibited names under `Prohibited presets*:`
 - **AND** both lists SHALL preserve merged preset order
 
-#### Scenario: Prohibited presets explain the override
+#### Scenario: Report with prohibited presets
 
 - **WHEN** policy prohibits at least one usable preset
 - **THEN** the prohibited label SHALL be `Prohibited presets*:`
@@ -509,7 +509,7 @@ immediately before it.
   `* You can still activate a prohibited preset by confirming the override.`
   after a blank line
 
-#### Scenario: No prohibited presets omits the footnote
+#### Scenario: Report with no prohibited presets
 
 - **WHEN** policy prohibits no usable preset
 - **THEN** the report SHALL contain `Prohibited presets: none`
