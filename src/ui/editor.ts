@@ -32,10 +32,7 @@ import { makeModelRow } from "./editor/rows/model.js";
 import { makeNameRow } from "./editor/rows/name.js";
 import { makeProviderRow } from "./editor/rows/provider.js";
 import { makeScopeRow } from "./editor/rows/scope.js";
-import {
-  makeThinkingRow,
-  renderThinkingRowsForState,
-} from "./editor/rows/thinking.js";
+import { makeThinkingRow } from "./editor/rows/thinking.js";
 import { makeToolsRow } from "./editor/rows/tools.js";
 import { centerText, frameLine, frameSegment, padToWidth } from "./frame.js";
 import {
@@ -66,7 +63,7 @@ import {
   type OverlayHandle,
 } from "@earendil-works/pi-tui";
 
-export { EDITOR_ROWS, renderThinkingRowsForState };
+export { EDITOR_ROWS };
 export type { EditorFormState };
 
 /** Collaborators and callbacks the editor needs while it is open. */
