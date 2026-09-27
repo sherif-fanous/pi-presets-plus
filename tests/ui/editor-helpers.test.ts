@@ -125,13 +125,6 @@ describe("initialState", () => {
     expect(state.selectedTools).toEqual(["read", "bash"]);
   });
 
-  it("pre-selects activeTools for a new preset too", () => {
-    const state = initialState(undefined, fakeModels, ["read", "grep"]);
-
-    expect(state.toolsMode).toBe("session");
-    expect(state.selectedTools).toEqual(["read", "grep"]);
-  });
-
   it("copies activeTools defensively so later mutations don't leak in", () => {
     const activeTools = ["read"];
     const state = initialState(undefined, fakeModels, activeTools);

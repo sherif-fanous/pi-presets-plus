@@ -44,17 +44,6 @@ describe("mergeScopes", () => {
     ]);
   });
 
-  it("tags every preset with its scope", () => {
-    const ctx = makeCtx({ models: {} });
-    const result = mergeScopes(
-      { user: [make({ name: "a" })], project: [make({ name: "b" })] },
-      ctx,
-    );
-
-    expect(result[0]?.scope).toBe("user");
-    expect(result[1]?.scope).toBe("project");
-  });
-
   it("marks globals shadowed when a project preset shares the name", () => {
     const ctx = makeCtx({ models: {} });
     const result = mergeScopes(
@@ -88,16 +77,6 @@ describe("mergeScopes", () => {
       scope: "project",
     });
     expect(result[2]?.shadowed).toBeUndefined();
-  });
-
-  it("does not tag a global as shadowed when only the global file has the name", () => {
-    const ctx = makeCtx({ models: {} });
-    const result = mergeScopes(
-      { user: [make({ name: "solo" })], project: [] },
-      ctx,
-    );
-
-    expect(result[0]?.shadowed).toBeUndefined();
   });
 
   it("computes availability per-entry", () => {

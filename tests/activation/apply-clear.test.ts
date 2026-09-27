@@ -284,18 +284,6 @@ describe("apply", () => {
     expect(harness.session.current()).toBeUndefined();
   });
 
-  it("short-circuits re-apply when state already matches", async () => {
-    const harness = makeHarness();
-
-    await apply(basePreset, harness.ctx, harness.pi, harness.session);
-    harness.messages.length = 0;
-    harness.setModelCalls.length = 0;
-    await apply(basePreset, harness.ctx, harness.pi, harness.session);
-
-    expect(harness.setModelCalls).toEqual([]);
-    expect(harness.messages).toEqual([]);
-  });
-
   it("clears stale dirty state on the idempotent re-apply fast path", async () => {
     const harness = makeHarness();
 

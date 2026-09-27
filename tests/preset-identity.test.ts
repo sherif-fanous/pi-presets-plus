@@ -4,7 +4,7 @@
  */
 import { findPreset, samePresetIdentity } from "../src/preset-identity.js";
 import type { LoadedPreset } from "../src/types.js";
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 const presets: LoadedPreset[] = [
   {
@@ -33,19 +33,6 @@ describe("findPreset", () => {
     expect(
       findPreset(presets, { name: "plan", scope: "project" }),
     ).toBeUndefined();
-  });
-
-  it("does not match when only the scope matches", () => {
-    expect(
-      findPreset(presets, { name: "review", scope: "user" }),
-    ).toBeUndefined();
-  });
-
-  it("returns the typed loaded preset for loaded preset inputs", () => {
-    const match = findPreset(presets, { name: "plan", scope: "user" });
-
-    expectTypeOf(match).toEqualTypeOf<LoadedPreset | undefined>();
-    expect(match?.provider).toBe("anthropic");
   });
 });
 

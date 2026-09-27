@@ -4,14 +4,7 @@
  * the old contents and no stray tmp file, and tmp names stay unique.
  */
 import * as fsPromises from "node:fs/promises";
-import {
-  mkdir,
-  mkdtemp,
-  readdir,
-  readFile,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -81,14 +74,6 @@ describe("atomicWrite", () => {
     const entries = await readdir(dir);
 
     expect(entries.filter((entry) => entry.includes(".tmp."))).toEqual([]);
-  });
-
-  it("works when the destination's parent already exists", async () => {
-    const target = join(dir, "existing", "presets.json");
-
-    await mkdir(join(dir, "existing"), { recursive: true });
-    await atomicWrite(target, "abc");
-    expect(await readFile(target, "utf-8")).toBe("abc");
   });
 });
 

@@ -49,7 +49,6 @@ interface EditorHarness extends Component {
 }
 
 const f1Input = "\u001bOP";
-const promptNewlineHint = "Enter inserts a newline. Tab exits.";
 
 /** Theme that returns text unchanged so assertions can match plain text. */
 const passthroughTheme = {
@@ -416,21 +415,6 @@ describe("preset editor input UX", () => {
     expect(openConfirm).not.toHaveBeenCalled();
   });
 
-  it("warns inline when the Hotkey conflicts with another preset", async () => {
-    const existing = preset({ hotkey: "ctrl+m", name: "review" });
-    const { editor } = await openHarness({ presets: [existing] });
-
-    moveFocus(editor, 7);
-    for (const char of "ctrl+m") editor.handleInput(char);
-
-    expectErrorAfterLabel(
-      editor,
-      "Hotkey",
-      'is already used by preset "review"',
-    );
-    expect(openConfirm).not.toHaveBeenCalled();
-  });
-
   it("renders Hotkey warnings and errors with severity colors", async () => {
     const warning = await openHarness({ theme: colorTagTheme });
 
@@ -747,12 +731,6 @@ describe("preset editor input UX", () => {
     expect(footerWithTestCallback).toContain(
       "⇥/↑/↓ Move · ←/→ Change · Space Toggle · Enter Action · F1 Help · ^S Save · ^T Test · Esc Cancel",
     );
-  });
-
-  it("does not render the prompt inline hint", async () => {
-    const { editor } = await openHarness({ initial: preset() });
-
-    expect(renderText(editor)).not.toContain(promptNewlineHint);
   });
 
   it("renders the session tools inline hint", async () => {

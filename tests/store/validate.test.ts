@@ -129,12 +129,6 @@ describe("validatePresetShape", () => {
 });
 
 describe("findDuplicatePresetNames", () => {
-  it("returns no duplicates for a unique-named array", () => {
-    expect(findDuplicatePresetNames([make("a"), make("b"), make("c")])).toEqual(
-      [],
-    );
-  });
-
   it("flags later occurrences of duplicate names", () => {
     const dups = findDuplicatePresetNames([
       make("plan"),

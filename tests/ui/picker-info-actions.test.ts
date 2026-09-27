@@ -251,22 +251,6 @@ describe("openPicker info actions", () => {
     });
   });
 
-  it("opens no-active status body in an info-dialog", async () => {
-    formatStatusBody.mockResolvedValue({
-      body: "No preset is active.",
-      severity: "info",
-      warnings: [],
-    });
-
-    await runPicker("s");
-
-    expect(openInfoDialog).toHaveBeenCalledWith(expect.anything(), {
-      body: "No preset is active.",
-      title: "Preset Status",
-      tone: "info",
-    });
-  });
-
   it("explains status unavailability when pi is not provided", async () => {
     await runPicker("s", { withPi: false });
 

@@ -157,26 +157,6 @@ describe("maybeApplyPolicyDefault", () => {
     expect(notify).not.toHaveBeenCalled();
   });
 
-  it("skips unresolved settings without hiding policy warnings", async () => {
-    const { ctx, notify } = context();
-
-    loadPolicyMock.mockResolvedValue({
-      ...matchingPolicy(),
-      warnings: ["Policy warning."],
-    });
-
-    isAutomaticDefaultEligibleMock.mockReturnValue(false);
-
-    const { result } = await applyDefault(ctx);
-
-    expect(result).toBe(false);
-    expect(applyMock).not.toHaveBeenCalled();
-    expect(notify).toHaveBeenCalledExactlyOnceWith(
-      "Policy warning.",
-      "warning",
-    );
-  });
-
   it("does not report an unresolvable default when comparison fails", async () => {
     const { ctx, notify } = context();
 

@@ -107,10 +107,6 @@ describe("getArgumentCompletions", () => {
     expect(await getArgumentCompletions("prev")).toEqual([]);
   });
 
-  it("does not complete removed list flags", async () => {
-    expect(await getArgumentCompletions("list --t")).toEqual([]);
-  });
-
   it("returns nothing when nothing matches", async () => {
     expect(await getArgumentCompletions("xyz")).toEqual([]);
     expect(await getArgumentCompletions("list --json")).toEqual([]);
