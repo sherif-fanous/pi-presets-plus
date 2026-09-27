@@ -440,10 +440,8 @@ the labeled-row presentation of `/presets status`:
 - A `Directory:` row containing the current working directory.
 - An `Allowed presets:` row containing the comma-separated names of usable
   permitted presets, or `none` when there are none.
-- A `Prohibited presets*:` row containing the comma-separated names of usable
-  prohibited presets when at least one exists.
-- A `Prohibited presets:` row containing `none` when no usable preset is
-  prohibited.
+- A `Prohibited presets:` row containing the comma-separated names of usable
+  prohibited presets, or `none` when there are none.
 - A `Default preset:` row containing the resolved default preset name, or `none`
   when no default resolves.
 - A `Default matches:` row, directly after the `Default preset:` row, containing
@@ -451,13 +449,12 @@ the labeled-row presentation of `/presets status`:
   only when there are two or more default candidates.
 - Aligned muted row labels, matching the visual treatment of `/presets status`.
 
-When the report contains one or more prohibited presets, it SHALL append a blank
-line followed by the exact footnote
-`* You can still activate a prohibited preset by confirming the override.`. When
-no usable preset is prohibited, the label SHALL omit the asterisk and the report
-SHALL omit the footnote. When fewer than two default candidates exist, the
-report SHALL omit the `Default matches:` row. The report SHALL NOT add any note
-explaining how the default was chosen among several candidates.
+The report SHALL end with its last row. It SHALL NOT append a footnote or note
+after the rows, including any explanation of the override flow for prohibited
+presets, and no row label SHALL carry a footnote marker. When fewer than two
+default candidates exist, the report SHALL omit the `Default matches:` row. The
+report SHALL NOT add any note explaining how the default was chosen among
+several candidates.
 
 The report SHALL NOT display policy rule numbers, rule patterns, matcher
 expressions, match lengths, matched substrings, winning-rule details, or which
@@ -498,28 +495,27 @@ immediately before it.
 - **WHEN** the current directory has matching policy rules and usable presets
   that policy permits and prohibits
 - **THEN** the report SHALL list the permitted names under `Allowed presets:`
-- **AND** it SHALL list the prohibited names under `Prohibited presets*:`
+- **AND** it SHALL list the prohibited names under `Prohibited presets:`
 - **AND** both lists SHALL preserve merged preset order
 
 #### Scenario: Report with prohibited presets
 
 - **WHEN** policy prohibits at least one usable preset
-- **THEN** the prohibited label SHALL be `Prohibited presets*:`
-- **AND** the report SHALL end with
-  `* You can still activate a prohibited preset by confirming the override.`
-  after a blank line
+- **THEN** the prohibited label SHALL be `Prohibited presets:` without an
+  asterisk
+- **AND** the report SHALL end with its last row, with no blank line or footnote
+  after it
 
 #### Scenario: Report with no prohibited presets
 
 - **WHEN** policy prohibits no usable preset
 - **THEN** the report SHALL contain `Prohibited presets: none`
-- **AND** it SHALL omit the override footnote
 
 #### Scenario: Every usable preset is prohibited
 
 - **WHEN** policy prohibits every usable preset
 - **THEN** the report SHALL contain `Allowed presets: none`
-- **AND** every usable preset name SHALL appear under `Prohibited presets*:`
+- **AND** every usable preset name SHALL appear under `Prohibited presets:`
 
 #### Scenario: Shadowed and unavailable presets are omitted
 
@@ -554,7 +550,7 @@ immediately before it.
 - **WHEN** the winning default matches presets A, B, and C in merged preset
   order, and policy prohibits B
 - **THEN** the `Default matches:` row SHALL contain `A, C`
-- **AND** B SHALL appear under `Prohibited presets*:`
+- **AND** B SHALL appear under `Prohibited presets:`
 
 #### Scenario: No resolved default
 
