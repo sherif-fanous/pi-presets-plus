@@ -5,6 +5,7 @@
  */
 import { validThinkingLevels } from "../activation/thinking.js";
 import { THINKING_LEVELS, type Preset, type ThinkingLevel } from "../types.js";
+import { isRecord } from "./guards.js";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 /** Result of a single-preset shape check. */
@@ -99,15 +100,11 @@ export function findDuplicatePresetNames(
 export function validatePresetShape(
   candidatePreset: unknown,
 ): ValidationResult {
-  if (
-    typeof candidatePreset !== "object" ||
-    candidatePreset === null ||
-    Array.isArray(candidatePreset)
-  ) {
+  if (!isRecord(candidatePreset)) {
     return { ok: false, reason: "Preset is not an object." };
   }
 
-  const obj = candidatePreset as Record<string, unknown>;
+  const obj = candidatePreset;
   const requireString = (
     field: "name" | "provider" | "model",
   ): ValidationResult | undefined => {

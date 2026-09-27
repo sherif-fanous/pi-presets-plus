@@ -5,6 +5,7 @@
 import { readFile, unlink } from "node:fs/promises";
 
 import type { ConfigDocument, PresetScope } from "../types.js";
+import { isNotFoundError, isRecord } from "./guards.js";
 import {
   getGlobalConfigPath,
   getGlobalPolicyPath,
@@ -217,14 +218,6 @@ function getLegacyPresetPath(
   return scope === "user"
     ? getGlobalPresetsPath(agentDir)
     : getProjectPresetsPath(cwd);
-}
-
-function isNotFoundError(error: unknown): boolean {
-  return isRecord(error) && error.code === "ENOENT";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isVersion1(value: unknown): value is Record<string, unknown> {

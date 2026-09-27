@@ -1,5 +1,6 @@
 /** Validates preset arrays from consolidated configuration documents. */
 import type { Preset } from "../types.js";
+import { isRecord } from "./guards.js";
 import { findDuplicatePresetNames, validatePresetShape } from "./validate.js";
 
 interface ParsedPresetArray {
@@ -70,13 +71,11 @@ export function parsePresetArray(
 /** Best-effort label for an invalid preset entry in warning text. */
 function describeInvalidPreset(preset: unknown, index: number): string {
   if (
-    typeof preset === "object" &&
-    preset !== null &&
-    !Array.isArray(preset) &&
-    typeof (preset as { name?: unknown }).name === "string" &&
-    (preset as { name: string }).name.length > 0
+    isRecord(preset) &&
+    typeof preset.name === "string" &&
+    preset.name.length > 0
   ) {
-    return `"${(preset as { name: string }).name}"`;
+    return `"${preset.name}"`;
   }
 
   return `at index ${index}`;

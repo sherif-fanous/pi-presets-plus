@@ -5,6 +5,7 @@
  */
 import type { LoadedPreset } from "../types.js";
 import { loadScope } from "./config.js";
+import { isRecord } from "./guards.js";
 import { getGlobalConfigPath } from "./paths.js";
 
 /** One allow, prohibit, or default pattern with its regex compiled. */
@@ -309,10 +310,6 @@ function compileRegex(pattern: string): RegExp | undefined {
   } catch {
     return undefined;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function policyWarnings(

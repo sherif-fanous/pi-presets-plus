@@ -10,6 +10,7 @@ import type {
   ScopeConfig,
   ScopeWarnings,
 } from "../types.js";
+import { isNotFoundError, isRecord } from "./guards.js";
 import { parsePresetArray } from "./load.js";
 import { getGlobalConfigPath, getProjectConfigPath } from "./paths.js";
 
@@ -134,12 +135,4 @@ function invalidScope(warning: string): ScopeConfig {
     presets: [],
     warnings: { ...emptyWarnings(), file: [warning] },
   };
-}
-
-function isNotFoundError(error: unknown): boolean {
-  return isRecord(error) && error.code === "ENOENT";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
