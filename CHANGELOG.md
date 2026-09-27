@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.12.1] - 2026-09-27
+
+### Added
+
+- List every permitted preset that matches the directory default in `/presets policy` when more than one does ([#47](https://github.com/sherif-fanous/pi-presets-plus/pull/47))
+
+### Removed
+
+- Remove the footnote about confirming the override, and its asterisk, from `/presets policy` ([#48](https://github.com/sherif-fanous/pi-presets-plus/pull/48))
+
 ## [0.12.0] - 2026-09-15
 
 ### Changed
@@ -148,6 +158,7 @@
 
 _Initial release._
 
+[0.12.1]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.12.1
 [0.12.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.12.0
 [0.11.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.11.0
 [0.10.0]: https://github.com/sherif-fanous/pi-presets-plus/releases/tag/v0.10.0
