@@ -40,7 +40,7 @@ const IDENTITY_STYLER: Styler = {
 const POLICY_LABELS = [
   `${DIRECTORY_LABEL}:`,
   `${ALLOWED_PRESETS_LABEL}:`,
-  `${PROHIBITED_PRESETS_LABEL}*:`,
+  `${PROHIBITED_PRESETS_LABEL}:`,
   `${DEFAULT_PRESET_LABEL}:`,
   `${DEFAULT_MATCHES_LABEL}:`,
 ] as const;
@@ -48,9 +48,6 @@ const POLICY_LABELS = [
 const POLICY_LABEL_WIDTH = Math.max(
   ...POLICY_LABELS.map((label) => label.length),
 );
-/** Footnote shown when the policy prohibits at least one preset. */
-const OVERRIDE_FOOTNOTE =
-  "* You can still activate a prohibited preset by confirming the override.";
 
 /** Format the effective policy for a cwd without performing I/O. */
 export function formatPolicy(
@@ -82,12 +79,11 @@ export function formatPolicy(
     resolvedDefault.kind === "resolved"
       ? resolvedDefault.candidates.map(({ name }) => name)
       : [];
-  const prohibitedLabel = `${PROHIBITED_PRESETS_LABEL}${prohibited.length > 0 ? "*" : ""}:`;
   const lines = [
     styler.bold(styler.fg("accent", POLICY_DIALOG_TITLE)),
     row(`${DIRECTORY_LABEL}:`, cwd, styler),
     row(`${ALLOWED_PRESETS_LABEL}:`, formatNames(allowed), styler),
-    row(prohibitedLabel, formatNames(prohibited), styler),
+    row(`${PROHIBITED_PRESETS_LABEL}:`, formatNames(prohibited), styler),
     row(`${DEFAULT_PRESET_LABEL}:`, defaultNames[0] ?? "none", styler),
   ];
 
@@ -96,8 +92,6 @@ export function formatPolicy(
       row(`${DEFAULT_MATCHES_LABEL}:`, formatNames(defaultNames), styler),
     );
   }
-
-  if (prohibited.length > 0) lines.push("", OVERRIDE_FOOTNOTE);
 
   return lines.join("\n");
 }

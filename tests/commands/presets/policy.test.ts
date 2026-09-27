@@ -65,12 +65,10 @@ describe("formatPolicy", () => {
     expect(formatPolicy("/work/project", presets, rules)).toBe(
       [
         "Preset Policy",
-        "  Directory:           /work/project",
-        "  Allowed presets:     work-opus",
-        "  Prohibited presets*: work-personal, other",
-        "  Default preset:      work-opus",
-        "",
-        "* You can still activate a prohibited preset by confirming the override.",
+        "  Directory:          /work/project",
+        "  Allowed presets:    work-opus",
+        "  Prohibited presets: work-personal, other",
+        "  Default preset:     work-opus",
       ].join("\n"),
     );
   });
@@ -90,11 +88,11 @@ describe("formatPolicy", () => {
     ).toBe(
       [
         "Preset Policy",
-        "  Directory:           /work/project",
-        "  Allowed presets:     work-sonnet, work-opus, other",
-        "  Prohibited presets:  none",
-        "  Default preset:      work-sonnet",
-        "  Default matches:     work-sonnet, work-opus",
+        "  Directory:          /work/project",
+        "  Allowed presets:    work-sonnet, work-opus, other",
+        "  Prohibited presets: none",
+        "  Default preset:     work-sonnet",
+        "  Default matches:    work-sonnet, work-opus",
       ].join("\n"),
     );
   });
@@ -114,18 +112,16 @@ describe("formatPolicy", () => {
     ).toBe(
       [
         "Preset Policy",
-        "  Directory:           /work/project",
-        "  Allowed presets:     work-sonnet, work-opus",
-        "  Prohibited presets*: work-personal",
-        "  Default preset:      work-sonnet",
-        "  Default matches:     work-sonnet, work-opus",
-        "",
-        "* You can still activate a prohibited preset by confirming the override.",
+        "  Directory:          /work/project",
+        "  Allowed presets:    work-sonnet, work-opus",
+        "  Prohibited presets: work-personal",
+        "  Default preset:     work-sonnet",
+        "  Default matches:    work-sonnet, work-opus",
       ].join("\n"),
     );
   });
 
-  it("reports all usable presets allowed without a footnote", () => {
+  it("reports all usable presets allowed", () => {
     const allAllowedRules = [
       rule({ allow: [], default: undefined, prohibit: [] }),
     ];
@@ -133,10 +129,10 @@ describe("formatPolicy", () => {
     expect(formatPolicy("/work/project", presets, allAllowedRules)).toBe(
       [
         "Preset Policy",
-        "  Directory:           /work/project",
-        "  Allowed presets:     work-opus, work-personal, other",
-        "  Prohibited presets:  none",
-        "  Default preset:      none",
+        "  Directory:          /work/project",
+        "  Allowed presets:    work-opus, work-personal, other",
+        "  Prohibited presets: none",
+        "  Default preset:     none",
       ].join("\n"),
     );
   });
@@ -149,12 +145,10 @@ describe("formatPolicy", () => {
     expect(formatPolicy("/work/project", presets, allProhibitedRules)).toBe(
       [
         "Preset Policy",
-        "  Directory:           /work/project",
-        "  Allowed presets:     none",
-        "  Prohibited presets*: work-opus, work-personal, other",
-        "  Default preset:      none",
-        "",
-        "* You can still activate a prohibited preset by confirming the override.",
+        "  Directory:          /work/project",
+        "  Allowed presets:    none",
+        "  Prohibited presets: work-opus, work-personal, other",
+        "  Default preset:     none",
       ].join("\n"),
     );
   });
@@ -173,10 +167,10 @@ describe("formatPolicy", () => {
     ).toBe(
       [
         "Preset Policy",
-        "  Directory:           /work/project",
-        "  Allowed presets:     usable",
-        "  Prohibited presets:  none",
-        "  Default preset:      none",
+        "  Directory:          /work/project",
+        "  Allowed presets:    usable",
+        "  Prohibited presets: none",
+        "  Default preset:     none",
       ].join("\n"),
     );
   });
@@ -189,12 +183,10 @@ describe("formatPolicy", () => {
     expect(formatPolicy("/work/project", presets, unresolvableRules)).toBe(
       [
         "Preset Policy",
-        "  Directory:           /work/project",
-        "  Allowed presets:     other",
-        "  Prohibited presets*: work-opus, work-personal",
-        "  Default preset:      none",
-        "",
-        "* You can still activate a prohibited preset by confirming the override.",
+        "  Directory:          /work/project",
+        "  Allowed presets:    other",
+        "  Prohibited presets: work-opus, work-personal",
+        "  Default preset:     none",
       ].join("\n"),
     );
   });
@@ -207,7 +199,7 @@ describe("formatPolicy", () => {
 
     expect(output).toContain("<bold><accent>Preset Policy</accent></bold>");
     expect(output).toContain(
-      "  <muted>Directory:</muted>           /work/project",
+      "  <muted>Directory:</muted>          /work/project",
     );
   });
 
