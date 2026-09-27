@@ -91,8 +91,10 @@ Run `/reload` after editing either configuration file.
 Policy rules use raw, unanchored JavaScript regular expressions. Rules whose
 `match` fits the current directory combine their `allow` and `prohibit`
 matchers. The default from the rule with the longest matching directory path
-wins, with file order breaking ties. The `--preset` flag and a successful
-session restore take precedence over an automatic default.
+wins, with file order breaking ties. If that default matches several permitted
+presets, the first one wins, with user presets ahead of project presets. The
+`--preset` flag and a successful session restore take precedence over an
+automatic default.
 
 When a command, picker action, flag, or hotkey targets a prohibited preset, Pi
 asks whether to Override or Cancel. Session restore does not run this check.

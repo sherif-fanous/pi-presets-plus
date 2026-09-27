@@ -26,6 +26,8 @@ export const DIRECTORY_LABEL = "Directory";
 export const ALLOWED_PRESETS_LABEL = "Allowed presets";
 export const PROHIBITED_PRESETS_LABEL = "Prohibited presets";
 export const DEFAULT_PRESET_LABEL = "Default preset";
+/** Label for the ordered presets that match the default pattern. */
+export const DEFAULT_MATCHES_LABEL = "Default matches";
 
 // Dialog titles shared by overlays and formatter headings.
 export const STATUS_DIALOG_TITLE = "Preset Status";

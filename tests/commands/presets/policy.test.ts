@@ -61,7 +61,7 @@ afterEach(async () => {
 });
 
 describe("formatPolicy", () => {
-  it("reports mixed outcomes in merged order with the resolved default", () => {
+  it("reports mixed outcomes and a single resolved default", () => {
     expect(formatPolicy("/work/project", presets, rules)).toBe(
       [
         "Preset Policy",
@@ -69,6 +69,56 @@ describe("formatPolicy", () => {
         "  Allowed presets:     work-opus",
         "  Prohibited presets*: work-personal, other",
         "  Default preset:      work-opus",
+        "",
+        "* You can still activate a prohibited preset by confirming the override.",
+      ].join("\n"),
+    );
+  });
+
+  it("lists several permitted default matches in preset order", () => {
+    const multipleDefaultRules = [
+      rule({ allow: [], default: workName, prohibit: [] }),
+    ];
+    const orderedPresets = [
+      preset("work-sonnet", "anthropic"),
+      preset("work-opus", "anthropic"),
+      preset("other", "anthropic"),
+    ];
+
+    expect(
+      formatPolicy("/work/project", orderedPresets, multipleDefaultRules),
+    ).toBe(
+      [
+        "Preset Policy",
+        "  Directory:           /work/project",
+        "  Allowed presets:     work-sonnet, work-opus, other",
+        "  Prohibited presets:  none",
+        "  Default preset:      work-sonnet",
+        "  Default matches:     work-sonnet, work-opus",
+      ].join("\n"),
+    );
+  });
+
+  it("excludes prohibited presets from default matches", () => {
+    const prohibitedDefaultRules = [
+      rule({ allow: [], default: workName, prohibit: [personalProvider] }),
+    ];
+    const orderedPresets = [
+      preset("work-sonnet", "anthropic"),
+      preset("work-personal", "personal"),
+      preset("work-opus", "anthropic"),
+    ];
+
+    expect(
+      formatPolicy("/work/project", orderedPresets, prohibitedDefaultRules),
+    ).toBe(
+      [
+        "Preset Policy",
+        "  Directory:           /work/project",
+        "  Allowed presets:     work-sonnet, work-opus",
+        "  Prohibited presets*: work-personal",
+        "  Default preset:      work-sonnet",
+        "  Default matches:     work-sonnet, work-opus",
         "",
         "* You can still activate a prohibited preset by confirming the override.",
       ].join("\n"),

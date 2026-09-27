@@ -229,7 +229,9 @@ describe("resolvePolicyDefault", () => {
 
     expect(result.kind).toBe("resolved");
     if (result.kind !== "resolved") return;
-    expect(result.preset.name).toBe("apple-opus-4-8");
+    expect(result.candidates.map(({ name }) => name)).toEqual([
+      "apple-opus-4-8",
+    ]);
     expect(result.winner.rule.index).toBe(1);
     expect(result.reason).toBe("longest match");
   });
@@ -251,8 +253,28 @@ describe("resolvePolicyDefault", () => {
 
     expect(result.kind).toBe("resolved");
     if (result.kind !== "resolved") return;
-    expect(result.preset.name).toBe("first");
+    expect(result.candidates[0].name).toBe("first");
     expect(result.reason).toBe("file-order tie");
+  });
+
+  it("lists several default candidates in preset order", async () => {
+    await writePolicy({
+      rules: [{ default: { pattern: "opus" }, match: "work" }],
+      version: 1,
+    });
+
+    const result = resolvePolicyDefault(
+      "/work",
+      [preset("second-opus"), preset("first-opus"), preset("other")],
+      (await loadPolicy(agentDir)).rules,
+    );
+
+    expect(result.kind).toBe("resolved");
+    if (result.kind !== "resolved") return;
+    expect(result.candidates.map(({ name }) => name)).toEqual([
+      "second-opus",
+      "first-opus",
+    ]);
   });
 
   it("excludes prohibited, shadowed, and unavailable candidates", async () => {
@@ -281,7 +303,9 @@ describe("resolvePolicyDefault", () => {
     expect(result.kind).toBe("resolved");
 
     if (result.kind === "resolved") {
-      expect(result.preset.name).toBe("allowed-opus");
+      expect(result.candidates.map(({ name }) => name)).toEqual([
+        "allowed-opus",
+      ]);
     }
   });
 

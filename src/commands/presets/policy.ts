@@ -14,6 +14,7 @@ import type { LoadedPreset } from "../../types.js";
 import { deliverCommandReport } from "../../ui/command-report.js";
 import {
   ALLOWED_PRESETS_LABEL,
+  DEFAULT_MATCHES_LABEL,
   DEFAULT_PRESET_LABEL,
   DIRECTORY_LABEL,
   POLICY_DIALOG_TITLE,
@@ -42,6 +43,7 @@ const POLICY_LABELS = [
   `${ALLOWED_PRESETS_LABEL}:`,
   `${PROHIBITED_PRESETS_LABEL}*:`,
   `${DEFAULT_PRESET_LABEL}:`,
+  `${DEFAULT_MATCHES_LABEL}:`,
 ] as const;
 /** Width of the label column, so the values line up. */
 const POLICY_LABEL_WIDTH = Math.max(
@@ -77,20 +79,24 @@ export function formatPolicy(
   }
 
   const resolvedDefault = resolvePolicyDefault(cwd, presets, rules);
+  const defaultNames =
+    resolvedDefault.kind === "resolved"
+      ? resolvedDefault.candidates.map(({ name }) => name)
+      : [];
   const prohibitedLabel = `${PROHIBITED_PRESETS_LABEL}${prohibited.length > 0 ? "*" : ""}:`;
   const lines = [
     styler.bold(styler.fg("accent", POLICY_DIALOG_TITLE)),
     row(`${DIRECTORY_LABEL}:`, cwd, styler),
     row(`${ALLOWED_PRESETS_LABEL}:`, formatNames(allowed), styler),
     row(prohibitedLabel, formatNames(prohibited), styler),
-    row(
-      `${DEFAULT_PRESET_LABEL}:`,
-      resolvedDefault.kind === "resolved"
-        ? resolvedDefault.preset.name
-        : "none",
-      styler,
-    ),
+    row(`${DEFAULT_PRESET_LABEL}:`, defaultNames[0] ?? "none", styler),
   ];
+
+  if (defaultNames.length > 1) {
+    lines.push(
+      row(`${DEFAULT_MATCHES_LABEL}:`, formatNames(defaultNames), styler),
+    );
+  }
 
   if (prohibited.length > 0) lines.push("", OVERRIDE_FOOTNOTE);
 
