@@ -429,6 +429,10 @@ by the same permission decision used when activation is attempted, and SHALL
 preserve merged preset order. A prohibited preset remains activatable through
 the existing explicit override flow.
 
+A default candidate is a usable, permitted preset that the winning rule's
+`default` matcher matches, as defined by policy default selection. The resolved
+default is the first default candidate in merged preset order.
+
 When one or more policy rules match the current directory, the report SHALL use
 the labeled-row presentation of `/presets status`:
 
@@ -442,17 +446,23 @@ the labeled-row presentation of `/presets status`:
   prohibited.
 - A `Default preset:` row containing the resolved default preset name, or `none`
   when no default resolves.
+- A `Default matches:` row, directly after the `Default preset:` row, containing
+  the comma-separated names of every default candidate in merged preset order,
+  only when there are two or more default candidates.
 - Aligned muted row labels, matching the visual treatment of `/presets status`.
 
 When the report contains one or more prohibited presets, it SHALL append a blank
 line followed by the exact footnote
 `* You can still activate a prohibited preset by confirming the override.`. When
 no usable preset is prohibited, the label SHALL omit the asterisk and the report
-SHALL omit the footnote.
+SHALL omit the footnote. When fewer than two default candidates exist, the
+report SHALL omit the `Default matches:` row. The report SHALL NOT add any note
+explaining how the default was chosen among several candidates.
 
 The report SHALL NOT display policy rule numbers, rule patterns, matcher
-expressions, match lengths, matched substrings, winning-rule details, or
-default-selection reasons.
+expressions, match lengths, matched substrings, winning-rule details, or which
+rule-selection step chose the winning rule. The `Default matches:` row is the
+only default-selection detail the report shows.
 
 The view SHALL NOT modify the configuration file. In TUI mode, a prompt-invoked
 `/presets policy` SHALL appear as a durable TUI-only command report that does
@@ -515,17 +525,42 @@ immediately before it.
 
 - **WHEN** the merged preset list contains shadowed or unavailable presets
 - **THEN** those presets SHALL appear in neither the allowed nor prohibited list
+- **AND** they SHALL NOT appear in the `Default matches:` row
 
 #### Scenario: Resolved default is shown without rule diagnostics
 
 - **WHEN** policy resolves a default preset for the current directory
 - **THEN** the `Default preset:` row SHALL contain that preset's name
-- **AND** the report SHALL NOT identify the winning rule or its selection reason
+- **AND** the report SHALL NOT identify the winning rule or which rule-selection
+  step chose it
+
+#### Scenario: Single default candidate shows no matches row
+
+- **WHEN** the winning default matches exactly one usable, permitted preset
+- **THEN** the report SHALL contain that preset under `Default preset:`
+- **AND** it SHALL omit the `Default matches:` row
+
+#### Scenario: Several default candidates are listed
+
+- **WHEN** the winning default matches presets A and B, both usable and
+  permitted, with A before B in merged preset order
+- **THEN** the report SHALL contain `Default preset:` with A
+- **AND** it SHALL contain a `Default matches:` row with `A, B` directly after
+  the `Default preset:` row
+- **AND** it SHALL NOT add a note explaining the choice
+
+#### Scenario: Prohibited default matches are not listed
+
+- **WHEN** the winning default matches presets A, B, and C in merged preset
+  order, and policy prohibits B
+- **THEN** the `Default matches:` row SHALL contain `A, C`
+- **AND** B SHALL appear under `Prohibited presets*:`
 
 #### Scenario: No resolved default
 
 - **WHEN** no policy default resolves to a permitted and available preset
 - **THEN** the report SHALL contain `Default preset: none`
+- **AND** it SHALL omit the `Default matches:` row
 
 #### Scenario: Policy view with no matching rules
 
@@ -537,8 +572,8 @@ immediately before it.
 
 - **WHEN** the user runs `/presets policy` in a directory with matching rules
 - **THEN** the report SHALL NOT display rule numbers, regular-expression
-  patterns, matcher fields, match lengths, matched substrings, or default-source
-  details
+  patterns, matcher fields, match lengths, matched substrings, or which rule
+  supplied the default
 
 #### Scenario: Policy view never writes
 

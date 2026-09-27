@@ -52,7 +52,8 @@ export async function maybeApplyPolicyDefault(
     return false;
   }
 
-  const result = await apply(resolved.preset, ctx, pi, session);
+  const [preset] = resolved.candidates;
+  const result = await apply(preset, ctx, pi, session);
 
   if (!result.ok) {
     ctx.ui.notify(result.reason, "warning");
@@ -60,7 +61,7 @@ export async function maybeApplyPolicyDefault(
     return false;
   }
 
-  notifyApplyResult(ctx, resolved.preset, result);
+  notifyApplyResult(ctx, preset, result);
 
   return true;
 }

@@ -40,9 +40,9 @@ export interface PolicyLoadResult {
 }
 
 /**
- * Outcome of resolving the default preset for a directory: no rule asks
- * for a default, the winning rule names a usable preset, or it names one
- * that no loaded preset satisfies.
+ * Outcome of resolving a directory default: no matching rule asks for one,
+ * one or more usable, permitted presets match, or none do. A resolved
+ * default lists its candidates in merged order, and the first one wins.
  */
 export type PolicyDefaultResult =
   | {
@@ -51,8 +51,8 @@ export type PolicyDefaultResult =
     }
   | {
       readonly kind: "resolved";
+      readonly candidates: readonly [LoadedPreset, ...LoadedPreset[]];
       readonly matchedRules: readonly MatchedPolicyRule[];
-      readonly preset: LoadedPreset;
       readonly reason: "file-order tie" | "longest match";
       readonly winner: MatchedPolicyRule;
     }
@@ -199,14 +199,14 @@ export function resolvePolicyDefault(
   rules: readonly CompiledPolicyRule[],
 ): PolicyDefaultResult {
   const matchedRules = resolveMatchingRules(cwd, rules);
-  const candidates = matchedRules.filter(({ rule }) => rule.default);
+  const defaultRules = matchedRules.filter(({ rule }) => rule.default);
 
-  if (candidates.length === 0) return { kind: "none", matchedRules };
+  if (defaultRules.length === 0) return { kind: "none", matchedRules };
 
-  const winner = candidates.reduce((best, candidate) =>
+  const winner = defaultRules.reduce((best, candidate) =>
     candidate.matchLength > best.matchLength ? candidate : best,
   );
-  const reason = candidates.some(
+  const reason = defaultRules.some(
     (candidate) =>
       candidate !== winner && candidate.matchLength === winner.matchLength,
   )
@@ -216,7 +216,7 @@ export function resolvePolicyDefault(
 
   if (!defaultMatcher) return { kind: "none", matchedRules };
 
-  const preset = presets.find(
+  const [preset, ...rest] = presets.filter(
     (candidate) =>
       !candidate.shadowed &&
       !candidate.unavailable &&
@@ -225,7 +225,13 @@ export function resolvePolicyDefault(
   );
 
   return preset
-    ? { kind: "resolved", matchedRules, preset, reason, winner }
+    ? {
+        kind: "resolved",
+        candidates: [preset, ...rest],
+        matchedRules,
+        reason,
+        winner,
+      }
     : { kind: "unresolvable", matchedRules, reason, winner };
 }
 
