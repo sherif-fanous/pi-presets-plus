@@ -7,8 +7,8 @@ import {
   confirmReload,
   reloadAfterOverlayClose,
 } from "../../src/ui/reload-prompt.js";
+import { fakeOverlayCustom } from "../helpers/overlay.js";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { Component, Focusable } from "@earendil-works/pi-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 /** Theme that returns text unchanged so assertions can match plain text. */
@@ -29,21 +29,10 @@ function makeCtx(options: {
   readonly reload?: ReturnType<typeof vi.fn>;
 }): TestContext & Parameters<typeof confirmReload>[0] {
   const notify = vi.fn();
-  const custom = vi.fn(
-    (
-      factory: (
-        tui: unknown,
-        theme: Theme,
-        keybindings: unknown,
-        done: (result: boolean) => void,
-      ) => Component & Focusable,
-    ) =>
-      new Promise<boolean>((resolve) => {
-        const component = factory({}, theme, {}, resolve);
-
-        component.handleInput?.(options.answer === "yes" ? "y" : "n");
-      }),
-  );
+  const custom = fakeOverlayCustom({
+    input: options.answer === "yes" ? "y" : "n",
+    theme,
+  });
 
   return {
     custom,

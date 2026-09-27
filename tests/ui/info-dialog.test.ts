@@ -3,9 +3,9 @@
  * dismissal with Enter or Esc, and body wrapping at a narrow width.
  */
 import { openInfoDialog } from "../../src/ui/info-dialog.js";
+import { fakeOverlayCustom } from "../helpers/overlay.js";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { Component, Focusable } from "@earendil-works/pi-tui";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 /** Color names the theme was asked for while rendering a dialog. */
 const coloredCalls: string[] = [];
@@ -32,24 +32,7 @@ interface InfoDialogHarness {
 function makeInfoDialogHarness(input = "\r", width = 48): InfoDialogHarness {
   const rendered: string[] = [];
   const ctx = {
-    ui: {
-      custom: vi.fn(
-        (
-          factory: (
-            tui: unknown,
-            theme: Theme,
-            keybindings: unknown,
-            done: () => void,
-          ) => Component & Focusable,
-        ) =>
-          new Promise<void>((resolve) => {
-            const component = factory({}, theme, {}, resolve);
-
-            rendered.push(...component.render(width));
-            component.handleInput?.(input);
-          }),
-      ),
-    },
+    ui: { custom: fakeOverlayCustom({ input, rendered, theme, width }) },
   } as unknown as Parameters<typeof openInfoDialog>[0];
 
   return { ctx, rendered };

@@ -3,9 +3,9 @@
  * the frame, prompt, choices, and footer hint.
  */
 import { openConfirm } from "../../src/ui/confirm.js";
+import { fakeOverlayCustom } from "../helpers/overlay.js";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { Component, Focusable } from "@earendil-works/pi-tui";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 const theme = {
   bold: (text: string) => text,
@@ -21,24 +21,7 @@ interface ConfirmHarness {
 function makeConfirmHarness(input = "n", width = 48): ConfirmHarness {
   const rendered: string[] = [];
   const ctx = {
-    ui: {
-      custom: vi.fn(
-        (
-          factory: (
-            tui: unknown,
-            theme: Theme,
-            keybindings: unknown,
-            done: (result: boolean) => void,
-          ) => Component & Focusable,
-        ) =>
-          new Promise<boolean>((resolve) => {
-            const component = factory({}, theme, {}, resolve);
-
-            rendered.push(...component.render(width));
-            component.handleInput?.(input);
-          }),
-      ),
-    },
+    ui: { custom: fakeOverlayCustom({ input, rendered, theme, width }) },
   } as unknown as Parameters<typeof openConfirm>[0];
 
   return { ctx, rendered };
